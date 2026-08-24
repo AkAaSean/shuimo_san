@@ -33,6 +33,7 @@ class BgmManager {
     if (typeof window === 'undefined') return;
 
     const unlock = () => {
+      if (this.unlocked) return;
       this.unlocked = true;
       const ctx = this.getAudioContext();
       if (ctx && ctx.state === 'suspended') {
@@ -42,6 +43,11 @@ class BgmManager {
       if (this.currentTrackName && !this.isMuted) {
         this.playTrack(this.currentTrackName, true);
       }
+      
+      // Remove listeners once unlocked
+      events.forEach(evt => {
+        window.removeEventListener(evt, unlock, { capture: true });
+      });
     };
 
     const events = ['pointerdown', 'click', 'touchstart', 'keydown'];
@@ -92,7 +98,9 @@ class BgmManager {
     const tryPlayAudio = (index: number) => {
       if (index >= candidateUrls.length) {
         // Fallback to Web Audio Synth Engine
-        this.startSynthTrack(trackName);
+        if (this.currentTrackName === trackName) {
+          this.startSynthTrack(trackName);
+        }
         return;
       }
 
@@ -103,13 +111,25 @@ class BgmManager {
       const promise = audio.play();
       if (promise !== undefined) {
         promise.then(() => {
-          this.audioElement = audio;
+          if (this.currentTrackName === trackName && !this.isMuted) {
+            this.audioElement = audio;
+          } else {
+            audio.pause();
+            audio.currentTime = 0;
+          }
         }).catch(() => {
           // Play failed (e.g. 404, unsupported format, or browser autoplay block)
-          tryPlayAudio(index + 1);
+          if (this.currentTrackName === trackName) {
+            tryPlayAudio(index + 1);
+          }
         });
       } else {
-        this.audioElement = audio;
+        if (this.currentTrackName === trackName && !this.isMuted) {
+          this.audioElement = audio;
+        } else {
+          audio.pause();
+          audio.currentTime = 0;
+        }
       }
     };
 
