@@ -1,0 +1,6 @@
+{
+  "name": "三國志策略遊戲",
+  "description": "經典三國志戰略模擬遊戲，包含 41 郡地圖、多時期劇本、武將數據與內政軍事系統",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
