@@ -26,6 +26,8 @@ export default function StatusView({ gameState, initialAction, onExit }: StatusV
   const provinceState = gameState.provincesData[currentProvinceId] || null;
   const provinceData = provinces.find(p => p.id === currentProvinceId);
   const generals = Object.values(gameState.generalsData).filter(g => g.provinceId === currentProvinceId && !g.isWild);
+  const totalGeneralsSoldiers = generals.reduce((sum, g) => sum + g.soldiers, 0);
+  const totalSoldiers = (provinceState?.soldiers || 0) + totalGeneralsSoldiers;
 
   if (!provinceState || !provinceData) {
     return (
@@ -50,17 +52,22 @@ export default function StatusView({ gameState, initialAction, onExit }: StatusV
       <div className="p-3.5 border-b-[2px] border-[#1c1917] flex justify-between items-center bg-[#f2efeb]">
         <div className="flex items-center gap-2">
           <div className="font-black text-xl tracking-wider">狀態</div>
-          {ownedProvinces.length > 1 && (
+          {(ownedProvinces.length > 1 || !ownedProvinces.some(op => op.id === currentProvinceId)) && (
             <select
               value={currentProvinceId}
               onChange={(e) => setCurrentProvinceId(Number(e.target.value))}
               className="bg-white border border-stone-400 text-xs font-bold px-2 py-1 rounded shadow-xs focus:outline-none"
             >
+              {!ownedProvinces.some(op => op.id === currentProvinceId) && provinceData && (
+                <option value={currentProvinceId}>
+                  【{provinceData.name}】({provinceState?.rulerName ? `${provinceState.rulerName}軍` : '空白地'}) {provinceState?.isAutonomous ? '[自治]' : ''}
+                </option>
+              )}
               {ownedProvinces.map(op => {
                 const pInfo = provinces.find(p => p.id === op.id);
                 return (
                   <option key={op.id} value={op.id}>
-                    【{pInfo?.name || `郡${op.id}`}】
+                    【{pInfo?.name || `郡${op.id}`}】(我方) {op.isAutonomous ? '[自治]' : ''}
                   </option>
                 );
               })}
@@ -77,7 +84,7 @@ export default function StatusView({ gameState, initialAction, onExit }: StatusV
 
       {/* Tabs */}
       <div className="flex border-b-[2px] border-[#1c1917] bg-white">
-        {['查看本郡狀態', '檢視將領'].map(tab => (
+        {['查看本郡狀態', '檢視將領', '外交關係'].map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -94,63 +101,67 @@ export default function StatusView({ gameState, initialAction, onExit }: StatusV
       <div className="flex-1 overflow-y-auto p-4 md:p-6 flex flex-col items-center">
         {activeTab === '查看本郡狀態' && (
           <div className="w-full max-w-lg bg-white border-2 border-[#1c1917] p-6 shadow-[4px_4px_0_#1c1917]">
-            <h2 className="text-2xl font-black mb-2 text-center border-b-2 border-[#1c1917] pb-4">
-              {provinceData.name} ({provinceData.region})
+            <h2 className="text-2xl font-black mb-2 text-center border-b-2 border-[#1c1917] pb-4 flex items-center justify-center gap-2 flex-wrap">
+              <span>{provinceData.name} ({provinceData.region})</span>
+              <span className="text-xs bg-stone-800 text-amber-200 px-2 py-0.5 rounded font-bold">
+                {getProvinceTierRules(currentProvinceId).tierName}
+              </span>
             </h2>
-            <div className="text-center text-stone-500 text-sm mb-6 pb-4 border-b-2 border-stone-200">
-              {provinceData.desc}
+            <div className="text-center text-stone-500 text-xs mb-6 pb-4 border-b-2 border-stone-200 space-y-1">
+              <div>{provinceData.desc}</div>
+              <div className="text-amber-800 font-bold">【定位】{getProvinceTierRules(currentProvinceId).desc}</div>
             </div>
             
-            <div className="grid grid-cols-2 gap-y-4 gap-x-8 text-lg">
+            <div className="grid grid-cols-2 gap-y-4 gap-x-8 text-base">
               <div className="flex justify-between items-center">
                 <span className="text-stone-500 font-bold">君主</span>
-                <span className="font-black text-[#991b1b]">{provinceState.rulerName || '無'}</span>
+                <span className="font-black text-[#991b1b]">{provinceState.rulerName || '無主'}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-stone-500 font-bold">武將數</span>
-                <span className="font-black">{generals.length}</span>
+                <span className="font-black">{generals.length} 人</span>
               </div>
 
-              <div className="col-span-2 border-b border-stone-300 my-2"></div>
+              <div className="col-span-2 border-b border-stone-300 my-1"></div>
 
               <div className="flex justify-between items-center">
-                <span className="text-stone-500 font-bold">金</span>
-                <span className="font-black">{provinceState.gold}</span>
+                <span className="text-stone-500 font-bold">金庫</span>
+                <span className="font-black text-amber-800">{provinceState.gold.toLocaleString()}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-stone-500 font-bold">糧</span>
-                <span className="font-black">{provinceState.food}</span>
+                <span className="text-stone-500 font-bold">兵糧</span>
+                <span className="font-black text-emerald-800">{provinceState.food.toLocaleString()}</span>
               </div>
 
-              <div className="col-span-2 border-b border-stone-300 my-2"></div>
+              <div className="col-span-2 border-b border-stone-300 my-1"></div>
 
               <div className="flex justify-between items-center">
                 <span className="text-stone-500 font-bold">人口</span>
-                <span className="font-black">{provinceState.population}</span>
+                <span className="font-black">{provinceState.population.toLocaleString()}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-stone-500 font-bold">兵士</span>
-                <span className="font-black text-[#991b1b]">{provinceState.soldiers}</span>
+                <span className="font-black text-[#991b1b]">{totalSoldiers.toLocaleString()}</span>
               </div>
 
-              <div className="col-span-2 border-b border-stone-300 my-2"></div>
+              <div className="col-span-2 border-b border-stone-300 my-1"></div>
 
               <div className="flex justify-between items-center">
-                <span className="text-stone-500 font-bold">土地價值</span>
-                <span className="font-black text-amber-700">{provinceState.value}/{getProvinceTierRules(currentProvinceId).maxDev}</span>
+                <span className="text-stone-500 font-bold">土地開發</span>
+                <span className="font-black text-amber-700">{provinceState.value} / {getProvinceTierRules(currentProvinceId).maxDev}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-stone-500 font-bold">洪水率</span>
-                <span className="font-black text-sky-700">{provinceState.flood}/100</span>
+                <span className="text-stone-500 font-bold">商業發展</span>
+                <span className="font-black text-sky-700">{provinceState.commerce || 0} / {getProvinceTierRules(currentProvinceId).maxCommerce}</span>
               </div>
 
               <div className="flex justify-between items-center">
-                <span className="text-stone-500 font-bold">忠誠度</span>
-                <span className="font-black">{provinceState.loyalty}/100</span>
+                <span className="text-stone-500 font-bold">防災程度</span>
+                <span className="font-black text-blue-700">{100 - provinceState.flood}%</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-stone-500 font-bold">物價</span>
-                <span className="font-black">{provinceState.price}</span>
+                <span className="text-stone-500 font-bold">民心忠誠</span>
+                <span className="font-black text-emerald-700">{provinceState.loyalty}</span>
               </div>
             </div>
           </div>
@@ -250,18 +261,14 @@ export default function StatusView({ gameState, initialAction, onExit }: StatusV
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2 text-center text-sm bg-stone-800 text-stone-100 p-2">
+                  <div className="grid grid-cols-2 gap-2 text-center text-sm bg-stone-800 text-stone-100 p-2">
                     <div>
-                      <div className="text-stone-400 text-xs mb-0.5">兵力</div>
-                      <div className="font-bold">{g.soldiers}</div>
+                      <div className="text-stone-400 text-xs mb-0.5">帶兵數</div>
+                      <div className="font-bold text-amber-300">{g.soldiers.toLocaleString()} / {g.maxTroops.toLocaleString()}</div>
                     </div>
                     <div>
-                      <div className="text-stone-400 text-xs mb-0.5">訓練</div>
-                      <div className="font-bold">{g.training}</div>
-                    </div>
-                    <div>
-                      <div className="text-stone-400 text-xs mb-0.5">武裝</div>
-                      <div className="font-bold">{g.weapons}</div>
+                      <div className="text-stone-400 text-xs mb-0.5">訓練度</div>
+                      <div className="font-bold text-emerald-300">{g.training}%</div>
                     </div>
                   </div>
                 </div>
@@ -272,6 +279,56 @@ export default function StatusView({ gameState, initialAction, onExit }: StatusV
                 本郡目前無將領
               </div>
             )}
+          </div>
+        )}
+
+        {activeTab === '外交關係' && (
+          <div className="w-full max-w-lg flex flex-col gap-4">
+            <div className="bg-white border-2 border-[#1c1917] p-4 shadow-[4px_4px_0_#1c1917]">
+              <h3 className="text-lg font-black mb-4 border-b-2 border-[#1c1917] pb-2 text-[#991b1b]">與各勢力之外交</h3>
+              <div className="space-y-3">
+                {Object.keys(gameState.diplomacyData?.[gameState.rulerName] || {}).length > 0 ? (
+                  Object.entries(gameState.diplomacyData![gameState.rulerName]).map(([otherRuler, relation]) => {
+                    const allianceExpiry = gameState.alliances?.[gameState.rulerName]?.[otherRuler];
+                    let allianceText = '';
+                    if (allianceExpiry) {
+                      const currentAbsolute = gameState.year * 12 + gameState.month;
+                      const monthsLeft = allianceExpiry - currentAbsolute;
+                      if (monthsLeft > 0) {
+                        allianceText = `(同盟中: 剩餘 ${monthsLeft} 個月)`;
+                      }
+                    }
+
+                    return (
+                      <div key={otherRuler} className="flex justify-between items-center p-2 bg-stone-100 border border-stone-300">
+                        <div className="font-bold text-stone-800">
+                          {otherRuler}勢力
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {allianceText && (
+                            <span className="text-xs bg-sky-100 text-sky-800 px-2 py-0.5 rounded font-bold border border-sky-300">
+                              {allianceText}
+                            </span>
+                          )}
+                          <span className={`font-black ${
+                            relation >= 90 ? 'text-emerald-700' :
+                            relation >= 60 ? 'text-emerald-600' :
+                            relation >= 40 ? 'text-stone-700' :
+                            'text-[#991b1b]'
+                          }`}>
+                            友好: {relation}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="text-center text-stone-500 py-4 font-bold">
+                    目前尚無與其他勢力的外交情報
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
       </div>

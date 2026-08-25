@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GameState } from '../types';
+import { provinces } from '../data/provinces';
 
 export const COMMANDS = [
   { id: 0, label: '0.狀態' },
@@ -27,14 +28,23 @@ export default function CommandMenu({ gameState, onCommandSelect, showToast }: C
   const selectedProv = gameState.selectedProvinceId !== null 
     ? gameState.provincesData[gameState.selectedProvinceId] 
     : null;
+  const selectedProvMeta = gameState.selectedProvinceId !== null
+    ? provinces.find(p => p.id === gameState.selectedProvinceId)
+    : null;
   const isPlayerCity = selectedProv ? selectedProv.rulerName === gameState.rulerName : true;
+  const isAutonomous = isPlayerCity && selectedProv?.isAutonomous;
 
   const handleTouch = (e: React.MouseEvent<HTMLButtonElement>, cmdId: number) => {
-    const isAllowed = isPlayerCity || cmdId === 0 || cmdId === 9;
+    const isDisallowedByAutonomy = isAutonomous && [3, 4, 5, 8].includes(cmdId);
+    const isAllowed = (!isDisallowedByAutonomy && isPlayerCity) || cmdId === 0 || cmdId === 1 || cmdId === 9;
 
     if (!isAllowed) {
       if (showToast) {
-        showToast(`【${selectedProv?.name || '目標城池'}】非我方轄區，無法下達政令！只能查看【0.狀態】與進行【9.系統】操作。`);
+        if (isDisallowedByAutonomy) {
+          showToast(`【${selectedProvMeta?.name || '目標城池'}】已設為自治，太守將自動管理內政、商業、兵士與謀略。請至【7.君主】解除自治後再行下令。`);
+        } else {
+          showToast(`【${selectedProvMeta?.name || '目標城池'}】非我方轄區，無法下達政令！只能使用【0.狀態】、【1.查看】與【9.系統】。`);
+        }
       }
       return;
     }
@@ -57,7 +67,8 @@ export default function CommandMenu({ gameState, onCommandSelect, showToast }: C
     <div className="w-full bg-stone-200 border-t-2 border-stone-800 p-2 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] relative z-20 font-serif">
       <div className="grid grid-cols-5 gap-2">
         {COMMANDS.map((cmd) => {
-          const isAllowed = isPlayerCity || cmd.id === 0 || cmd.id === 9;
+          const isDisallowedByAutonomy = isAutonomous && [3, 4, 5, 8].includes(cmd.id);
+          const isAllowed = (!isDisallowedByAutonomy && isPlayerCity) || cmd.id === 0 || cmd.id === 1 || cmd.id === 9;
 
           return (
             <button
@@ -97,10 +108,10 @@ export default function CommandMenu({ gameState, onCommandSelect, showToast }: C
         })}
       </div>
       <div className="mt-2 text-center text-xs text-stone-500 pb-1 flex justify-center items-center gap-2">
-        <span>◆ 指令盤 ◆</span>
+        <span>◆ 指令盤 v0.1 ◆</span>
         {!isPlayerCity && (
           <span className="text-amber-800 font-bold bg-amber-100 px-1.5 py-0.2 rounded border border-amber-300 text-[10px]">
-            ⚠️ 非我方轄區，僅限0狀態/9系統
+            ⚠️ 非我方轄區，僅限 0狀態/1查看/9系統
           </span>
         )}
       </div>

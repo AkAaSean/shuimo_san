@@ -5,6 +5,7 @@ import { SCENARIOS } from '../data/scenarios';
 import { PROVINCE_BASE_CONFIGS } from '../data/provinceBaseConfig';
 import { getProvinceTierRules } from '../data/historicalProvinceConfig';
 import { TREASURE_ITEMS, TreasureItem, getGeneralItemBonus } from '../data/items';
+import { getEstimatedAnnualGold, getEstimatedAnnualFood, getEstimatedMonthlyFoodConsumption } from '../engine/gameLogic';
 
 interface InspectViewProps {
   gameState: GameState;
@@ -175,7 +176,7 @@ export default function InspectView({
         provincesCount: rulerProvinces.length,
         provinces: rulerProvinces.map(p => {
           const meta = provinces.find(item => item.id === p.id);
-          return { id: p.id, name: meta?.name || `郡${p.id}` };
+          return { id: p.id, name: meta?.name || `郡${p.id}`, isAutonomous: !!p.isAutonomous };
         }),
         capitalName: capitalMeta?.name || '未知',
         capitalId: capitalProvinceId,
@@ -290,9 +291,10 @@ export default function InspectView({
                     .map(p => {
                       const pState = gameState.provincesData[p.id];
                       const rulerTag = pState?.rulerName ? `[${pState.rulerName}]` : '[空白]';
+                      const autoTag = pState?.isAutonomous ? ' [自治]' : '';
                       return (
                         <option key={p.id} value={p.id}>
-                          {p.id.toString().padStart(2, '0')}. {p.name} ({p.region}) {rulerTag}
+                          {p.id.toString().padStart(2, '0')}. {p.name} ({p.region}) {rulerTag}{autoTag}
                         </option>
                       );
                     })}
@@ -324,18 +326,26 @@ export default function InspectView({
                     <span className="text-xs bg-stone-800 text-amber-200 px-2 py-0.5 rounded font-bold">
                       {currentInspectProvince.meta.region}
                     </span>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold
-                      ${currentInspectProvince.baseConfig?.tier === 'MEGAPOLIS' ? 'bg-amber-100 text-amber-900 border border-amber-400' :
-                        currentInspectProvince.baseConfig?.tier === 'MAJOR' ? 'bg-blue-100 text-blue-900 border border-blue-300' :
-                        currentInspectProvince.baseConfig?.tier === 'FRONTIER' ? 'bg-stone-200 text-stone-700' : 'bg-emerald-50 text-emerald-900'}`}
-                    >
-                      {currentInspectProvince.baseConfig?.tier === 'MEGAPOLIS' ? '帝都巨城' :
-                        currentInspectProvince.baseConfig?.tier === 'MAJOR' ? '州治大郡' :
-                        currentInspectProvince.baseConfig?.tier === 'FRONTIER' ? '邊陲要塞' : '一般郡縣'}
-                    </span>
+                    {(() => {
+                      const tierRules = getProvinceTierRules(inspectProvinceId);
+                      return (
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold border
+                          ${tierRules.tier === 'METROPOLIS' ? 'bg-amber-100 text-amber-900 border-amber-400' :
+                            tierRules.tier === 'COMMERCIAL' ? 'bg-sky-100 text-sky-900 border-sky-400' :
+                            tierRules.tier === 'AGRICULTURAL' ? 'bg-emerald-100 text-emerald-900 border-emerald-400' :
+                            tierRules.tier === 'MIDSIZED' ? 'bg-stone-200 text-stone-800 border-stone-400' :
+                            'bg-purple-100 text-purple-900 border-purple-300'}`}
+                        >
+                          {tierRules.tierName}
+                        </span>
+                      );
+                    })()}
                   </div>
                   <div className="text-xs text-stone-500 mt-1">
                     {currentInspectProvince.meta.desc}
+                  </div>
+                  <div className="text-[11px] text-amber-800 font-bold mt-0.5">
+                    【定位】{getProvinceTierRules(inspectProvinceId).desc}
                   </div>
                 </div>
 
@@ -343,6 +353,9 @@ export default function InspectView({
                   <div className="text-xs text-stone-500 font-bold">統治勢力</div>
                   <div className="text-base font-black text-[#991b1b]">
                     {currentInspectProvince.state.rulerName ? `【${currentInspectProvince.state.rulerName}】` : '無主空城'}
+                    {currentInspectProvince.state.isAutonomous && currentInspectProvince.state.rulerName === gameState.rulerName && (
+                      <span className="text-[10px] bg-amber-600 text-white px-1.5 py-0.5 rounded ml-1 align-middle">自治</span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -355,58 +368,80 @@ export default function InspectView({
                     {(currentInspectProvince.state.population / 10000).toFixed(1)}萬
                   </div>
                 </div>
-                <div className="border-r border-stone-200">
+                <div className="border-r border-stone-200 flex flex-col justify-center">
                   <div className="text-[10px] text-stone-500 font-bold">國庫金</div>
                   <div className="text-xs font-black text-amber-700">
                     {currentInspectProvince.state.gold.toLocaleString()}
                   </div>
+                  <div className="text-[9px] text-amber-600 mt-0.5">
+                    +{getEstimatedAnnualGold(currentInspectProvince.state).toLocaleString()}/年
+                  </div>
                 </div>
-                <div className="border-r border-stone-200">
+                <div className="border-r border-stone-200 flex flex-col justify-center">
                   <div className="text-[10px] text-stone-500 font-bold">兵糧石</div>
                   <div className="text-xs font-black text-emerald-800">
                     {currentInspectProvince.state.food.toLocaleString()}
                   </div>
+                  <div className="text-[9px] text-emerald-600 mt-0.5">
+                    +{getEstimatedAnnualFood(currentInspectProvince.state).toLocaleString()}/年
+                  </div>
                 </div>
-                <div>
-                  <div className="text-[10px] text-stone-500 font-bold">預備兵員</div>
-                  <div className="text-xs font-black text-red-700">
-                    {currentInspectProvince.state.soldiers.toLocaleString()}
+                <div className="flex flex-col justify-center">
+                  <div className="text-[10px] text-stone-500 font-bold">軍糧消耗</div>
+                  <div className="text-xs font-black text-rose-700">
+                    -{getEstimatedMonthlyFoodConsumption(currentInspectProvince.state, Object.values(gameState.generalsData)).toLocaleString()}/月
+                  </div>
+                  <div className="text-[9px] text-stone-500 mt-0.5 font-bold">全郡總駐軍</div>
+                  <div className="text-[9px] font-bold text-stone-800">
+                    {((currentInspectProvince.state.soldiers || 0) +
+                      currentInspectProvince.generals.reduce((sum, g) => sum + (g.soldiers || 0), 0)
+                    ).toLocaleString()}人
                   </div>
                 </div>
               </div>
 
               {/* Public Support & Administration */}
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="bg-stone-50 p-2 border border-stone-200 rounded flex flex-col gap-1.5">
-                  <div className="flex justify-between items-center">
-                    <span className="text-stone-500 font-bold">土地開發度</span>
-                    <span className="font-black text-amber-800">{currentInspectProvince.state.value} / {getProvinceTierRules(inspectProvinceId).maxDev}</span>
-                  </div>
-                  <div className="w-full bg-stone-200 h-2 rounded-full overflow-hidden">
-                    <div className="bg-amber-600 h-full rounded-full" style={{ width: `${Math.min(100, Math.round((currentInspectProvince.state.value / getProvinceTierRules(inspectProvinceId).maxDev) * 100))}%` }} />
-                  </div>
-                </div>
+              {(() => {
+                const tierRules = getProvinceTierRules(inspectProvinceId);
+                return (
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div className="bg-stone-50 p-2 border border-stone-200 rounded flex flex-col gap-1.5">
+                      <div className="flex justify-between items-center">
+                        <span className="text-stone-500 font-bold">土地開發度</span>
+                        <span className="font-black text-amber-800">{currentInspectProvince.state.value} / {tierRules.maxDev}</span>
+                      </div>
+                      <div className="w-full bg-stone-200 h-2 rounded-full overflow-hidden">
+                        <div className="bg-amber-600 h-full rounded-full" style={{ width: `${Math.min(100, Math.round((currentInspectProvince.state.value / tierRules.maxDev) * 100))}%` }} />
+                      </div>
+                    </div>
 
-                <div className="bg-stone-50 p-2 border border-stone-200 rounded flex flex-col gap-1.5">
-                  <div className="flex justify-between items-center">
-                    <span className="text-stone-500 font-bold">防災防洪度</span>
-                    <span className="font-black text-sky-800">{currentInspectProvince.state.flood} / 100</span>
-                  </div>
-                  <div className="w-full bg-stone-200 h-2 rounded-full overflow-hidden">
-                    <div className="bg-sky-600 h-full rounded-full" style={{ width: `${currentInspectProvince.state.flood}%` }} />
-                  </div>
-                </div>
+                    <div className="bg-stone-50 p-2 border border-stone-200 rounded flex flex-col gap-1.5">
+                      <div className="flex justify-between items-center">
+                        <span className="text-stone-500 font-bold">商業發展度</span>
+                        <span className="font-black text-sky-800">{currentInspectProvince.state.commerce || 0} / {tierRules.maxCommerce}</span>
+                      </div>
+                      <div className="w-full bg-stone-200 h-2 rounded-full overflow-hidden">
+                        <div className="bg-sky-600 h-full rounded-full" style={{ width: `${Math.min(100, Math.round(((currentInspectProvince.state.commerce || 0) / tierRules.maxCommerce) * 100))}%` }} />
+                      </div>
+                    </div>
 
-                <div className="flex justify-between items-center bg-stone-50 p-2 border border-stone-200 rounded">
-                  <span className="text-stone-500 font-bold">民眾忠誠度</span>
-                  <span className="font-black text-stone-800">{currentInspectProvince.state.loyalty} / 100</span>
-                </div>
+                    <div className="bg-stone-50 p-2 border border-stone-200 rounded flex flex-col gap-1.5">
+                      <div className="flex justify-between items-center">
+                        <span className="text-stone-500 font-bold">防災程度</span>
+                        <span className="font-black text-blue-800">{100 - currentInspectProvince.state.flood}%</span>
+                      </div>
+                      <div className="w-full bg-stone-200 h-2 rounded-full overflow-hidden">
+                        <div className="bg-blue-600 h-full rounded-full" style={{ width: `${100 - currentInspectProvince.state.flood}%` }} />
+                      </div>
+                    </div>
 
-                <div className="flex justify-between items-center bg-stone-50 p-2 border border-stone-200 rounded">
-                  <span className="text-stone-500 font-bold">商貿物價比</span>
-                  <span className="font-black text-stone-800">{currentInspectProvince.state.price} 金 / 石</span>
-                </div>
-              </div>
+                    <div className="flex justify-between items-center bg-stone-50 p-2 border border-stone-200 rounded">
+                      <span className="text-stone-500 font-bold">民眾忠誠度</span>
+                      <span className="font-black text-stone-800">{currentInspectProvince.state.loyalty} / 100</span>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Fortifications */}
               <div className="bg-stone-50 border border-stone-200 p-2 rounded flex justify-between items-center text-xs">
@@ -720,15 +755,39 @@ export default function InspectView({
                     ${faction.isPlayer ? 'border-amber-600 bg-amber-50/40 shadow-amber-900/10' : 'border-stone-800'}`}
                 >
                   {/* Faction Header */}
-                  <div className="flex justify-between items-center border-b border-stone-200 pb-2">
-                    <div className="flex items-center gap-2">
+                  <div className="flex justify-between items-center border-b border-stone-200 pb-2 flex-wrap gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="text-lg font-black text-[#1c1917]">
                         【{faction.rulerName}】
                       </h3>
-                      {faction.isPlayer && (
+                      {faction.isPlayer ? (
                         <span className="text-[10px] bg-amber-600 text-white px-1.5 py-0.5 rounded font-black">
                           玩家君主
                         </span>
+                      ) : (
+                        (() => {
+                          const relation = gameState.diplomacyData?.[gameState.rulerName]?.[faction.rulerName] ?? 50;
+                          const allianceExpiry = gameState.alliances?.[gameState.rulerName]?.[faction.rulerName];
+                          const isAllied = allianceExpiry && allianceExpiry > (gameState.year * 12 + gameState.month);
+                          const monthsLeft = isAllied ? allianceExpiry - (gameState.year * 12 + gameState.month) : 0;
+                          return (
+                            <div className="flex items-center gap-1.5">
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold border ${
+                                relation >= 90 ? 'bg-emerald-100 text-emerald-800 border-emerald-300' :
+                                relation >= 60 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                relation >= 40 ? 'bg-stone-100 text-stone-700 border-stone-300' :
+                                'bg-rose-100 text-rose-800 border-rose-300'
+                              }`}>
+                                友好: {relation}
+                              </span>
+                              {isAllied && (
+                                <span className="text-[10px] bg-sky-100 text-sky-800 border border-sky-300 px-1.5 py-0.5 rounded font-black">
+                                  🤝 同盟 ({monthsLeft}月)
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()
                       )}
                       <span className="text-xs bg-stone-800 text-amber-200 px-1.5 py-0.5 rounded font-bold">
                         大本營: {faction.capitalName}
@@ -778,9 +837,10 @@ export default function InspectView({
                             setInspectProvinceId(p.id);
                             setActiveTab('選擇州郡');
                           }}
-                          className="px-2 py-0.5 bg-stone-100 hover:bg-amber-100 border border-stone-300 rounded text-xs font-bold text-stone-700 active:scale-95 transition-transform"
+                          className={`px-2 py-0.5 border rounded text-xs font-bold active:scale-95 transition-transform flex items-center gap-1 ${p.isAutonomous ? 'bg-amber-100 hover:bg-amber-200 border-amber-400 text-amber-900' : 'bg-stone-100 hover:bg-amber-100 border-stone-300 text-stone-700'}`}
                         >
                           {p.name}
+                          {p.isAutonomous && <span className="text-[9px] bg-amber-600 text-white px-1 rounded-sm">自治</span>}
                         </button>
                       ))}
                     </div>
@@ -1086,16 +1146,12 @@ export default function InspectView({
               {/* Military Readiness */}
               <div className="bg-stone-50 p-2.5 rounded border border-stone-200 flex justify-between items-center text-xs">
                 <div>
-                  <span className="text-stone-500 font-bold">當前帶兵：</span>
-                  <span className="font-black text-red-700">{selectedGeneralDetail.soldiers}</span>
+                  <span className="text-stone-500 font-bold">麾下兵力：</span>
+                  <span className="font-black text-red-700">{selectedGeneralDetail.soldiers?.toLocaleString()} / {selectedGeneralDetail.maxTroops?.toLocaleString()}</span>
                 </div>
                 <div>
-                  <span className="text-stone-500 font-bold">訓練度：</span>
-                  <span className="font-black">{selectedGeneralDetail.training || 50}</span>
-                </div>
-                <div>
-                  <span className="text-stone-500 font-bold">武裝度：</span>
-                  <span className="font-black">{selectedGeneralDetail.weapons || 50}</span>
+                  <span className="text-stone-500 font-bold">部隊訓練度：</span>
+                  <span className="font-black text-emerald-800">{selectedGeneralDetail.training || 50}%</span>
                 </div>
               </div>
 

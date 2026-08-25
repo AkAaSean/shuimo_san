@@ -32,7 +32,7 @@ export default function ActionModal({
     
   const province = provinceId !== null ? gameState.provincesData[provinceId] : null;
   const currentProvinceInfo = provinceId !== null ? provinces.find(p => p.id === provinceId) : null;
-  const tierRules = provinceId !== null ? getProvinceTierRules(provinceId) : { maxDev: 100, maxForts: 5, minPopulation: 30000, tierName: '普通郡縣' };
+  const tierRules = getProvinceTierRules(provinceId ?? 1);
   
   const generals = provinceId !== null ? Object.values(gameState.generalsData).filter(g => g.provinceId === provinceId && !g.isWild) : [];
   const availableGenerals = generals.filter(g => !g.hasActed);
@@ -112,9 +112,13 @@ export default function ActionModal({
         setTargetGeneralName(unrewarded ? unrewarded.name : allPlayerGenerals[0].name);
       }
       setSelectedTreasureName('黃金錦囊');
-    } else if (action === '登用他國人才' || action === '流言煽動' || action === '驅虎吞狼' || action === '離間君臣' || action === '勸降逼降') {
-      if (action === '登用他國人才') {
-        const sortedEnvoy = [...allPlayerGenerals].sort((a, b) => (b.cha * 0.6 + b.int * 0.4) - (a.cha * 0.6 + a.int * 0.4));
+    } else if (action === '登用他國人才' || action === '流言煽動' || action === '驅虎吞狼' || action === '離間君臣' || action === '勸降逼降' || action === '同盟締結' || action === '進貢金糧') {
+      if (action === '進貢金糧') {
+        setSelectedTreasureName('金');
+        setSliderVal(1000);
+      }
+      if (action === '登用他國人才' || action === '同盟締結' || action === '進貢金糧') {
+        const sortedEnvoy = [...allPlayerGenerals].sort((a, b) => (b.cha + b.pol) - (a.cha + a.pol));
         if (sortedEnvoy.length > 0) setSelectedGeneralName(sortedEnvoy[0].name);
       } else {
         const sortedEnvoy = [...availableGenerals].sort((a, b) => b.int - a.int);
@@ -140,8 +144,12 @@ export default function ActionModal({
         setTargetGeneralName(null);
       }
     } else if (action === '郡縣自治') {
-      setTargetProvinceId(provinceId);
-      setIsAutonomousToggle(!(province?.isAutonomous));
+      const rulerGen = Object.values(gameState.generalsData).find(g => g.name === gameState.rulerName);
+      const rulerProvId = rulerGen?.provinceId;
+      const initialTarget = (provinceId !== rulerProvId) ? provinceId : (ownedProvincesList.find(op => op.id !== rulerProvId)?.id || provinceId);
+      setTargetProvinceId(initialTarget);
+      const initialTargetProv = initialTarget ? gameState.provincesData[initialTarget] : null;
+      setIsAutonomousToggle(!(initialTargetProv?.isAutonomous));
       if (allPlayerGenerals.length > 0) setSelectedGeneralName(allPlayerGenerals[0].name);
     } else if (availableGenerals.length > 0) {
       if (category === '內政') {
@@ -160,7 +168,7 @@ export default function ActionModal({
       setSelectedGeneralName(null);
     }
 
-    if (action === '土地開發' || action === '洪水防治') {
+    if (action === '土地開發' || action === '商業開發' || action === '開發商業' || action === '洪水防治') {
       setSliderVal(100);
     } else if (action === '買入米糧') {
       setSliderVal(province ? Math.min(1000, province.gold) : 10);
@@ -225,6 +233,10 @@ export default function ActionModal({
       primaryStatLabel = '政治';
       statColor = 'text-amber-700';
     }
+  } else if (action === '同盟締結' || action === '進貢金糧') {
+    primaryStatKey = 'cha';
+    primaryStatLabel = '政/魅';
+    statColor = 'text-purple-700';
   } else if (category === '人事' || category === '君主') {
     if (action === '指定軍師') {
       primaryStatKey = 'int';
@@ -288,7 +300,7 @@ export default function ActionModal({
       canExecute = false;
       errorMsg = '請選擇要設定自治的州郡';
     }
-  } else if (action === '登用他國人才' || action === '流言煽動' || action === '驅虎吞狼' || action === '離間君臣' || action === '勸降逼降') {
+  } else if (action === '登用他國人才' || action === '流言煽動' || action === '驅虎吞狼' || action === '離間君臣' || action === '勸降逼降' || action === '同盟締結' || action === '進貢金糧') {
     if (!selectedGen) {
       canExecute = false;
       errorMsg = '無可派遣之使者/武將';
@@ -298,7 +310,12 @@ export default function ActionModal({
     } else {
       const itemBonus = getGeneralItemBonus(selectedGen.name, gameState.currentScenario);
       const totalInt = selectedGen.int + itemBonus.intBonus;
-      if (action !== '登用他國人才' && totalInt < 80) {
+      const totalPolCha = selectedGen.pol + selectedGen.cha + itemBonus.polBonus + itemBonus.chaBonus;
+      
+      if ((action === '進貢金糧' || action === '同盟締結') && totalPolCha < 150) {
+        canExecute = false;
+        errorMsg = '外交使者需具備 政治+魅力 總和至少 150';
+      } else if (action !== '登用他國人才' && action !== '同盟締結' && action !== '進貢金糧' && totalInt < 80) {
         canExecute = false;
         errorMsg = '執行此計略需要智力至少 80 以上';
       } else if (action === '流言煽動' && province.gold < 300) {
@@ -313,6 +330,15 @@ export default function ActionModal({
       } else if (action === '勸降逼降' && province.gold < 1000) {
         canExecute = false;
         errorMsg = '需要資金 1000 金';
+      } else if (action === '同盟締結' && province.gold < 2000) {
+        canExecute = false;
+        errorMsg = '需要資金 2000 金';
+      } else if (action === '進貢金糧' && selectedTreasureName === '金' && (province.gold < sliderVal || sliderVal < 1000)) {
+        canExecute = false;
+        errorMsg = '資金不足或未達最低 1000 金額';
+      } else if (action === '進貢金糧' && selectedTreasureName === '糧' && (province.food < sliderVal || sliderVal < 10000)) {
+        canExecute = false;
+        errorMsg = '軍糧不足或未達最低 10000 額度';
       } else if (!targetProvinceId) {
         canExecute = false;
         errorMsg = '請選擇目標敵國州郡';
@@ -328,12 +354,15 @@ export default function ActionModal({
     } else if (selectedGen.hasActed) {
       canExecute = false;
       errorMsg = '此武將本月已執行過任務，需待下月';
-    } else if ((action === '土地開發' || action === '洪水防治') && province.gold < 100) {
+    } else if ((action === '土地開發' || action === '商業開發' || action === '開發商業' || action === '洪水防治') && province.gold < 100) {
       canExecute = false;
       errorMsg = '本郡資金不足 100 金';
     } else if (action === '土地開發' && province.value >= tierRules.maxDev) {
       canExecute = false;
-      errorMsg = `本郡土地開發已達該等級都市上限 (${tierRules.maxDev})`;
+      errorMsg = `本郡土地開發已達該都市上限 (${tierRules.maxDev})`;
+    } else if ((action === '商業開發' || action === '開發商業') && (province.commerce || 0) >= tierRules.maxCommerce) {
+      canExecute = false;
+      errorMsg = `本郡商業發展已達該都市上限 (${tierRules.maxCommerce})`;
     } else if (action === '買入米糧' && (province.gold < sliderVal || sliderVal <= 0)) {
       canExecute = false;
       errorMsg = '資金不足或輸入數量有誤';
@@ -355,7 +384,7 @@ export default function ActionModal({
     }
   }
 
-  const strategistReport = getStrategistReport(gameState, provinceId, action, selectedGen, targetGeneralName);
+  const strategistReport = getStrategistReport(gameState, provinceId, action, selectedGen, targetGeneralName, targetProvinceId);
 
   const handleConfirm = () => {
     if (!canExecute) return;
@@ -376,7 +405,9 @@ export default function ActionModal({
       payload = { targetProvinceId, isAutonomous: isAutonomousToggle };
     } else if (action === '登用人才' || action === '登用他國人才' || action === '離間君臣') {
       payload = { targetGeneralName, targetProvinceId };
-    } else if (action === '流言煽動' || action === '驅虎吞狼' || action === '勸降逼降' || category === '謀略') {
+    } else if (action === '進貢金糧') {
+      payload = { targetProvinceId, resourceType: selectedTreasureName, amount: sliderVal };
+    } else if (action === '流言煽動' || action === '驅虎吞狼' || action === '勸降逼降' || action === '同盟締結' || category === '謀略') {
       payload = { targetProvinceId };
     }
 
@@ -434,8 +465,13 @@ export default function ActionModal({
               <div>金: <span className="text-amber-800 font-black">{province.gold}</span></div>
               <div>糧: <span className="text-emerald-800 font-black">{province.food}</span></div>
               <div>
-                {category === '內政' && (action.includes('開發') ? `開發: ${province.value}/${tierRules.maxDev}` : `洪水: ${province.flood}`)}
-                {category === '商業' && `民忠: ${province.loyalty}`}
+                {category === '內政' && (
+                  action.includes('商業') ? `商業: ${province.commerce || 0}/${tierRules.maxCommerce}` :
+                  action.includes('土地') ? `土地: ${province.value}/${tierRules.maxDev}` : `洪水: ${province.flood}`
+                )}
+                {category === '商業' && (
+                  action.includes('商業') ? `商業: ${province.commerce || 0}/${tierRules.maxCommerce}` : `民忠: ${province.loyalty}`
+                )}
                 {category === '謀略' && `物價: ${province.price}`}
                 {category === '人事' && `武將: ${generals.length}`}
                 {category === '軍事' && `士兵: ${province.soldiers}`}
@@ -472,9 +508,19 @@ export default function ActionModal({
                                        primaryStatKey === 'cha' ? itemBonus.chaBonus : itemBonus.strBonus;
 
                       const totalInt = g.int + itemBonus.intBonus;
+                      const totalPol = g.pol + itemBonus.polBonus;
+                      const totalCha = g.cha + itemBonus.chaBonus;
+                      const totalStr = g.str + itemBonus.strBonus;
+
                       const isDisabled = action === '指定軍師' 
                         ? (totalInt <= 80)
                         : (action === '指定太守' || action === '賞賜金帛' ? false : g.hasActed);
+
+                      const isDiplomacy = action === '同盟締結' || action === '進貢金糧';
+                      const isDomestic = category === '內政';
+                      const isStrategy = category === '謀略';
+                      const isCommerce = category === '商業';
+                      const isMilitary = category === '軍事';
 
                       return (
                         <button
@@ -504,22 +550,73 @@ export default function ActionModal({
                                   </span>
                                 ))}
                               </div>
-                              <div className="text-[11px] text-stone-500 flex gap-2">
-                                <span>兵: {g.soldiers}</span>
-                                <span>忠: {g.loyalty}</span>
-                                <span>體: {g.hp}{itemBonus.hpBonus > 0 && <strong className="text-emerald-700 font-bold">+{itemBonus.hpBonus}</strong>}</span>
-                              </div>
+
+                              {/* Task-relevant stats display (no cluttered 忠/體/兵 if not relevant) */}
+                              {isDiplomacy ? (
+                                <div className="text-[11px] font-bold flex gap-2.5 mt-0.5 text-stone-700">
+                                  <span>政: <strong className="text-amber-800">{totalPol}</strong></span>
+                                  <span>魅: <strong className="text-rose-800">{totalCha}</strong></span>
+                                  <span className="text-purple-800 font-black">(合計: {totalPol + totalCha})</span>
+                                </div>
+                              ) : isDomestic ? (
+                                <div className="text-[11px] font-bold flex gap-2.5 mt-0.5 text-stone-700">
+                                  <span>政: <strong className="text-amber-800">{totalPol}</strong></span>
+                                  <span className="text-stone-500 font-normal">魅: {totalCha}</span>
+                                </div>
+                              ) : isStrategy ? (
+                                <div className="text-[11px] font-bold flex gap-2.5 mt-0.5 text-stone-700">
+                                  <span>智: <strong className="text-indigo-800">{totalInt}</strong></span>
+                                  <span className="text-stone-500 font-normal">魅: {totalCha}</span>
+                                </div>
+                              ) : isCommerce ? (
+                                <div className="text-[11px] font-bold flex gap-2.5 mt-0.5 text-stone-700">
+                                  <span>{action === '開倉賑民' ? '魅' : '政'}: <strong className="text-rose-800">{action === '開倉賑民' ? totalCha : totalPol}</strong></span>
+                                  <span className="text-stone-500 font-normal">智: {totalInt}</span>
+                                </div>
+                              ) : action === '指定軍師' ? (
+                                <div className="text-[11px] font-bold flex gap-2 mt-0.5 text-indigo-900">
+                                  <span>智謀: <strong className="text-indigo-800 text-xs">{totalInt}</strong></span>
+                                  <span className="text-stone-500 font-normal">政: {totalPol}</span>
+                                </div>
+                              ) : action === '指定太守' ? (
+                                <div className="text-[11px] font-bold flex gap-2 mt-0.5 text-stone-700">
+                                  <span>統率兵額: <strong className="text-amber-800">4000</strong></span>
+                                  <span>忠: {g.loyalty}</span>
+                                </div>
+                              ) : action === '賞賜金帛' || action === '賞賜物品' ? (
+                                <div className="text-[11px] font-bold flex gap-2 mt-0.5 text-stone-700">
+                                  <span>目前忠誠: <strong className="text-rose-700">{g.loyalty}</strong></span>
+                                  <span>魅力: {totalCha}</span>
+                                </div>
+                              ) : isMilitary || action === '運送錢糧' ? (
+                                <div className="text-[11px] text-stone-500 flex gap-2 mt-0.5">
+                                  <span>兵: {g.soldiers}</span>
+                                  <span>武: {totalStr}</span>
+                                  <span>體: {g.hp}</span>
+                                </div>
+                              ) : (
+                                <div className="text-[11px] font-bold flex gap-2 mt-0.5 text-stone-700">
+                                  <span>魅: {totalCha}</span>
+                                  <span>政: {totalPol}</span>
+                                </div>
+                              )}
                             </div>
                           </div>
 
                           <div className="text-right shrink-0">
-                            <div className="text-xs font-bold flex items-center justify-end gap-0.5">
-                              <span className="text-stone-500">{primaryStatLabel}: </span>
-                              <span className={`font-black text-sm ${statColor}`}>{g[primaryStatKey]}</span>
-                              {bonusVal > 0 && (
-                                <span className="text-emerald-700 font-bold text-xs">+{bonusVal}</span>
-                              )}
-                            </div>
+                            {isDiplomacy ? (
+                              <div className="text-xs font-bold text-purple-900">
+                                外交使節
+                              </div>
+                            ) : (
+                              <div className="text-xs font-bold flex items-center justify-end gap-0.5">
+                                <span className="text-stone-500">{primaryStatLabel}: </span>
+                                <span className={`font-black text-sm ${statColor}`}>{g[primaryStatKey]}</span>
+                                {bonusVal > 0 && (
+                                  <span className="text-emerald-700 font-bold text-xs">+{bonusVal}</span>
+                                )}
+                              </div>
+                            )}
                             <div className="text-[11px] mt-0.5">
                               {action === '指定軍師' ? (
                                 totalInt > 80 ? (
@@ -582,8 +679,8 @@ export default function ActionModal({
               </div>
             )}
 
-            {/* Strategist Advice Box for Talent Search / Hire / Foreign Hire */}
-            {(action === '尋訪人才' || action === '登用人才' || action === '登用他國人才') && (
+            {/* Strategist Advice Box for Talent Search / Hire / Foreign Hire / Alliance / Tribute */}
+            {(action === '尋訪人才' || action === '登用人才' || action === '登用他國人才' || action === '同盟締結' || action === '進貢金糧') && (
               <div className="bg-amber-100/90 border-2 border-amber-800/80 p-3 shadow-sm rounded-sm">
                 <div className="flex items-center gap-1.5 font-black text-amber-950 text-xs mb-1.5 pb-1 border-b border-amber-300">
                   <span className="text-base">📜</span>
@@ -632,7 +729,7 @@ export default function ActionModal({
             )}
 
             {/* Parameter Controls (Sliders for Gold/Food / Personnel) */}
-            {(action === '買入米糧' || action === '賣出米糧' || action === '運送錢糧' || action === '賞賜金帛' || action === '賞賜物品' || action === '登用人才' || action === '登用他國人才' || action === '郡縣自治' || action === '流言煽動' || action === '驅虎吞狼' || action === '離間君臣' || action === '勸降逼降') && (
+            {(action === '買入米糧' || action === '賣出米糧' || action === '運送錢糧' || action === '賞賜金帛' || action === '賞賜物品' || action === '登用人才' || action === '登用他國人才' || action === '郡縣自治' || action === '流言煽動' || action === '驅虎吞狼' || action === '離間君臣' || action === '勸降逼降' || action === '同盟締結' || action === '進貢金糧') && (
               <div className="bg-white/90 border border-stone-400 p-3 space-y-3">
                 {action === '郡縣自治' && (
                   <div className="space-y-3">
@@ -645,15 +742,19 @@ export default function ActionModal({
                       {ownedProvincesList.map(op => {
                         const isSelected = targetProvinceId === op.id;
                         const currentAutonomy = op.state.isAutonomous;
+                        const isRulerCapital = Object.values(gameState.generalsData).find(g => g.name === gameState.rulerName)?.provinceId === op.id;
+                        
                         return (
                           <button
                             key={op.id}
                             type="button"
                             onClick={() => {
+                              if (isRulerCapital) return;
                               setTargetProvinceId(op.id);
                               setIsAutonomousToggle(!currentAutonomy);
                             }}
                             className={`w-full p-2.5 border text-xs text-left font-bold transition-all flex items-center justify-between ${
+                              isRulerCapital ? 'border-stone-200 bg-stone-100 opacity-60 cursor-not-allowed' :
                               isSelected ? 'border-[#991b1b] bg-amber-50 text-[#991b1b] ring-1 ring-[#991b1b]' : 'border-stone-300 bg-stone-100 hover:bg-stone-200'
                             }`}
                           >
@@ -665,7 +766,9 @@ export default function ActionModal({
                             </div>
 
                             <div className="text-right shrink-0">
-                              {currentAutonomy ? (
+                              {isRulerCapital ? (
+                                <span className="text-[10px] bg-rose-800 text-rose-100 px-2 py-0.5 rounded font-bold">君主所在 (不可自治)</span>
+                              ) : currentAutonomy ? (
                                 <span className="text-[10px] bg-emerald-800 text-emerald-100 px-2 py-0.5 rounded font-bold">【自治中】</span>
                               ) : (
                                 <span className="text-[10px] bg-stone-700 text-stone-100 px-2 py-0.5 rounded font-bold">【直轄中】</span>
@@ -746,14 +849,14 @@ export default function ActionModal({
                   </div>
                 )}
 
-                {(action === '登用他國人才' || action === '流言煽動' || action === '驅虎吞狼' || action === '離間君臣' || action === '勸降逼降') && (
+                {(action === '登用他國人才' || action === '流言煽動' || action === '驅虎吞狼' || action === '離間君臣' || action === '勸降逼降' || action === '同盟締結' || action === '進貢金糧') && (
                   <div className="space-y-3 border-t border-stone-300 pt-3">
                     {/* Step 1: Select Target Province */}
                     <div>
                       <div className="text-xs font-bold mb-1.5 flex justify-between items-center">
-                        <span className="text-stone-900 font-black">① 選擇敵國目標州郡：</span>
+                        <span className="text-stone-900 font-black">① 選擇目標敵國州郡：</span>
                         <span className="text-[10px] text-stone-500 font-bold">
-                          {action === '登用他國人才' || action === '離間君臣' ? `有敵將州郡: ${foreignProvincesWithGenerals.length}` : `周邊敵郡: ${Object.values(gameState.provincesData).filter(p => p.rulerName !== gameState.rulerName && p.rulerName !== null).length}`}
+                          {action === '登用他國人才' || action === '離間君臣' ? `有敵將州郡: ${foreignProvincesWithGenerals.length}` : `天下敵邦: ${Object.values(gameState.provincesData).filter(p => p.rulerName !== gameState.rulerName && p.rulerName !== null).length}`}
                         </span>
                       </div>
 
@@ -767,6 +870,7 @@ export default function ActionModal({
                             const pInfo = provinces.find(x => x.id === p.id);
                             const pGensCount = Object.values(gameState.generalsData).filter(g => g.provinceId === p.id && !g.isWild).length;
                             const isSelectedProv = targetProvinceId === p.id;
+                            const rel = p.rulerName ? (gameState.diplomacyData?.[gameState.rulerName]?.[p.rulerName] ?? 50) : 50;
 
                             return (
                               <button
@@ -791,9 +895,17 @@ export default function ActionModal({
                                   <div className="font-black text-stone-900">{pInfo?.name}</div>
                                   <div className="text-[10px] text-stone-500 font-normal">君主: {p.rulerName}</div>
                                 </div>
-                                <span className="text-[10px] bg-stone-200 text-stone-800 px-1.5 py-0.5 rounded font-bold">
-                                  {pGensCount} 人
-                                </span>
+                                <div className="text-right">
+                                  {action === '同盟締結' || action === '進貢金糧' ? (
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${rel >= 90 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                                      友好: {rel}
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] bg-stone-200 text-stone-800 px-1.5 py-0.5 rounded font-bold">
+                                      {pGensCount} 人
+                                    </span>
+                                  )}
+                                </div>
                               </button>
                             );
                           })}
@@ -860,11 +972,11 @@ export default function ActionModal({
                   </div>
                 )}
                 
-                {(action === '流言煽動' || action === '驅虎吞狼' || action === '離間君臣' || action === '勸降逼降') && (
+                {(action === '流言煽動' || action === '驅虎吞狼' || action === '離間君臣' || action === '勸降逼降' || action === '同盟締結') && (
                   <div className="space-y-2 mt-2">
                     <div className="p-2.5 bg-amber-50 border border-amber-300 text-xs text-amber-950 font-bold flex justify-between items-center">
-                      <span>策劃費用: <strong className="text-amber-800">
-                        {action === '流言煽動' ? '300' : action === '驅虎吞狼' ? '500' : action === '離間君臣' ? '400' : '1000'} 金
+                      <span>費用: <strong className="text-amber-800">
+                        {action === '流言煽動' ? '300' : action === '驅虎吞狼' ? '500' : action === '離間君臣' ? '400' : action === '同盟締結' ? '2000' : '1000'} 金
                       </strong></span>
                       <span className="text-emerald-800">
                         (不消耗糧食)
@@ -875,6 +987,30 @@ export default function ActionModal({
                         💡 軍師建言：敵軍若勢大則寧死不降。建議【周遭相鄰之我軍總兵力】大於該郡敵軍兵力 <strong className="text-rose-700">3 倍</strong>以上，且該君主無其他領地時，勸降方易成功。
                       </div>
                     )}
+                  </div>
+                )}
+
+                {action === '進貢金糧' && (
+                  <div className="mt-2 space-y-4">
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => { setSelectedTreasureName('金'); setSliderVal(1000); }} className={`flex-1 p-2 text-xs font-bold border ${selectedTreasureName === '金' ? 'border-amber-800 bg-amber-100 text-amber-900' : 'border-stone-300 bg-stone-100 text-stone-600'}`}>進貢黃金</button>
+                      <button type="button" onClick={() => { setSelectedTreasureName('糧'); setSliderVal(10000); }} className={`flex-1 p-2 text-xs font-bold border ${selectedTreasureName === '糧' ? 'border-emerald-800 bg-emerald-100 text-emerald-900' : 'border-stone-300 bg-stone-100 text-stone-600'}`}>進貢軍糧</button>
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-xs font-bold mb-1">
+                        <span>進貢數量：</span>
+                        <span className="text-stone-800 font-black text-sm">{sliderVal} {selectedTreasureName === '金' ? '金' : '糧'}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={selectedTreasureName === '金' ? 1000 : 10000}
+                        max={Math.max(selectedTreasureName === '金' ? 1000 : 10000, selectedTreasureName === '金' ? province.gold : province.food)}
+                        step={selectedTreasureName === '金' ? 100 : 1000}
+                        value={sliderVal}
+                        onChange={e => setSliderVal(Number(e.target.value))}
+                        className={`w-full ${selectedTreasureName === '金' ? 'accent-amber-800' : 'accent-emerald-800'}`}
+                      />
+                    </div>
                   </div>
                 )}
 
@@ -1054,12 +1190,17 @@ export default function ActionModal({
               <div className="font-bold mb-1">任務說明：</div>
               {action === '土地開發' && (
                 <div>
-                  花費 <span className="font-bold text-amber-900">100 金</span>，由 <span className="font-bold text-[#991b1b]">{selectedGen?.name || '---'}</span> (政治: {selectedGen?.pol || 0}) 執行開墾，預期土地價值提升 +{selectedGen ? Math.floor(selectedGen.pol / 8) + 4 : 0} 左右（本都市上限: {tierRules.maxDev}）。
+                  花費 <span className="font-bold text-amber-900">100 金</span>，由 <span className="font-bold text-[#991b1b]">{selectedGen?.name || '---'}</span> (政治: {selectedGen?.pol || 0}) 執行開墾，預期土地價值提升 +{selectedGen ? Math.max(1, Math.floor(Math.pow(Math.max(0, selectedGen.pol) / 100, 3) * 12)) + 1 : 0} 左右（本都市上限: {tierRules.maxDev}）。
+                </div>
+              )}
+              {(action === '商業開發' || action === '開發商業') && (
+                <div>
+                  花費 <span className="font-bold text-amber-900">100 金</span>，由 <span className="font-bold text-[#991b1b]">{selectedGen?.name || '---'}</span> (政治: {selectedGen?.pol || 0}) 開拓商埠集市、通商惠工，預期商業發展提升 +{selectedGen ? Math.max(1, Math.floor(Math.pow(Math.max(0, selectedGen.pol) / 100, 3) * 12)) + 1 : 0} 左右（本都市上限: {tierRules.maxCommerce}）。
                 </div>
               )}
               {action === '洪水防治' && (
                 <div>
-                  花費 <span className="font-bold text-amber-900">100 金</span>，由 <span className="font-bold text-[#991b1b]">{selectedGen?.name || '---'}</span> (政治: {selectedGen?.pol || 0}) 督造水利，預期洪水率降低 -{selectedGen ? Math.floor(selectedGen.pol / 8) + 5 : 0} 左右。
+                  花費 <span className="font-bold text-amber-900">100 金</span>，由 <span className="font-bold text-[#991b1b]">{selectedGen?.name || '---'}</span> (政治: {selectedGen?.pol || 0}) 督造水利，預期洪水率降低 -{selectedGen ? Math.max(1, Math.floor(Math.pow(Math.max(0, selectedGen.pol) / 100, 3) * 12)) + 2 : 0} 左右。
                 </div>
               )}
               {action === '開倉賑民' && (

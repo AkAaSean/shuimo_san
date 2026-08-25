@@ -65,9 +65,13 @@ export default function BattleLaunchView({ gameState, onExit, onLaunchBattle }: 
 
   const targetProvData = targetProvinceId ? gameState.provincesData[targetProvinceId] : null;
   const targetProvInfo = targetProvinceId ? provinces.find(p => p.id === targetProvinceId) : null;
+  const targetRuler = targetProvData?.rulerName;
+  const allianceExpiry = targetRuler ? gameState.alliances?.[gameState.rulerName]?.[targetRuler] : undefined;
+  const currentAbsolute = gameState.year * 12 + gameState.month;
+  const isAllied = allianceExpiry ? allianceExpiry > currentAbsolute : false;
 
   const handleLaunch = () => {
-    if (selectedNames.length === 0 || !targetProvinceId) return;
+    if (selectedNames.length === 0 || !targetProvinceId || isAllied) return;
     onLaunchBattle(targetProvinceId, selectedNames);
   };
 
@@ -215,12 +219,17 @@ export default function BattleLaunchView({ gameState, onExit, onLaunchBattle }: 
       </div>
 
       {/* Footer */}
-      <div className="p-4 border-t-[2px] border-[#1c1917] bg-[#f2efeb] flex justify-center">
+      <div className="p-4 border-t-[2px] border-[#1c1917] bg-[#f2efeb] flex justify-center flex-col items-center gap-2">
+        {isAllied && (
+          <div className="text-sm font-bold text-rose-700 bg-rose-100 px-4 py-1.5 rounded border border-rose-300">
+            ⚠️ 兩軍已結為同盟，不可發動戰役！
+          </div>
+        )}
         <button
-          disabled={selectedCount === 0 || !targetProvinceId}
+          disabled={selectedCount === 0 || !targetProvinceId || isAllied}
           onClick={handleLaunch}
           className={`w-full max-w-lg py-3 font-black text-base border-2 border-[#1c1917] shadow-[3px_3px_0_#1c1917] transition-all text-white
-            ${selectedCount > 0 && targetProvinceId ? 'bg-[#991b1b] hover:bg-red-800 active:scale-95 cursor-pointer' : 'bg-stone-400 cursor-not-allowed opacity-60'}
+            ${selectedCount > 0 && targetProvinceId && !isAllied ? 'bg-[#991b1b] hover:bg-red-800 active:scale-95 cursor-pointer' : 'bg-stone-400 cursor-not-allowed opacity-60'}
           `}
         >
           全軍出擊！發動戰役 ({selectedCount} 位將領)

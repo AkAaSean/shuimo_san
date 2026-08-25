@@ -282,7 +282,7 @@ export const generals: General[] = [
     "cha": 70,
     "scenarios": [
       "主",
-      "Ｘ",
+      "主",
       13,
       13,
       15,
@@ -335,7 +335,7 @@ export const generals: General[] = [
     "pol": 78,
     "cha": 88,
     "scenarios": [
-      "-",
+      "主",
       "主",
       "主",
       "主",
@@ -1254,8 +1254,8 @@ export const generals: General[] = [
     "cha": 80,
     "scenarios": [
       11,
-      6,
-      6,
+      14,
+      12,
       16,
       16,
       "Ｘ"
@@ -1272,7 +1272,7 @@ export const generals: General[] = [
     "cha": 76,
     "scenarios": [
       11,
-      6,
+      14,
       13,
       15,
       15,
@@ -1542,8 +1542,8 @@ export const generals: General[] = [
     "cha": 58,
     "scenarios": [
       "-",
-      6,
-      6,
+      14,
+      12,
       12,
       12,
       4
@@ -1741,7 +1741,7 @@ export const generals: General[] = [
     "scenarios": [
       "-",
       "-",
-      6,
+      12,
       16,
       12,
       16
@@ -2011,7 +2011,7 @@ export const generals: General[] = [
     "scenarios": [
       "-",
       "-",
-      6,
+      12,
       6,
       6,
       6
@@ -2388,7 +2388,7 @@ export const generals: General[] = [
     "cha": 81,
     "scenarios": [
       31,
-      24,
+      22,
       22,
       22,
       "Ｘ",
@@ -2784,7 +2784,7 @@ export const generals: General[] = [
     "cha": 52,
     "scenarios": [
       23,
-      "-",
+      23,
       21,
       21,
       22,
@@ -4404,9 +4404,9 @@ export const generals: General[] = [
     "cha": 40,
     "scenarios": [
       "-",
-      18,
-      18,
-      18,
+      35,
+      35,
+      35,
       "Ｘ",
       "Ｘ"
     ]
@@ -4422,9 +4422,9 @@ export const generals: General[] = [
     "cha": 72,
     "scenarios": [
       "-",
-      18,
-      18,
-      18,
+      35,
+      35,
+      35,
       15,
       "Ｘ"
     ]
@@ -4440,9 +4440,9 @@ export const generals: General[] = [
     "cha": 48,
     "scenarios": [
       "-",
-      18,
-      18,
-      18,
+      35,
+      35,
+      35,
       "Ｘ",
       "Ｘ"
     ]
@@ -4458,9 +4458,9 @@ export const generals: General[] = [
     "cha": 30,
     "scenarios": [
       "-",
-      18,
-      18,
-      18,
+      35,
+      35,
+      35,
       "Ｘ",
       "Ｘ"
     ]
@@ -4476,9 +4476,9 @@ export const generals: General[] = [
     "cha": 18,
     "scenarios": [
       "-",
-      18,
-      18,
-      18,
+      35,
+      35,
+      35,
       "Ｘ",
       "Ｘ"
     ]

@@ -25,7 +25,7 @@ export default function PromptBanner({ rulerName, selectedProvinceId, provincesD
             </>
           ) : (
             <>
-              <span className="font-bold text-amber-500">{rulerName}</span> 主公，<span className="font-bold text-amber-300">({selectedProvinceId}) {province.name}</span> (屬【{pData?.rulerName || '空白地'}】) 非我方轄區，僅開放【0.狀態】查看與【9.系統】操作。
+              <span className="font-bold text-amber-500">{rulerName}</span> 主公，<span className="font-bold text-amber-300">({selectedProvinceId}) {province.name}</span> (屬【{pData?.rulerName || '空白地'}】) 非我方轄區，僅開放【0.狀態】、【1.查看】與【9.系統】操作。
             </>
           )
         ) : (

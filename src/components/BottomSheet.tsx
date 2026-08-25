@@ -11,16 +11,16 @@ interface BottomSheetProps {
 }
 
 const SUB_COMMANDS: Record<number, string[]> = {
-  0: ['查看本郡狀態', '檢視將領'],
+  0: ['查看本郡狀態', '檢視將領', '外交關係'],
   1: ['選擇州郡', '將軍列表', '領土列表', '郡地理誌', '君主物品'],
   2: ['武將調動', '發動戰役', '運送錢糧'],
-  3: ['訓練兵士', '徵兵', '購買武器', '調整兵力'],
-  4: ['土地開發 (100金)', '洪水防治 (100金)', '建築關寨'],
-  5: ['買入米糧', '賣出米糧', '開倉賑民'],
+  3: ['徵兵', '訓練兵士', '編制兵力'],
+  4: ['土地開發 (100金)', '商業開發 (100金)', '洪水防治 (100金)', '建築關寨'],
+  5: ['商業開發 (100金)', '買入米糧', '賣出米糧', '開倉賑民'],
   6: ['尋訪人才', '登用人才', '賞賜金帛'],
-  7: ['指定軍師', '指定太守', '郡縣自治', '賞賜物品', '登用他國人才'],
+  7: ['指定軍師', '指定太守', '郡縣自治', '賞賜物品', '登用他國人才', '同盟締結', '進貢金糧'],
   8: ['流言煽動', '驅虎吞狼', '離間君臣', '勸降逼降'],
-  9: ['存檔', '讀檔', '重新開始', '音效音樂'],
+  9: ['存檔', '讀檔', '重新開始'],
 };
 
 export default function BottomSheet({ activeMenu, gameState, onClose, onActionSelect }: BottomSheetProps) {
@@ -32,7 +32,7 @@ export default function BottomSheet({ activeMenu, gameState, onClose, onActionSe
   const isPlayerCity = gameState && selectedProv ? selectedProv.rulerName === gameState.rulerName : true;
 
   useEffect(() => {
-    if (isOpen && !isPlayerCity && activeMenu !== 0 && activeMenu !== 9) {
+    if (isOpen && !isPlayerCity && activeMenu !== 0 && activeMenu !== 1 && activeMenu !== 9) {
       onClose();
     }
   }, [isOpen, isPlayerCity, activeMenu, onClose]);
@@ -42,7 +42,7 @@ export default function BottomSheet({ activeMenu, gameState, onClose, onActionSe
 
   return (
     <AnimatePresence>
-      {isOpen && (isPlayerCity || activeMenu === 0 || activeMenu === 9) && (
+      {isOpen && (isPlayerCity || activeMenu === 0 || activeMenu === 1 || activeMenu === 9) && (
         <>
           {/* Backdrop */}
           <motion.div

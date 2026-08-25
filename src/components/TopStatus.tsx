@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { GameState } from '../types';
-import { bgmManager } from '../utils/bgmManager';
 
 interface TopStatusProps {
   gameState: GameState;
@@ -8,14 +7,6 @@ interface TopStatusProps {
 }
 
 export default function TopStatus({ gameState, onRest }: TopStatusProps) {
-  const [audioEnabled, setAudioEnabled] = useState<boolean>(() => bgmManager.isEnabled());
-
-  const handleToggleAudio = () => {
-    const next = !audioEnabled;
-    setAudioEnabled(next);
-    bgmManager.setMuted(!next);
-  };
-
   // Calculate ruler total gold and food
   const rulerProvinces = Object.values(gameState.provincesData).filter(p => p.rulerName === gameState.rulerName);
   const totalGold = rulerProvinces.reduce((sum, p) => sum + p.gold, 0);
@@ -40,17 +31,6 @@ export default function TopStatus({ gameState, onRest }: TopStatusProps) {
             <span className="text-stone-700 bg-stone-300 px-2 py-0.5 rounded-sm border border-stone-400 text-xs">
               君主: <span className="font-bold text-stone-900">{gameState.rulerName}</span>
             </span>
-            <button
-              onClick={handleToggleAudio}
-              className={`px-2 py-0.5 rounded-sm border text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 ${
-                audioEnabled
-                  ? 'bg-amber-100 text-amber-900 border-amber-800 hover:bg-amber-200'
-                  : 'bg-stone-300 text-stone-500 border-stone-400 hover:bg-stone-400'
-              }`}
-              title={audioEnabled ? '關閉背景音樂' : '開啟背景音樂'}
-            >
-              <span>{audioEnabled ? '🔊' : '🔇'}</span>
-            </button>
             {onRest && (
               <button
                 onClick={onRest}

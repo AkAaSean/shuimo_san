@@ -31,7 +31,8 @@ export const SCENARIOS: ScenarioConfig[] = [
       { name: '公孫瓚', provinces: [2] },
       { name: '劉繇', provinces: [21] },
       { name: '王朗', provinces: [23] },
-      { name: '孔融', provinces: [7] }
+      { name: '孔融', provinces: [7] },
+      { name: '張魯', provinces: [35] }
     ]
   },
   {
@@ -41,17 +42,18 @@ export const SCENARIOS: ScenarioConfig[] = [
     subtitle: '呂布弒董卓，李傕敗呂布',
     rulers: [
       { name: '劉備', provinces: [9, 10] },
-      { name: '曹操', provinces: [6, 14, 15, 16] },
-      { name: '孫策', provinces: [22, 24] },
+      { name: '曹操', provinces: [14, 15, 16] },
+      { name: '孫策', provinces: [22] },
       { name: '袁紹', provinces: [3, 4, 8] },
       { name: '袁術', provinces: [13, 27] },
       { name: '李傕', provinces: [17] },
       { name: '劉璋', provinces: [36, 37, 38, 43] },
       { name: '馬騰', provinces: [19, 20] },
       { name: '劉表', provinces: [28, 29, 30] },
-      { name: '張魯', provinces: [18] },
+      { name: '張魯', provinces: [35] },
       { name: '公孫瓚', provinces: [2] },
       { name: '劉繇', provinces: [21] },
+      { name: '王朗', provinces: [23] },
       { name: '楊奉', provinces: [5] },
       { name: '孔融', provinces: [7] },
       { name: '呂布', provinces: [11] }
@@ -64,13 +66,13 @@ export const SCENARIOS: ScenarioConfig[] = [
     subtitle: '曹操敗袁紹，劉備投荊州',
     rulers: [
       { name: '劉備', provinces: [27] },
-      { name: '曹操', provinces: [6, 11, 13, 14, 15, 16] },
+      { name: '曹操', provinces: [11, 12, 13, 14, 15, 16] },
       { name: '孫權', provinces: [21, 22, 23, 24] },
-      { name: '袁紹', provinces: [2, 3, 4, 7, 8] },
+      { name: '袁紹', provinces: [1, 2, 3, 4, 5, 6, 7, 8] },
       { name: '劉璋', provinces: [36, 37, 38, 43] },
       { name: '馬騰', provinces: [19, 20] },
       { name: '劉表', provinces: [28, 29, 30, 31, 32] },
-      { name: '張魯', provinces: [18] }
+      { name: '張魯', provinces: [35] }
     ]
   },
   {
@@ -88,7 +90,7 @@ export const SCENARIOS: ScenarioConfig[] = [
       { name: '劉璋', provinces: [35, 36, 37, 38, 43] },
       { name: '馬騰', provinces: [19, 20] },
       { name: '劉度', provinces: [34] },
-      { name: '張魯', provinces: [18] }
+      { name: '張魯', provinces: [35] }
     ]
   },
   {

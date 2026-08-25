@@ -2,6 +2,7 @@ import React from 'react';
 import { provinces } from '../data/provinces';
 import { GameState } from '../types';
 import { getProvinceTierRules } from '../data/historicalProvinceConfig';
+import { getEstimatedAnnualGold, getEstimatedAnnualFood, getEstimatedMonthlyFoodConsumption } from '../engine/gameLogic';
 
 interface ProvinceCardProps {
   provinceId: number;
@@ -15,23 +16,46 @@ export default function ProvinceCard({ provinceId, gameState, onClose }: Provinc
   
   if (!province || !state) return null;
 
-  const stationedGeneralsCount = Object.values(gameState.generalsData).filter(
+  const stationedGenerals = Object.values(gameState.generalsData).filter(
     g => g.provinceId === provinceId && !g.isWild
-  ).length;
+  );
+  const stationedGeneralsCount = stationedGenerals.length;
+  const totalGeneralsSoldiers = stationedGenerals.reduce((sum, g) => sum + g.soldiers, 0);
+  const totalSoldiers = state.soldiers + totalGeneralsSoldiers;
 
-  const maxDev = getProvinceTierRules(provinceId).maxDev;
+  const tierRules = getProvinceTierRules(provinceId);
+
+  const estimatedGold = getEstimatedAnnualGold(state);
+  const estimatedFood = getEstimatedAnnualFood(state);
+  const monthlyFoodConsumption = getEstimatedMonthlyFoodConsumption(state, Object.values(gameState.generalsData));
+
+  const getCityTypeColor = (tier: string) => {
+    switch (tier) {
+      case 'METROPOLIS': return 'bg-amber-100 text-amber-900 border-amber-400';
+      case 'COMMERCIAL': return 'bg-sky-100 text-sky-900 border-sky-400';
+      case 'AGRICULTURAL': return 'bg-emerald-100 text-emerald-900 border-emerald-400';
+      case 'MIDSIZED': return 'bg-stone-200 text-stone-800 border-stone-400';
+      case 'FRONTIER': return 'bg-purple-100 text-purple-900 border-purple-300';
+      default: return 'bg-stone-200 text-stone-800 border-stone-400';
+    }
+  };
 
   return (
-    <div className="absolute top-2 left-2 w-[48%] max-w-[210px] bg-stone-100/95 border-2 border-stone-800 p-2 shadow-xl z-20 font-serif backdrop-blur-md rounded-sm text-stone-900">
+    <div className="absolute top-2 left-2 w-[47%] max-w-[180px] sm:max-w-[210px] bg-stone-100/95 border-2 border-stone-800 p-1.5 shadow-xl z-20 font-serif backdrop-blur-md rounded-sm text-stone-900">
       {/* Header */}
-      <div className="flex justify-between items-center border-b border-stone-800 pb-1 mb-1">
-        <div className="flex items-center gap-1 overflow-hidden leading-tight">
-          <span className="font-bold text-xs truncate">[{province.name}]</span>
-          <span className="text-[10px] text-stone-600 font-normal">({province.id})</span>
+      <div className="flex justify-between items-center border-b border-stone-800 pb-0.5 mb-1">
+        <div className="flex items-center gap-1 overflow-hidden leading-tight flex-wrap">
+          <span className="font-bold text-[11px] sm:text-xs truncate">[{province.name}]</span>
+          <span className={`text-[8.5px] px-0.5 py-0.1 rounded font-bold border ${getCityTypeColor(tierRules.tier)}`}>
+            {tierRules.tierName}
+          </span>
+          {state.isAutonomous && state.rulerName === gameState.rulerName && (
+            <span className="text-[8.5px] bg-amber-600 text-white px-0.5 py-0.1 rounded font-bold">自治</span>
+          )}
         </div>
         <button 
           onClick={onClose}
-          className="w-5 h-5 shrink-0 flex items-center justify-center bg-stone-800 text-stone-100 rounded-sm hover:bg-stone-700 active:scale-95 text-[10px] font-bold leading-none cursor-pointer"
+          className="w-4 h-4 sm:w-5 sm:h-5 shrink-0 flex items-center justify-center bg-stone-800 text-stone-100 rounded-sm hover:bg-stone-700 active:scale-95 text-[9px] sm:text-[10px] font-bold leading-none cursor-pointer"
           title="關閉"
         >
           ✕
@@ -39,33 +63,48 @@ export default function ProvinceCard({ provinceId, gameState, onClose }: Provinc
       </div>
 
       {/* Ruler info */}
-      <div className="text-[11px] font-bold text-stone-800 flex justify-between items-center mb-1 bg-stone-200/80 px-1.5 py-0.5 rounded border border-stone-300">
+      <div className="text-[10px] sm:text-[11px] font-bold text-stone-800 flex justify-between items-center mb-1 bg-stone-200/80 px-1 py-0.5 rounded border border-stone-300">
         <span className="text-stone-600 font-normal">君主:</span>
-        <span className="text-red-800 font-bold truncate max-w-[100px]">{state.rulerName || '無'}</span>
+        <span className="text-red-800 font-bold truncate max-w-[85px]">{state.rulerName || '無主'}</span>
       </div>
       
       {/* Stats Compact Grid */}
-      <div className="grid grid-cols-2 gap-x-1.5 gap-y-0.5 text-[11px] leading-tight text-stone-800">
-        <div className="flex justify-between">
+      <div className="grid grid-cols-2 gap-x-1 gap-y-0.5 text-[10px] leading-tight text-stone-800">
+        <div className="flex justify-between items-center">
           <span className="text-stone-600">金:</span> 
-          <span className="font-bold text-amber-900">{state.gold}</span>
+          <div className="flex items-center gap-0.5 text-right">
+            <span className="font-bold text-amber-900">{state.gold}</span>
+            <span className="text-[8px] text-amber-700">(+{estimatedGold})</span>
+          </div>
         </div>
-        <div className="flex justify-between">
+        <div className="flex justify-between items-center">
           <span className="text-stone-600">糧:</span> 
-          <span className="font-bold text-emerald-900">{state.food}</span>
+          <div className="flex items-center gap-0.5 text-right">
+            <span className="font-bold text-emerald-900">{state.food}</span>
+            <span className="text-[8px] text-emerald-700">(+{estimatedFood})</span>
+          </div>
+        </div>
+        <div className="flex justify-between col-span-2 border-b border-stone-300 pb-0.5 mb-0.5 text-[9.5px]">
+          <span className="text-stone-600">軍糧消耗:</span>
+          <span className="font-bold text-rose-700">-{monthlyFoodConsumption}/月</span>
         </div>
         
         <div className="flex justify-between col-span-2">
           <span className="text-stone-600">土地:</span> 
-          <span className="font-bold text-amber-800">{state.value} / {maxDev}</span>
+          <span className="font-bold text-amber-800">{state.value} / {tierRules.maxDev}</span>
+        </div>
+
+        <div className="flex justify-between col-span-2">
+          <span className="text-stone-600">商業:</span> 
+          <span className="font-bold text-sky-800">{state.commerce || 0} / {tierRules.maxCommerce}</span>
         </div>
 
         <div className="flex justify-between">
-          <span className="text-stone-600">洪水:</span> 
-          <span className="font-bold text-sky-800">{state.flood}%</span>
+          <span className="text-stone-600">防災:</span> 
+          <span className="font-bold text-blue-800">{100 - state.flood}%</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-stone-600">忠誠:</span> 
+          <span className="text-stone-600">民忠:</span> 
           <span className="font-bold">{state.loyalty}</span>
         </div>
 
@@ -76,7 +115,7 @@ export default function ProvinceCard({ provinceId, gameState, onClose }: Provinc
 
         <div className="flex justify-between col-span-2 border-t border-stone-300 pt-0.5 mt-0.5">
           <span className="text-stone-600">兵士:</span> 
-          <span className="font-bold text-rose-800 text-xs">{state.soldiers.toLocaleString()}</span>
+          <span className="font-bold text-rose-800 text-xs">{totalSoldiers.toLocaleString()}</span>
         </div>
 
         <div className="flex justify-between col-span-2 text-[10px] text-stone-600">
@@ -87,4 +126,3 @@ export default function ProvinceCard({ provinceId, gameState, onClose }: Provinc
     </div>
   );
 }
-

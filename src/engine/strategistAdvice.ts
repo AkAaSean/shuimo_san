@@ -48,14 +48,15 @@ export function getFactionStrategist(gameState: GameState): GeneralState | null 
 }
 
 /**
- * 軍師對「尋訪人才」與「登用人才」進行成效推算與報告 (智力越高越精準)
+ * 軍師對「尋訪人才」、「登用人才」、「登用他國人才」、「同盟締結」等進行成效推算與報告 (智力越高越精準)
  */
 export function getStrategistReport(
   gameState: GameState,
   provinceId: number,
   action: string,
   actingGen: GeneralState | null,
-  targetGenName?: string | null
+  targetGenName?: string | null,
+  targetProvinceId?: number | null
 ): {
   strategist: GeneralState | null;
   quote: string;
@@ -69,6 +70,84 @@ export function getStrategistReport(
       quote: '「主公，目前麾下尚未指派智謀深遠（智力>80）之軍師。建議前往『7. 君主』->『指定軍師』，指派智力大於 80 之文臣以預判戰局與推演情報。」',
       estimatedRate: null,
     };
+  }
+
+  // === 同盟締結 ===
+  if (action === '同盟締結') {
+    if (!targetProvinceId) {
+      return {
+        strategist,
+        quote: `【軍師 ${strategist.name} 曰】：「主公，請先選擇欲結盟之目標敵國州郡。」`,
+        estimatedRate: null,
+      };
+    }
+
+    const targetProv = gameState.provincesData[targetProvinceId];
+    const targetRuler = targetProv?.rulerName;
+    if (!targetRuler) {
+      return {
+        strategist,
+        quote: `【軍師 ${strategist.name} 曰】：「此郡為空白無主之地，無君主可締結同盟。」`,
+        estimatedRate: null,
+      };
+    }
+
+    const rel = gameState.diplomacyData?.[gameState.rulerName]?.[targetRuler] ?? 50;
+    const envoyStats = actingGen 
+      ? actingGen.pol + actingGen.cha + getGeneralItemBonus(actingGen.name, gameState.currentScenario).polBonus + getGeneralItemBonus(actingGen.name, gameState.currentScenario).chaBonus
+      : 120;
+
+    let quote = '';
+    let estimatedRate: number | null = null;
+
+    if (rel < 90) {
+      estimatedRate = 0;
+      quote = `【軍師 ${strategist.name} (智: ${strategist.int}) 曰】：「主公，我方與【${targetRuler}】之友好度僅為 ${rel}（未達 90 門檻）！此去提議同盟必遭斷然拒絕，白白浪費 2000 金！建議先遣使『進貢金糧』修好關係。」`;
+    } else if (envoyStats < 150) {
+      estimatedRate = 0;
+      quote = `【軍師 ${strategist.name} (智: ${strategist.int}) 曰】：「主公，派出之使者【${actingGen?.name || '無'}】之（政治+魅力: ${envoyStats}）未達 150 門檻！外交重任難以勝任，恐辱主命。」`;
+    } else {
+      let trueRate = rel + (envoyStats - 150);
+      trueRate = Math.max(10, Math.min(95, trueRate));
+      
+      const bias = strategist.int >= 95 ? 0 : (strategist.int < 85 ? (strategist.int % 2 === 0 ? 5 : -5) : 0);
+      estimatedRate = Math.min(98, Math.max(5, Math.round(trueRate + bias)));
+
+      if (estimatedRate >= 80) {
+        quote = `【軍師 ${strategist.name} (智: ${strategist.int}) 曰】：「主公，【${targetRuler}】與我朝友好度高達 ${rel}，且使者【${actingGen?.name}】德才兼備（政+魅: ${envoyStats}），兩國結盟十拿九穩！（預估同盟成功率約 ${estimatedRate}%）」`;
+      } else if (estimatedRate >= 50) {
+        quote = `【軍師 ${strategist.name} (智: ${strategist.int}) 曰】：「主公，【${targetRuler}】對我軍尚存觀望之心，使者【${actingGen?.name}】前去遊說有一定勝算，值得一試！（預估同盟成功率約 ${estimatedRate}%）」`;
+      } else {
+        quote = `【軍師 ${strategist.name} (智: ${strategist.int}) 曰】：「主公，【${targetRuler}】心意未堅，結盟恐有波折。（預估同盟成功率約 ${estimatedRate}%）」`;
+      }
+    }
+
+    return { strategist, quote, estimatedRate };
+  }
+
+  // === 進貢金糧 ===
+  if (action === '進貢金糧') {
+    if (!targetProvinceId) {
+      return {
+        strategist,
+        quote: `【軍師 ${strategist.name} 曰】：「主公，請先選擇欲修好進貢之目標國。」`,
+        estimatedRate: null,
+      };
+    }
+    const targetProv = gameState.provincesData[targetProvinceId];
+    const targetRuler = targetProv?.rulerName;
+    const rel = targetRuler ? (gameState.diplomacyData?.[gameState.rulerName]?.[targetRuler] ?? 50) : 50;
+    const envoyStats = actingGen 
+      ? actingGen.pol + actingGen.cha + getGeneralItemBonus(actingGen.name, gameState.currentScenario).polBonus + getGeneralItemBonus(actingGen.name, gameState.currentScenario).chaBonus
+      : 120;
+
+    let quote = '';
+    if (envoyStats < 150) {
+      quote = `【軍師 ${strategist.name} (智: ${strategist.int}) 曰】：「主公，外交使節需政治與魅力總和達 150 以上方能順利出使，【${actingGen?.name || '無'}】能力未逮，請遴選能言善道之賢臣！」`;
+    } else {
+      quote = `【軍師 ${strategist.name} (智: ${strategist.int}) 曰】：「主公，當前我方與【${targetRuler || '目標國'}】之友好度為 ${rel}。使者【${actingGen?.name}】（政+魅: ${envoyStats}）才高八斗，此番進貢必能大幅加深兩邦情誼！」`;
+    }
+    return { strategist, quote, estimatedRate: 100 };
   }
 
   // === 登用他國人才 ===

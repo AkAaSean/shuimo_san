@@ -24,7 +24,6 @@ import RulerTerritoryCard from './components/RulerTerritoryCard';
 import SystemModal from './components/SystemModal';
 import { useGameEngine } from './engine/useGameEngine';
 import { ProvinceState } from './types';
-import { bgmManager, BgmTrack } from './utils/bgmManager';
 
 function GameApp({
   scenarioIndex,
@@ -32,6 +31,7 @@ function GameApp({
   onReturnToTitle,
   onResetCurrentGame
 }: {
+  key?: React.Key;
   scenarioIndex: number;
   rulerName: string;
   onReturnToTitle: () => void;
@@ -40,26 +40,10 @@ function GameApp({
   const { gameState, actions } = useGameEngine(scenarioIndex, rulerName);
   const [tempAction, setTempAction] = useState<string | null>(null);
 
-  // Play seasonal BGM according to current game month
-  useEffect(() => {
-    const month = gameState.month;
-    let track: BgmTrack = '春天';
-    if (month >= 1 && month <= 3) {
-      track = '春天';
-    } else if (month >= 4 && month <= 6) {
-      track = '夏天';
-    } else if (month >= 7 && month <= 9) {
-      track = '秋天';
-    } else {
-      track = '冬天';
-    }
-    bgmManager.playTrack(track);
-  }, [gameState.month]);
-
   // System Modal state
   const [systemModal, setSystemModal] = useState<{
     isOpen: boolean;
-    mode: '存檔' | '讀檔' | '重新開始' | '音效音樂';
+    mode: '存檔' | '讀檔' | '重新開始';
   }>({
     isOpen: false,
     mode: '存檔'
@@ -93,49 +77,18 @@ function GameApp({
       : null;
     const isPlayerCity = currentProv ? currentProv.rulerName === gameState.rulerName : true;
 
-    if (['存檔', '讀檔', '重新開始', '音效音樂'].includes(rawAction)) {
+    if (['存檔', '讀檔', '重新開始'].includes(rawAction)) {
       setSystemModal({
         isOpen: true,
-        mode: rawAction as '存檔' | '讀檔' | '重新開始' | '音效音樂'
+        mode: rawAction as '存檔' | '讀檔' | '重新開始'
       });
       actions.setActiveMenu(null);
       return;
     }
 
-    if (['查看本郡狀態', '檢視將領'].includes(rawAction)) {
+    if (['查看本郡狀態', '檢視將領', '外交關係'].includes(rawAction)) {
       setTempAction(rawAction);
       actions.setView('status');
-      actions.setActiveMenu(null);
-      return;
-    }
-
-    if (!isPlayerCity) {
-      showToast(`【${currentProv?.name || '目標城池'}】非我方控制城池！無法下達政令，僅開放【0.狀態】查看與【9.系統】操作。`);
-      actions.setActiveMenu(null);
-      return;
-    }
-    
-    if (rawAction === '發動戰役') {
-      actions.setView('battle_launch');
-      actions.setActiveMenu(null);
-      return;
-    } 
-    
-    if (rawAction === '調動軍隊' || rawAction === '武將調動') {
-      actions.setView('military_move');
-      actions.setActiveMenu(null);
-      return;
-    }
-
-    if (rawAction === '建築關寨') {
-      actions.setView('build_fort');
-      actions.setActiveMenu(null);
-      return;
-    }
-
-    if (['徵兵', '訓練兵士', '購買武器', '調整兵力'].includes(rawAction)) {
-      setTempAction(rawAction);
-      actions.setView('troops');
       actions.setActiveMenu(null);
       return;
     }
@@ -143,6 +96,38 @@ function GameApp({
     if (['選擇州郡', '將軍列表', '領土列表', '郡地理誌', '君主物品', '邵地理誌'].includes(rawAction)) {
       setTempAction(rawAction === '邵地理誌' ? '郡地理誌' : rawAction);
       actions.setView('inspect');
+      actions.setActiveMenu(null);
+      return;
+    }
+
+    if (!isPlayerCity) {
+      showToast(`【${currentProv?.name || '目標城池'}】非我方控制城池！無法下達政令，僅開放【0.狀態】、【1.查看】與【9.系統】操作。`);
+      actions.setActiveMenu(null);
+      return;
+    }
+
+    // Dedicated Fullscreen Views for Troops, Military, Fort
+    if (['徵兵', '訓練兵士', '編制兵力', '調整兵力'].includes(rawAction)) {
+      setTempAction(rawAction);
+      actions.setView('troops');
+      actions.setActiveMenu(null);
+      return;
+    }
+
+    if (rawAction === '發動戰役') {
+      actions.setView('battle_launch');
+      actions.setActiveMenu(null);
+      return;
+    }
+
+    if (rawAction === '武將調動' || rawAction === '調動軍隊') {
+      actions.setView('military_move');
+      actions.setActiveMenu(null);
+      return;
+    }
+
+    if (rawAction === '建築關寨') {
+      actions.setView('build_fort');
       actions.setActiveMenu(null);
       return;
     }
@@ -398,7 +383,8 @@ function GameApp({
       ) : (
         <BattleView 
           gameState={gameState} 
-          onExitBattle={() => actions.setView('map')} 
+          onExitBattle={() => actions.setView('map')}
+          onResolveBattle={(winner) => actions.resolveBattle(winner)}
         />
       )}
 

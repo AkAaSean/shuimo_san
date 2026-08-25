@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import { SCENARIOS } from '../data/scenarios';
 import { provinces } from '../data/provinces';
 import scenarioBg from '../assets/images/scenario_bg_1787577790883.jpg';
-import { bgmManager } from '../utils/bgmManager';
 
 interface TitleScreenProps {
   onStartGame: (scenarioIndex: number, rulerName: string) => void;
@@ -12,17 +11,6 @@ interface TitleScreenProps {
 export default function TitleScreen({ onStartGame }: TitleScreenProps) {
   const [selectedScenario, setSelectedScenario] = useState<number | null>(null);
   const [selectedRuler, setSelectedRuler] = useState<string | null>(null);
-  const [audioEnabled, setAudioEnabled] = useState<boolean>(() => bgmManager.isEnabled());
-
-  useEffect(() => {
-    bgmManager.playTrack('開局');
-  }, []);
-
-  const handleToggleAudio = () => {
-    const next = !audioEnabled;
-    setAudioEnabled(next);
-    bgmManager.setMuted(!next);
-  };
 
   const handleSelectScenario = (id: number) => {
     setSelectedScenario(id);
@@ -66,16 +54,6 @@ export default function TitleScreen({ onStartGame }: TitleScreenProps) {
           backgroundSize: '40px 40px'
         }}
       ></div>
-
-      {/* Audio Quick Toggle Button */}
-      <button
-        onClick={handleToggleAudio}
-        className="absolute top-4 right-4 z-20 bg-stone-200/90 hover:bg-stone-100 text-stone-800 border-2 border-stone-800 px-2.5 py-1 rounded shadow text-xs font-bold flex items-center gap-1 transition-transform active:scale-95 cursor-pointer"
-        title={audioEnabled ? '關閉背景音樂' : '開啟背景音樂'}
-      >
-        <span>{audioEnabled ? '🔊' : '🔇'}</span>
-        <span>{audioEnabled ? '音樂中' : '靜音'}</span>
-      </button>
       
       {/* Title Header */}
       <motion.div 
@@ -84,14 +62,14 @@ export default function TitleScreen({ onStartGame }: TitleScreenProps) {
         transition={{ duration: 0.8, ease: "easeOut" }}
         className="pt-14 pb-6 text-center flex flex-col items-center z-10 drop-shadow-sm"
       >
-        <div className="relative inline-block">
+        <div className="relative inline-block px-2">
           <h1 
-            className="font-['Ma_Shan_Zheng','LXGW_WenKai_TC','Noto_Serif_TC',serif] text-[5rem] leading-none mb-3 text-[#1c1917]"
+            className="font-['Ma_Shan_Zheng','LXGW_WenKai_TC','Noto_Serif_TC',serif] text-[4rem] sm:text-[4.8rem] leading-none mb-3 text-[#1c1917]"
             style={{ textShadow: '3px 3px 0px rgba(255,255,255,0.9), -1px -1px 0px rgba(255,255,255,0.9)' }}
           >
             水墨三國
           </h1>
-          <span className="absolute -top-1 -right-12 bg-[#991b1b] text-amber-100 text-xs font-bold font-mono px-2 py-0.5 rounded-full border border-amber-300 shadow-sm">
+          <span className="absolute -top-2 right-0 bg-[#991b1b] text-amber-100 text-xs font-bold font-mono px-2 py-0.5 rounded-full border border-amber-300 shadow-sm">
             V0.1
           </span>
         </div>

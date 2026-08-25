@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GameState } from '../types';
-import { bgmManager } from '../utils/bgmManager';
 
 interface SaveSlotMeta {
   slotId: number;
@@ -15,7 +14,7 @@ interface SaveSlotMeta {
 
 interface SystemModalProps {
   isOpen: boolean;
-  mode: '存檔' | '讀檔' | '重新開始' | '音效音樂';
+  mode: '存檔' | '讀檔' | '重新開始';
   gameState: GameState;
   onClose: () => void;
   onLoadGameState: (state: GameState) => void;
@@ -34,14 +33,8 @@ export default function SystemModal({
   onResetCurrentGame,
   showToast
 }: SystemModalProps) {
-  const [activeTab, setActiveTab] = useState<'存檔' | '讀檔' | '重新開始' | '音效音樂'>(initialMode);
+  const [activeTab, setActiveTab] = useState<'存檔' | '讀檔' | '重新開始'>(initialMode);
   const [slotsMeta, setSlotsMeta] = useState<Record<number, SaveSlotMeta | null>>({});
-  const [bgmEnabled, setBgmEnabled] = useState<boolean>(() => {
-    return localStorage.getItem('san_audio_bgm') !== 'false';
-  });
-  const [sfxEnabled, setSfxEnabled] = useState<boolean>(() => {
-    return localStorage.getItem('san_audio_sfx') !== 'false';
-  });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -170,21 +163,6 @@ export default function SystemModal({
     e.target.value = '';
   };
 
-  // Toggle audio
-  const toggleBgm = () => {
-    const next = !bgmEnabled;
-    setBgmEnabled(next);
-    bgmManager.setMuted(!next);
-    showToast(next ? '背景音樂已開啟' : '背景音樂已關閉');
-  };
-
-  const toggleSfx = () => {
-    const next = !sfxEnabled;
-    setSfxEnabled(next);
-    localStorage.setItem('san_audio_sfx', next ? 'true' : 'false');
-    showToast(next ? '音效已開啟' : '音效已關閉');
-  };
-
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm font-serif">
@@ -209,7 +187,7 @@ export default function SystemModal({
 
           {/* Navigation Tabs */}
           <div className="flex bg-stone-300 border-b border-stone-400">
-            {(['存檔', '讀檔', '重新開始', '音效音樂'] as const).map(tab => (
+            {(['存檔', '讀檔', '重新開始'] as const).map(tab => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -382,41 +360,6 @@ export default function SystemModal({
                   >
                     <span>🔄</span>
                     <span>重置當前戰局 (還原至本局開局)</span>
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* TAB: 音效音樂 */}
-            {activeTab === '音效音樂' && (
-              <div className="flex flex-col gap-4 py-2">
-                <div className="bg-stone-50 border border-stone-300 rounded p-4 flex items-center justify-between shadow-sm">
-                  <div>
-                    <div className="font-bold text-stone-800 text-sm">🎵 背景音樂 (BGM)</div>
-                    <div className="text-xs text-stone-500 mt-0.5">控制地圖與戰場背景古典國風樂曲播放</div>
-                  </div>
-                  <button
-                    onClick={toggleBgm}
-                    className={`px-4 py-1.5 rounded text-xs font-bold shadow transition-colors cursor-pointer ${
-                      bgmEnabled ? 'bg-emerald-700 text-white' : 'bg-stone-400 text-stone-100'
-                    }`}
-                  >
-                    {bgmEnabled ? '開啟中' : '已關閉'}
-                  </button>
-                </div>
-
-                <div className="bg-stone-50 border border-stone-300 rounded p-4 flex items-center justify-between shadow-sm">
-                  <div>
-                    <div className="font-bold text-stone-800 text-sm">🔊 遊戲音效 (SFX)</div>
-                    <div className="text-xs text-stone-500 mt-0.5">控制點擊、指令執行與戰鬥攻擊音效</div>
-                  </div>
-                  <button
-                    onClick={toggleSfx}
-                    className={`px-4 py-1.5 rounded text-xs font-bold shadow transition-colors cursor-pointer ${
-                      sfxEnabled ? 'bg-emerald-700 text-white' : 'bg-stone-400 text-stone-100'
-                    }`}
-                  >
-                    {sfxEnabled ? '開啟中' : '已關閉'}
                   </button>
                 </div>
               </div>
