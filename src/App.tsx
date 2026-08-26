@@ -29,13 +29,17 @@ function GameApp({
   scenarioIndex,
   rulerName,
   onReturnToTitle,
-  onResetCurrentGame
+  onResetCurrentGame,
+  isFullscreen,
+  onToggleFullscreen
 }: {
   key?: React.Key;
   scenarioIndex: number;
   rulerName: string;
   onReturnToTitle: () => void;
   onResetCurrentGame: () => void;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
 }) {
   const { gameState, actions } = useGameEngine(scenarioIndex, rulerName);
   const [tempAction, setTempAction] = useState<string | null>(null);
@@ -189,8 +193,37 @@ function GameApp({
   };
 
   return (
-    <div className="w-full max-w-[480px] h-full bg-stone-200 relative flex flex-col shadow-2xl overflow-hidden">
+    <div className="w-full max-w-[480px] landscape:max-w-none game-container h-full bg-stone-200 relative flex flex-col shadow-2xl overflow-hidden transition-all duration-300">
       {/* Action Outcome Result Modal (e.g., 尋訪人才、登用人才) */}
+      <AnimatePresence>
+        {(gameState.monthlyEvents && gameState.monthlyEvents.length > 0) && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-stone-900/70 backdrop-blur-sm">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-[#f4f1ea] border-4 border-[#1c1917] w-full max-w-sm p-5 shadow-2xl font-serif text-[#1c1917] flex flex-col items-center text-center relative"
+            >
+              <div className="text-4xl mb-2">🌊</div>
+              <div className="text-lg font-black text-[#991b1b] border-b-2 border-[#1c1917] pb-2 mb-3 w-full">
+                天災與事件報告
+              </div>
+              <div className="text-xs font-bold leading-relaxed bg-white/90 p-3.5 border border-stone-400 mb-4 w-full text-stone-800 text-left space-y-2 max-h-[40vh] overflow-y-auto">
+                {gameState.monthlyEvents.map((msg, idx) => (
+                  <div key={idx} className="border-b border-stone-200 pb-1 last:border-0">{msg}</div>
+                ))}
+              </div>
+              <button
+                onClick={() => actions.clearMonthlyEvents()}
+                className="w-full py-2.5 bg-[#991b1b] text-white font-black border-2 border-[#1c1917] shadow-[2px_2px_0_#1c1917] hover:bg-red-800 active:scale-95 transition-all cursor-pointer"
+              >
+                悉知 (確定)
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence>
         {gameState.lastActionResult && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-stone-900/70 backdrop-blur-sm">
@@ -238,6 +271,8 @@ function GameApp({
               actions.nextTurn();
               showToast('時光流逝，進入新的一個月。全體武將恢復待命狀態！');
             }}
+            onToggleFullscreen={onToggleFullscreen}
+            isFullscreen={isFullscreen}
           />
           
           <div className="flex-1 relative overflow-hidden">
@@ -398,6 +433,8 @@ function GameApp({
         onReturnToTitle={onReturnToTitle}
         onResetCurrentGame={onResetCurrentGame}
         showToast={showToast}
+        onToggleFullscreen={onToggleFullscreen}
+        isFullscreen={isFullscreen}
       />
     </div>
   );
@@ -407,6 +444,50 @@ export default function App() {
   const [appState, setAppState] = useState<'title' | 'playing'>('title');
   const [gameConfig, setGameConfig] = useState({ scenario: 0, ruler: '劉備' });
   const [gameKey, setGameKey] = useState<number>(0);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const active = !!document.fullscreenElement;
+      setIsFullscreen(active);
+      if (active) {
+        document.body.classList.add('fullscreen-active');
+      } else {
+        document.body.classList.remove('fullscreen-active');
+      }
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      if (document.documentElement.requestFullscreen) {
+        document.documentElement.requestFullscreen().catch(() => {
+          setIsFullscreen(prev => {
+            const next = !prev;
+            if (next) document.body.classList.add('fullscreen-active');
+            else document.body.classList.remove('fullscreen-active');
+            return next;
+          });
+        });
+      } else {
+        setIsFullscreen(prev => {
+          const next = !prev;
+          if (next) document.body.classList.add('fullscreen-active');
+          else document.body.classList.remove('fullscreen-active');
+          return next;
+        });
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      }
+    }
+  };
 
   const handleStartGame = (scenarioIndex: number, rulerName: string) => {
     setGameConfig({ scenario: scenarioIndex, ruler: rulerName });
@@ -429,6 +510,8 @@ export default function App() {
           rulerName={gameConfig.ruler}
           onReturnToTitle={() => setAppState('title')}
           onResetCurrentGame={handleResetCurrentGame}
+          isFullscreen={isFullscreen}
+          onToggleFullscreen={toggleFullscreen}
         />
       )}
     </div>

@@ -349,14 +349,36 @@ export default function InspectView({
                   </div>
                 </div>
 
-                <div className="text-right">
+                <div className="text-right flex flex-col items-end">
                   <div className="text-xs text-stone-500 font-bold">統治勢力</div>
                   <div className="text-base font-black text-[#991b1b]">
                     {currentInspectProvince.state.rulerName ? `【${currentInspectProvince.state.rulerName}】` : '無主空城'}
-                    {currentInspectProvince.state.isAutonomous && currentInspectProvince.state.rulerName === gameState.rulerName && (
-                      <span className="text-[10px] bg-amber-600 text-white px-1.5 py-0.5 rounded ml-1 align-middle">自治</span>
-                    )}
                   </div>
+                  {(() => {
+                    const inspectStationedGenerals = Object.values(gameState.generalsData).filter(
+                      g => g.provinceId === inspectProvinceId && !g.isWild
+                    );
+                    const inspectRulerInProvince = inspectStationedGenerals.find(g => g.isRuler);
+                    const inspectPrefect = inspectStationedGenerals.find(g => g.role === '太守');
+                    const inspectGovName = inspectRulerInProvince
+                      ? `${inspectRulerInProvince.name} (君主)`
+                      : inspectPrefect
+                        ? inspectPrefect.name
+                        : inspectStationedGenerals.length > 0
+                          ? '未指派'
+                          : '無';
+
+                    return (
+                      <div className="text-xs font-bold text-stone-700 mt-1 flex items-center gap-1.5 flex-wrap justify-end">
+                        <span>太守: <strong className="text-amber-900">{inspectGovName}</strong></span>
+                        {currentInspectProvince.state.isAutonomous ? (
+                          <span className="text-[10px] bg-amber-600 text-white px-1.5 py-0.5 rounded font-bold">自治中</span>
+                        ) : (
+                          <span className="text-[10px] bg-stone-600 text-white px-1.5 py-0.5 rounded font-bold">直轄</span>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 

@@ -118,7 +118,7 @@ export function getHistoricalReserveMilitary(
   // 201 年 官渡之戰 (Scenario 2)
   if (scenarioIndex === 2) {
     if (provinceId === 13 || provinceId === 11) return { training: 88 }; // 許昌/濮陽 (曹操官渡決戰主力)
-    if (provinceId === 4 || provinceId === 8)   return { training: 84 }; // 鄴城/齊郡 (袁紹主力)
+    if (provinceId === 4 || provinceId === 8)   return { training: 84 }; // 鄴城/平原 (袁紹主力)
     if (provinceId === 21 || provinceId === 22) return { training: 80 }; // 建業/吳郡 (孫權江東舟師)
     if (provinceId === 28 || provinceId === 29) return { training: 74 }; // 襄陽/江陵 (荊襄甲士)
     if (provinceId === 36) return { training: 64 }; // 成都 (益州兵)
@@ -358,9 +358,9 @@ export function calculateTroopTrainingGain(
 ): number {
   if (soldierCount <= 0) return 0;
   
-  // 採用指數化公式，武力 100 基準為 20 (搭配 3000 兵)
-  const strFactor = Math.pow(instructorStr / 100, 3);
-  const baseGain = 20 * strFactor;
+  // 採用指數化公式，武力 100 基準調整為 7 (搭配 3000 兵)
+  const strFactor = Math.pow(Math.max(0, instructorStr) / 100, 3);
+  const baseGain = 7 * strFactor;
   
   // 兵力加權：以 3000 人為基準(1.0倍)，人數越少訓練越快
   const countFactor = Math.sqrt(3000 / Math.max(500, soldierCount));
@@ -370,6 +370,34 @@ export function calculateTroopTrainingGain(
   
   const rawGain = Math.round(baseGain * countFactor * difficultyFactor);
   const maxGain = Math.max(0, 100 - currentTraining);
-  return Math.min(maxGain, Math.max(1, rawGain));
+  // 全軍操練單次上限最高 8% (若武力低則僅 1~2%)
+  return Math.min(maxGain, Math.min(8, Math.max(1, rawGain)));
 }
+
+/**
+ * 計算土地開發與商業開發效益 (上限 +7)
+ * 政治 >= 95 達到滿標 +7
+ * 政治 < 95 呈指數懲罰曲線 (低政治效果顯著降低)
+ */
+export function calculateDevGain(pol: number): number {
+  if (pol >= 95) return 7;
+  if (pol <= 0) return 1;
+  const ratio = Math.max(0, pol) / 95;
+  const gain = Math.floor(Math.pow(ratio, 1.2) * 7);
+  return Math.min(7, Math.max(1, gain));
+}
+
+/**
+ * 計算治水(洪水防治)效益 (上限 -5)
+ * 政治 >= 95 達到滿標 -5
+ * 政治 < 95 呈指數懲罰曲線 (低政治效果顯著降低)
+ */
+export function calculateFloodGain(pol: number): number {
+  if (pol >= 95) return 5;
+  if (pol <= 0) return 1;
+  const ratio = Math.max(0, pol) / 95;
+  const gain = Math.floor(Math.pow(ratio, 1.2) * 5);
+  return Math.min(5, Math.max(1, gain));
+}
+
 

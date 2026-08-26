@@ -94,6 +94,7 @@ export interface GameState {
   // Talent / Discovery logs or extra states
   wildGenerals?: string[]; // Names of discovered wild generals available for hiring
   lastActionResult?: ActionResult | null;
+  monthlyEvents?: string[]; // Log of events like disasters happened at the start of the month
 }
 
 export interface ActionResult {

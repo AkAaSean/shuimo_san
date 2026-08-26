@@ -28,7 +28,7 @@ export default function TitleScreen({ onStartGame }: TitleScreenProps) {
   };
 
   return (
-    <div className="w-full max-w-[480px] h-full bg-[#f2efeb] text-[#1c1917] relative flex flex-col shadow-[0_0_50px_rgba(0,0,0,0.5)] overflow-hidden font-serif border-x-[15px] border-[#333]">
+    <div className="w-full max-w-[480px] landscape:max-w-none game-container h-full bg-[#f2efeb] text-[#1c1917] relative flex flex-col shadow-[0_0_50px_rgba(0,0,0,0.5)] overflow-hidden font-serif border-x-[15px] landscape:border-x-0 border-[#333] transition-all duration-300">
       {/* Background Image (Traditional Chinese Ink Painting) */}
       <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
         <img 

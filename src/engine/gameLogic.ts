@@ -13,7 +13,9 @@ import {
   calculateDraftCost,
   calculateDraftDiscountRate,
   calculateMaxProvinceDraft,
-  calculateTroopTrainingGain
+  calculateTroopTrainingGain,
+  calculateDevGain,
+  calculateFloodGain
 } from '../data/historicalProvinceConfig';
 import { getGeneralItemBonus } from '../data/items';
 import { getFactionStrategist } from './strategistAdvice';
@@ -575,9 +577,7 @@ export function executeCommand(state: GameState, provinceId: number, category: s
       const devCost = 100; // 一次 100 金
       if (province.gold >= devCost) {
         province.gold -= devCost;
-        // 採用更嚴苛的指數公式：政治力極端衰減，政治100最多提升約15
-        const polFactor = Math.floor(Math.pow(Math.max(0, totalPol) / 100, 3) * 12);
-        const increase = Math.max(1, polFactor) + Math.floor(Math.random() * 4);
+        const increase = calculateDevGain(totalPol);
         province.value = Math.min(tierRules.maxDev, province.value + increase);
         actingGen.hasActed = true;
         newState.generalsData[actingGen.name] = actingGen;
@@ -586,9 +586,7 @@ export function executeCommand(state: GameState, provinceId: number, category: s
       const commCost = 100; // 一次 100 金
       if (province.gold >= commCost) {
         province.gold -= commCost;
-        // 採用更嚴苛的指數公式：政治力極端衰減，政治100最多提升約15
-        const polFactor = Math.floor(Math.pow(Math.max(0, totalPol) / 100, 3) * 12);
-        const increase = Math.max(1, polFactor) + Math.floor(Math.random() * 4);
+        const increase = calculateDevGain(totalPol);
         province.commerce = Math.min(tierRules.maxCommerce, (province.commerce || 0) + increase);
         actingGen.hasActed = true;
         newState.generalsData[actingGen.name] = actingGen;
@@ -597,8 +595,7 @@ export function executeCommand(state: GameState, provinceId: number, category: s
       const floodCost = 100; // 一次 100 金
       if (province.gold >= floodCost) {
         province.gold -= floodCost;
-        const polFactor = Math.floor(Math.pow(Math.max(0, totalPol) / 100, 3) * 12);
-        const decrease = Math.max(1, polFactor) + Math.floor(Math.random() * 4) + 1;
+        const decrease = calculateFloodGain(totalPol);
         province.flood = Math.max(0, province.flood - decrease);
         actingGen.hasActed = true;
         newState.generalsData[actingGen.name] = actingGen;
@@ -642,8 +639,7 @@ export function executeCommand(state: GameState, provinceId: number, category: s
       const commCost = 100; // 一次 100 金
       if (province.gold >= commCost) {
         province.gold -= commCost;
-        const polFactor = Math.floor(Math.pow(Math.max(0, totalPol) / 100, 3) * 12);
-        const increase = Math.max(1, polFactor) + Math.floor(Math.random() * 4);
+        const increase = calculateDevGain(totalPol);
         province.commerce = Math.min(tierRules.maxCommerce, (province.commerce || 0) + increase);
         actingGen.hasActed = true;
         newState.generalsData[actingGen.name] = actingGen;
@@ -1496,31 +1492,228 @@ export function executeCommand(state: GameState, provinceId: number, category: s
   return newState;
 }
 
+function executeProvinceAI(
+  updatedP: ProvinceState, 
+  newState: GameState, 
+  rulerName: string, 
+  isAutonomousPlayer: boolean
+) {
+  const tierRules = getProvinceTierRules(updatedP.id);
+  const aiGenerals = Object.values(newState.generalsData).filter(
+    g => g.provinceId === updatedP.id && !g.hasActed && !g.isWild && !g.activeTask
+  );
+
+  // 1. 若無將領，極簡保底
+  if (aiGenerals.length === 0) {
+     if (updatedP.flood > 50 && updatedP.gold >= 100) {
+        updatedP.gold -= 100;
+        updatedP.flood -= 5;
+     } else if (updatedP.loyalty < 50 && updatedP.food >= 1000) {
+        updatedP.food -= 1000;
+        updatedP.loyalty += 5;
+     }
+     return;
+  }
+
+  // 排序：結合政治與智力 (對於徵兵，武將也有用，後續分流)
+  aiGenerals.sort((a, b) => (b.pol + b.int) - (a.pol + a.int));
+
+  // 動態安全兵力上限
+  // 1. 武將總帶兵上限
+  const maxTroopCapacity = aiGenerals.reduce((sum, g) => sum + (g.maxTroops || 10000), 0) + 10000; // 基礎 1萬預備兵空間
+  // 2. 預估秋收量 (除以 1.2 作為絕對安全線)
+  const estHarvest = getEstimatedAnnualFood(updatedP);
+  const safeTroopLimitByFood = Math.floor(estHarvest / 1.2);
+  // 3. 不超過人口的 15%
+  const popLimit = Math.floor(updatedP.population * 0.15);
+
+  const targetTroops = Math.max(0, Math.min(maxTroopCapacity, safeTroopLimitByFood, popLimit));
+  
+  const currentTroops = (updatedP.soldiers || 0) + aiGenerals.reduce((sum, g) => sum + (g.soldiers || 0), 0);
+
+  // 判定當前階段
+  const isPhase1 = currentTroops < targetTroops * 0.5;
+  const isPhase2 = !isPhase1 && (updatedP.value < tierRules.maxDev * 0.33 || (updatedP.commerce || 50) < tierRules.maxCommerce * 0.33);
+  const isPhase3 = !isPhase1 && !isPhase2 && currentTroops < targetTroops * 0.8;
+  const isPhase4 = !isPhase1 && !isPhase2 && !isPhase3;
+
+  aiGenerals.forEach(g => {
+      const gen = { ...g };
+      const polFactor = Math.floor(Math.pow(Math.max(0, gen.pol) / 100, 3) * 12) || 1;
+      const chaFactor = Math.floor(Math.pow(Math.max(0, gen.cha) / 100, 3) * 12) || 1;
+      const leaFactor = Math.floor(Math.pow(Math.max(0, gen.str) / 100, 3) * 12) || 1;
+
+      let actionTaken = false;
+
+      // 優先級 0: 災後重建 (賑災與治水，這是生存根基，永遠最高)
+      if (!actionTaken && updatedP.loyalty < 65 && updatedP.food >= 1500) {
+          updatedP.food -= 1000;
+          const loyaltyGain = Math.floor(gen.cha / 10) + 2;
+          updatedP.loyalty = Math.min(100, updatedP.loyalty + loyaltyGain);
+          actionTaken = true;
+      }
+      if (!actionTaken && updatedP.flood > 30 && updatedP.gold >= 100) {
+          updatedP.gold -= 100;
+          const decrease = calculateFloodGain(gen.pol);
+          updatedP.flood = Math.max(0, updatedP.flood - decrease);
+          actionTaken = true;
+      }
+
+      // 優先級 1: 尋訪與錄用在野武將 (資金充裕時，擴充人才庫)
+      if (!actionTaken && updatedP.gold >= 300 && Math.random() < 0.25) {
+         const wildInProvince = Object.values(newState.generalsData).filter(
+           wg => wg.isWild && wg.provinceId === updatedP.id
+         );
+         const undiscovered = wildInProvince.filter(
+           wg => !(newState.wildGenerals || []).includes(wg.name)
+         );
+         if (undiscovered.length > 0) {
+            const target = undiscovered[0];
+            const targetGen = { ...target };
+            const hireChance = 0.35 + ((gen.cha - targetGen.int) * 0.01);
+            
+            if (Math.random() < hireChance) {
+               targetGen.isWild = false;
+               targetGen.loyalty = 85; 
+               newState.generalsData[targetGen.name] = targetGen;
+            } else {
+               newState.wildGenerals = [...(newState.wildGenerals || []), targetGen.name];
+            }
+            actionTaken = true;
+         } else {
+             const discovered = wildInProvince.filter(
+               wg => (newState.wildGenerals || []).includes(wg.name)
+             );
+             if (discovered.length > 0) {
+                const target = discovered[0];
+                const targetGen = { ...target };
+                const hireChance = 0.4 + ((gen.cha - targetGen.int) * 0.01);
+                if (Math.random() < hireChance) {
+                   targetGen.isWild = false;
+                   targetGen.loyalty = 80; 
+                   newState.generalsData[targetGen.name] = targetGen;
+                   actionTaken = true;
+                }
+             }
+         }
+      }
+
+      // 各階段核心行為分流
+      const doDraft = () => {
+          if (!updatedP.hasDraftedThisMonth && updatedP.gold >= 200 && updatedP.population >= tierRules.minPopulation + 3000) {
+              const maxDraft = Math.min((gen.cha + 50) * 15, 3000); 
+              const amount = Math.min(maxDraft, updatedP.population - tierRules.minPopulation, Math.floor(updatedP.gold * 10), Math.max(0, targetTroops - currentTroops));
+              
+              if (amount >= 500) {
+                 const goldCost = Math.floor(amount / 10);
+                 updatedP.gold -= goldCost;
+                 updatedP.population -= amount;
+                 
+                 const spaceInGen = (gen.maxTroops || 10000) - (gen.soldiers || 0);
+                 if (spaceInGen > 0) {
+                    const toGen = Math.min(spaceInGen, amount);
+                    gen.soldiers = (gen.soldiers || 0) + toGen;
+                    updatedP.soldiers = (updatedP.soldiers || 0) + (amount - toGen);
+                 } else {
+                    updatedP.soldiers = (updatedP.soldiers || 0) + amount;
+                 }
+
+                 updatedP.loyalty = Math.max(0, updatedP.loyalty - 3);
+                 updatedP.hasDraftedThisMonth = true;
+                 return true;
+              }
+          }
+          return false;
+      };
+
+      const doTrain = () => {
+          const strFactor = Math.floor(Math.pow(Math.max(0, gen.str) / 100, 2.5) * 5);
+          const increase = Math.min(7, Math.max(1, strFactor + Math.floor(Math.random() * 2) + 1));
+          if ((gen.soldiers || 0) > 0 && (gen.training || 0) < 80) {
+              gen.training = Math.min(100, (gen.training || 0) + increase);
+              return true;
+          } else if ((updatedP.soldiers || 0) > 0 && (updatedP.training || 0) < 80) {
+              updatedP.training = Math.min(100, (updatedP.training || 0) + increase);
+              return true;
+          }
+          return false;
+      };
+
+      const doDomestic = () => {
+          if (updatedP.gold >= 100) {
+              const needsFarming = updatedP.value < tierRules.maxDev;
+              const needsCommerce = (updatedP.commerce || 50) < tierRules.maxCommerce;
+              
+              const increase = calculateDevGain(gen.pol);
+
+              const doFarming = () => {
+                  updatedP.gold -= 100;
+                  updatedP.value = Math.min(tierRules.maxDev, updatedP.value + increase);
+              };
+              const doCommerce = () => {
+                  updatedP.gold -= 100;
+                  updatedP.commerce = Math.min(tierRules.maxCommerce, (updatedP.commerce || 50) + increase);
+              };
+
+              if (needsFarming && needsCommerce) {
+                  Math.random() < 0.5 ? doFarming() : doCommerce();
+                  return true;
+              } else if (needsFarming) {
+                  doFarming(); return true;
+              } else if (needsCommerce) {
+                  doCommerce(); return true;
+              }
+          }
+          return false;
+      };
+
+      if (!actionTaken) {
+          if (isPhase1) {
+              // 階段1: 絕對軍事優先 (徵兵 -> 訓練 -> 內政補底)
+              actionTaken = doDraft() || doTrain() || doDomestic();
+          } else if (isPhase2) {
+              // 階段2: 鞏固基底 (停止徵兵，全力內政與訓練)
+              if (gen.pol > gen.str) {
+                  actionTaken = doDomestic() || doTrain();
+              } else {
+                  actionTaken = doTrain() || doDomestic();
+              }
+          } else if (isPhase3) {
+              // 階段3: 深度備戰 (重啟徵兵，擴軍為主)
+              if (gen.str > gen.pol) {
+                  actionTaken = doDraft() || doTrain() || doDomestic();
+              } else {
+                  actionTaken = doDomestic() || doDraft() || doTrain();
+              }
+          } else {
+              // 階段4: 富國強兵 (軍政雙行)
+              if (gen.str > gen.pol) {
+                  actionTaken = doDraft() || doTrain() || doDomestic();
+              } else {
+                  actionTaken = doDomestic() || doTrain() || doDraft();
+              }
+          }
+      }
+
+      gen.hasActed = true; 
+      newState.generalsData[gen.name] = gen;
+  });
+}
+
 export function processAITurn(state: GameState): GameState {
-  let newState = { ...state, provincesData: { ...state.provincesData } };
+  let newState = { 
+     ...state, 
+     provincesData: { ...state.provincesData }, 
+     generalsData: { ...state.generalsData } 
+  };
   
   Object.values(newState.provincesData).forEach(p => {
-    // Non-player rulers act automatically
-    if (p.rulerName && p.rulerName !== state.rulerName) {
-       const updatedP = { ...p };
-       const tierRules = getProvinceTierRules(p.id);
-       
-       // Basic AI Decision Tree
-       if (updatedP.flood > 45 && updatedP.gold >= 100) {
-          updatedP.gold -= 100;
-          updatedP.flood = Math.max(0, updatedP.flood - (Math.floor(Math.random() * 8) + 5));
-       } else if (updatedP.value < tierRules.maxDev * 0.75 && updatedP.gold >= 100) {
-          updatedP.gold -= 100;
-          updatedP.value = Math.min(tierRules.maxDev, updatedP.value + (Math.floor(Math.random() * 8) + 4));
-       } else if ((updatedP.commerce || 0) < tierRules.maxCommerce * 0.75 && updatedP.gold >= 100) {
-          updatedP.gold -= 100;
-          updatedP.commerce = Math.min(tierRules.maxCommerce, (updatedP.commerce || 0) + (Math.floor(Math.random() * 8) + 4));
-       } else if (updatedP.population >= tierRules.minPopulation + 3000 && updatedP.gold >= 50) {
-          updatedP.gold -= 40;
-          updatedP.population -= 1000;
-          updatedP.soldiers += 1000;
-       }
-       
+    const isEnemyAI = p.rulerName && p.rulerName !== state.rulerName;
+    const isPlayerAutonomous = p.rulerName === state.rulerName && p.isAutonomous;
+    
+    if (isEnemyAI || isPlayerAutonomous) {
+       let updatedP = { ...p };
+       executeProvinceAI(updatedP, newState, p.rulerName!, isPlayerAutonomous);
        newState.provincesData[p.id] = updatedP;
     }
   });
@@ -1566,6 +1759,9 @@ export function advanceTime(state: GameState): GameState {
 
   const seasonIndex = Math.floor((newMonth - 1) / 3);
   const newSeason = SEASONS[seasonIndex];
+  
+  // Clear monthly events log
+  newState.monthlyEvents = [];
 
   // 3. Process time-based events & seasonal tax/harvest
   Object.values(newState.provincesData).forEach(p => {
@@ -1603,6 +1799,158 @@ export function advanceTime(state: GameState): GameState {
         updatedP.population += Math.max(100, growth);
      }
 
+     // 隨機事件: 洪水 (洪澇)
+     // 高風險城市清單
+     const highRiskProvinces = [4, 6, 7, 8, 9, 10, 11, 12, 14, 15, 21, 22, 25, 28, 29, 30, 31, 32, 33, 36];
+     // 夏季 (4~7月) 機率提高
+     const isFloodSeason = newMonth >= 4 && newMonth <= 7;
+     let floodChance = highRiskProvinces.includes(updatedP.id) ? (isFloodSeason ? 0.08 : 0.02) : (isFloodSeason ? 0.02 : 0.005);
+     
+     if (Math.random() < floodChance) {
+        const cityName = provinces.find(x => x.id === updatedP.id)?.name || '未知城池';
+        const floodControl = 100 - updatedP.flood;
+        
+        if (floodControl >= 70) {
+            // 防禦成功，無傷害
+            newState.monthlyEvents?.push(`【洪水】${cityName} 發生洪水，但因治水得當，未造成任何損失！`);
+        } else {
+            // 發生傷害
+            const damageRatio = 1 - (floodControl / 70); // 0 ~ 1
+            const valueLoss = Math.floor(updatedP.value * (0.15 + Math.random() * 0.15) * damageRatio);
+            const commerceLoss = Math.floor((updatedP.commerce || 50) * (0.1 + Math.random() * 0.1) * damageRatio);
+            
+            updatedP.value = Math.max(0, updatedP.value - valueLoss);
+            updatedP.commerce = Math.max(0, (updatedP.commerce || 50) - commerceLoss);
+            
+            newState.monthlyEvents?.push(`【洪水】${cityName} 遭遇洪水侵襲！堤防潰堤，農業下降 ${valueLoss}，商業下降 ${commerceLoss}！`);
+        }
+        
+        // 無論是否造成傷害，堤防都會受損 (防治率下降 10~20% -> flood 增加 10~20)
+        const structureDamage = 10 + Math.floor(Math.random() * 11);
+        updatedP.flood = Math.min(100, updatedP.flood + structureDamage);
+     }
+
+     // 隨機事件: 颱風
+     // 限定 7, 8, 9 月
+     if (newMonth >= 7 && newMonth <= 9) {
+        // 高風險沿海城市: 7(北海), 9(琅邪), 10(下邳), 21(建業), 23(吳郡), 24(會稽), 26(夷州), 34(嶺南), 41(南海), 42(交趾)
+        const typhoonProvinces = [7, 9, 10, 21, 23, 24, 26, 34, 41, 42];
+        if (typhoonProvinces.includes(updatedP.id)) {
+           // 每月 4% 機率發生
+           if (Math.random() < 0.04) {
+              const cityName = provinces.find(x => x.id === updatedP.id)?.name || '未知城池';
+              
+              // 基礎傷害 10% ~ 20%
+              let damageMultiplier = 0.1 + Math.random() * 0.1;
+              let isMitigated = false;
+              
+              // 忠誠度 > 80，傷害減半
+              if (updatedP.loyalty > 80) {
+                 damageMultiplier *= 0.5;
+                 isMitigated = true;
+              }
+              
+              const valueLoss = Math.floor(updatedP.value * damageMultiplier);
+              const commerceLoss = Math.floor((updatedP.commerce || 50) * damageMultiplier);
+              
+              updatedP.value = Math.max(0, updatedP.value - valueLoss);
+              updatedP.commerce = Math.max(0, (updatedP.commerce || 50) - commerceLoss);
+              
+              // 忠誠度下降 5~10
+              const loyaltyLoss = 5 + Math.floor(Math.random() * 6);
+              updatedP.loyalty = Math.max(0, updatedP.loyalty - loyaltyLoss);
+              
+              let msg = `【颱風】${cityName} 遭遇狂風暴雨侵襲！`;
+              if (isMitigated) {
+                 msg += `幸得軍民一心，災情得以控制。商業下降 ${commerceLoss}，農業下降 ${valueLoss}，民心微降 ${loyaltyLoss}。`;
+              } else {
+                 msg += `城鎮設施嚴重損毀。商業下降 ${commerceLoss}，農業下降 ${valueLoss}，民心下降 ${loyaltyLoss}！`;
+              }
+              newState.monthlyEvents?.push(msg);
+           }
+        }
+     }
+
+     // 隨機事件: 旱災 (Drought)
+     // 限定 3, 4, 5, 6 月
+     if (newMonth >= 3 && newMonth <= 6) {
+        // 高風險內陸/北方城市
+        const droughtProvinces = [1, 2, 3, 4, 5, 6, 13, 15, 16, 17, 18, 19, 20, 27, 35];
+        const droughtChance = droughtProvinces.includes(updatedP.id) ? 0.04 : 0.01;
+        
+        if (Math.random() < droughtChance) {
+           const cityName = provinces.find(x => x.id === updatedP.id)?.name || '未知城池';
+           
+           // 基礎傷害
+           let valueLoss = Math.floor(updatedP.value * (0.1 + Math.random() * 0.1)); // 10%~20%
+           let populationLoss = Math.floor(updatedP.population * (0.02 + Math.random() * 0.03)); // 2%~5%
+           const loyaltyLoss = 5 + Math.floor(Math.random() * 6); // 5~10
+           
+           let isMitigated = false;
+           const tierRules = getProvinceTierRules(updatedP.id);
+           
+           // 農業發展度 > 上限的 1/3，傷害減半
+           if (updatedP.value > tierRules.maxDev / 3) {
+              valueLoss = Math.floor(valueLoss / 2);
+              populationLoss = Math.floor(populationLoss / 2);
+              isMitigated = true;
+           }
+           
+           updatedP.value = Math.max(0, updatedP.value - valueLoss);
+           updatedP.population = Math.max(0, updatedP.population - populationLoss);
+           updatedP.loyalty = Math.max(0, updatedP.loyalty - loyaltyLoss);
+           
+           let msg = `【旱災】${cityName} 遭遇嚴重旱災！`;
+           if (isMitigated) {
+              msg += `得益於當地水利設施完善，災情減輕。農業下降 ${valueLoss}，人口流失 ${populationLoss} 人，民心下降 ${loyaltyLoss}。`;
+           } else {
+              msg += `赤地千里，哀鴻遍野！農業下降 ${valueLoss}，人口流失 ${populationLoss} 人，民心下降 ${loyaltyLoss}。`;
+           }
+           newState.monthlyEvents?.push(msg);
+        }
+     }
+
+     // 隨機事件: 地震 (Earthquake)
+     // 12個月皆可能發生，極低頻率
+     const earthquakeProvinces = [16, 17, 18, 19, 20, 35, 36, 37, 38, 39, 40, 43];
+     const earthquakeChance = earthquakeProvinces.includes(updatedP.id) ? 0.0167 : 0.004;
+     
+     if (Math.random() < earthquakeChance) {
+        const cityName = provinces.find(x => x.id === updatedP.id)?.name || '未知城池';
+        
+        // 基礎傷害 (農業、商業、治水、人口、士兵、民心)
+        const valueLoss = Math.floor(updatedP.value * (0.2 + Math.random() * 0.2)); // 20%~40%
+        const commerceLoss = Math.floor((updatedP.commerce || 50) * (0.2 + Math.random() * 0.2)); // 20%~40%
+        const popLoss = Math.floor(updatedP.population * (0.05 + Math.random() * 0.05)); // 5%~10%
+        const soldierLoss = Math.floor((updatedP.soldiers || 0) * (0.05 + Math.random() * 0.05)); // 5%~10%
+        const floodDmg = 30 + Math.floor(Math.random() * 21); // 30~50
+        const loyaltyLoss = 15 + Math.floor(Math.random() * 6); // 15~20
+        
+        updatedP.value = Math.max(0, updatedP.value - valueLoss);
+        updatedP.commerce = Math.max(0, (updatedP.commerce || 50) - commerceLoss);
+        updatedP.population = Math.max(0, updatedP.population - popLoss);
+        if (updatedP.soldiers) {
+            updatedP.soldiers = Math.max(0, updatedP.soldiers - soldierLoss);
+        }
+        updatedP.flood = Math.min(100, updatedP.flood + floodDmg);
+        updatedP.loyalty = Math.max(0, updatedP.loyalty - loyaltyLoss);
+        
+        let msg = `【地震】天搖地動！${cityName} 發生大地震！房屋倒塌，哀鴻遍野！商業下降 ${commerceLoss}，農業下降 ${valueLoss}，軍民死傷 ${popLoss + soldierLoss} 人，民心大幅下降 ${loyaltyLoss}。`;
+        
+        // 緊急救援補償 (僅玩家勢力且極度缺錢缺糧)
+        if (updatedP.rulerName === state.rulerName) {
+           if (updatedP.gold < 1000 || updatedP.food < 5000) {
+              const aidGold = 500 + Math.floor(Math.random() * 501);
+              const aidFood = 2000 + Math.floor(Math.random() * 3001);
+              updatedP.gold += aidGold;
+              updatedP.food += aidFood;
+              updatedP.loyalty = Math.min(100, updatedP.loyalty + 8);
+              msg += ` 災情慘重，周邊商賈與百姓自發捐獻，獲得賑災金 ${aidGold}，賑災糧 ${aidFood}！`;
+           }
+        }
+        newState.monthlyEvents?.push(msg);
+     }
+
      // 每月兵糧消耗
      if (updatedP.rulerName) {
         const monthlyConsumption = getEstimatedMonthlyFoodConsumption(updatedP, Object.values(newState.generalsData));
@@ -1625,58 +1973,7 @@ export function advanceTime(state: GameState): GameState {
            });
         }
      }
-
-     // 3.5 玩家『郡縣自治』每月太守自動施政 (派發未行動武將)
-     if (updatedP.rulerName === state.rulerName && updatedP.isAutonomous) {
-        const tierRules = getProvinceTierRules(updatedP.id);
-        const unactedGenerals = Object.values(newState.generalsData).filter(
-          g => g.provinceId === updatedP.id && !g.hasActed && !g.isWild && !g.activeTask
-        );
-
-        unactedGenerals.forEach(g => {
-          const updatedGen = { ...g };
-          let actionTaken = false;
-          if (updatedP.flood > 35 && updatedP.gold >= 100) {
-            updatedP.gold -= 100;
-            const polFactor = Math.floor(Math.pow(Math.max(0, updatedGen.pol) / 100, 3) * 12);
-            const decrease = Math.max(1, polFactor) + Math.floor(Math.random() * 4) + 1;
-            updatedP.flood = Math.max(0, updatedP.flood - decrease);
-            actionTaken = true;
-          } else if (updatedP.value < tierRules.maxDev && updatedP.gold >= 100) {
-            updatedP.gold -= 100;
-            const polFactor = Math.floor(Math.pow(Math.max(0, updatedGen.pol) / 100, 3) * 12);
-            const increase = Math.max(1, polFactor) + Math.floor(Math.random() * 4);
-            updatedP.value = Math.min(tierRules.maxDev, updatedP.value + increase);
-            actionTaken = true;
-          } else if ((updatedP.commerce || 0) < tierRules.maxCommerce && updatedP.gold >= 100) {
-            updatedP.gold -= 100;
-            const polFactor = Math.floor(Math.pow(Math.max(0, updatedGen.pol) / 100, 3) * 12);
-            const increase = Math.max(1, polFactor) + Math.floor(Math.random() * 4);
-            updatedP.commerce = Math.min(tierRules.maxCommerce, (updatedP.commerce || 0) + increase);
-            actionTaken = true;
-          } else if (updatedP.loyalty < 85 && updatedP.food >= 100) {
-            updatedP.food -= 100;
-            const chaFactor = Math.floor(updatedGen.cha / 10);
-            const increase = Math.max(1, chaFactor) + Math.floor(Math.random() * 3);
-            updatedP.loyalty = Math.min(100, updatedP.loyalty + increase);
-            actionTaken = true;
-          } else if (updatedGen.soldiers > 0 && updatedGen.training < 100) {
-            // 自動訓練自己的部隊
-            const strFactor = Math.pow(updatedGen.str / 100, 3);
-            const baseGain = 20 * strFactor;
-            const countFactor = Math.sqrt(3000 / Math.max(500, updatedGen.soldiers));
-            const difficultyFactor = updatedGen.training >= 80 ? 0.6 : (updatedGen.training >= 60 ? 0.8 : 1.0);
-            const rawGain = Math.round(baseGain * countFactor * difficultyFactor);
-            updatedGen.training = Math.min(100, updatedGen.training + Math.max(1, rawGain));
-            actionTaken = true;
-          }
-          
-          if (actionTaken) {
-            updatedGen.hasActed = true;
-            newState.generalsData[updatedGen.name] = updatedGen; // 更新 state
-          }
-        });
-     }
+     
 
      newState.provincesData[p.id] = updatedP;
   });

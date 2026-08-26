@@ -39,7 +39,7 @@ export const PROVINCE_BASE_CONFIGS: Record<number, ProvinceBaseConfig> = {
 
   // ── 青州 ──
   7: { id: 7, name: '北海', tier: 'AGRICULTURAL', basePopulation: 16, baseDev: 190, baseCommerce: 135, baseDefense: 55, baseGold: 1400, baseFood: 25000, baseReserveTroops: 2200 },
-  8: { id: 8, name: '齊郡', tier: 'COMMERCIAL', basePopulation: 18, baseDev: 135, baseCommerce: 200, baseDefense: 60, baseGold: 2300, baseFood: 20000, baseReserveTroops: 2600 },
+  8: { id: 8, name: '平原', tier: 'COMMERCIAL', basePopulation: 18, baseDev: 135, baseCommerce: 200, baseDefense: 60, baseGold: 2300, baseFood: 20000, baseReserveTroops: 2600 },
 
   // ── 徐州 ──
   9: { id: 9, name: '琅邪', tier: 'MIDSIZED', basePopulation: 11, baseDev: 115, baseCommerce: 115, baseDefense: 52, baseGold: 1100, baseFood: 13000, baseReserveTroops: 1800 },

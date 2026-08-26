@@ -107,6 +107,13 @@ export function useGameEngine(initialScenario: number, initialRuler: string) {
     setGameState(initGame(scenarioIndex, rulerName));
   }, []);
 
+  const clearMonthlyEvents = useCallback(() => {
+    setGameState(prev => ({
+      ...prev,
+      monthlyEvents: []
+    }));
+  }, []);
+
   return {
     gameState,
     actions: {
@@ -118,6 +125,7 @@ export function useGameEngine(initialScenario: number, initialRuler: string) {
       setActiveMenu,
       setView,
       clearActionResult,
+      clearMonthlyEvents,
       loadGameState,
       resetGame
     }

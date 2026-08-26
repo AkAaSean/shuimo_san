@@ -21,6 +21,8 @@ interface SystemModalProps {
   onReturnToTitle: () => void;
   onResetCurrentGame: () => void;
   showToast: (msg: string) => void;
+  onToggleFullscreen?: () => void;
+  isFullscreen?: boolean;
 }
 
 export default function SystemModal({
@@ -31,7 +33,9 @@ export default function SystemModal({
   onLoadGameState,
   onReturnToTitle,
   onResetCurrentGame,
-  showToast
+  showToast,
+  onToggleFullscreen,
+  isFullscreen
 }: SystemModalProps) {
   const [activeTab, setActiveTab] = useState<'存檔' | '讀檔' | '重新開始'>(initialMode);
   const [slotsMeta, setSlotsMeta] = useState<Record<number, SaveSlotMeta | null>>({});
@@ -177,12 +181,24 @@ export default function SystemModal({
             <h2 className="text-xl font-bold tracking-wider flex items-center gap-2">
               <span>⚙️</span> 系統控制台 <span className="text-xs font-mono font-bold bg-amber-800 text-amber-100 px-2 py-0.5 rounded border border-amber-600 shadow-xs">V0.1</span>
             </h2>
-            <button
-              onClick={onClose}
-              className="text-stone-300 hover:text-white bg-stone-700 hover:bg-stone-600 px-2.5 py-1 rounded text-sm transition-colors cursor-pointer"
-            >
-              ✕ 關閉
-            </button>
+            <div className="flex items-center gap-2">
+              {onToggleFullscreen && (
+                <button
+                  onClick={onToggleFullscreen}
+                  className="bg-stone-700 hover:bg-stone-600 text-amber-100 px-2.5 py-1 rounded text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 border border-stone-500"
+                  title="切換全螢幕"
+                >
+                  <span>{isFullscreen ? '✕' : '⛶'}</span>
+                  <span>{isFullscreen ? '視窗' : '全螢幕'}</span>
+                </button>
+              )}
+              <button
+                onClick={onClose}
+                className="text-stone-300 hover:text-white bg-stone-700 hover:bg-stone-600 px-2.5 py-1 rounded text-sm transition-colors cursor-pointer"
+              >
+                ✕ 關閉
+              </button>
+            </div>
           </div>
 
           {/* Navigation Tabs */}

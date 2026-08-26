@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { GameState } from '../types';
 import { provinces } from '../data/provinces';
 import { getGeneralItemBonus } from '../data/items';
-import { getProvinceTierRules } from '../data/historicalProvinceConfig';
+import { getProvinceTierRules, calculateDevGain, calculateFloodGain } from '../data/historicalProvinceConfig';
 import { getGeneralAmbition } from '../data/historicalLoyalty';
 import { getStrategistReport } from '../engine/strategistAdvice';
 
@@ -1190,17 +1190,17 @@ export default function ActionModal({
               <div className="font-bold mb-1">任務說明：</div>
               {action === '土地開發' && (
                 <div>
-                  花費 <span className="font-bold text-amber-900">100 金</span>，由 <span className="font-bold text-[#991b1b]">{selectedGen?.name || '---'}</span> (政治: {selectedGen?.pol || 0}) 執行開墾，預期土地價值提升 +{selectedGen ? Math.max(1, Math.floor(Math.pow(Math.max(0, selectedGen.pol) / 100, 3) * 12)) + 1 : 0} 左右（本都市上限: {tierRules.maxDev}）。
+                  花費 <span className="font-bold text-amber-900">100 金</span>，由 <span className="font-bold text-[#991b1b]">{selectedGen?.name || '---'}</span> (政治: {selectedGen ? selectedGen.pol + getGeneralItemBonus(selectedGen.name, gameState.currentScenario).polBonus : 0}) 執行開墾，預期土地價值提升 +{selectedGen ? calculateDevGain(selectedGen.pol + getGeneralItemBonus(selectedGen.name, gameState.currentScenario).polBonus) : 0}（政治 &gt;= 95 達滿標 +7，本都市上限: {tierRules.maxDev}）。
                 </div>
               )}
               {(action === '商業開發' || action === '開發商業') && (
                 <div>
-                  花費 <span className="font-bold text-amber-900">100 金</span>，由 <span className="font-bold text-[#991b1b]">{selectedGen?.name || '---'}</span> (政治: {selectedGen?.pol || 0}) 開拓商埠集市、通商惠工，預期商業發展提升 +{selectedGen ? Math.max(1, Math.floor(Math.pow(Math.max(0, selectedGen.pol) / 100, 3) * 12)) + 1 : 0} 左右（本都市上限: {tierRules.maxCommerce}）。
+                  花費 <span className="font-bold text-amber-900">100 金</span>，由 <span className="font-bold text-[#991b1b]">{selectedGen?.name || '---'}</span> (政治: {selectedGen ? selectedGen.pol + getGeneralItemBonus(selectedGen.name, gameState.currentScenario).polBonus : 0}) 開拓商埠集市、通商惠工，預期商業發展提升 +{selectedGen ? calculateDevGain(selectedGen.pol + getGeneralItemBonus(selectedGen.name, gameState.currentScenario).polBonus) : 0}（政治 &gt;= 95 達滿標 +7，本都市上限: {tierRules.maxCommerce}）。
                 </div>
               )}
               {action === '洪水防治' && (
                 <div>
-                  花費 <span className="font-bold text-amber-900">100 金</span>，由 <span className="font-bold text-[#991b1b]">{selectedGen?.name || '---'}</span> (政治: {selectedGen?.pol || 0}) 督造水利，預期洪水率降低 -{selectedGen ? Math.max(1, Math.floor(Math.pow(Math.max(0, selectedGen.pol) / 100, 3) * 12)) + 2 : 0} 左右。
+                  花費 <span className="font-bold text-amber-900">100 金</span>，由 <span className="font-bold text-[#991b1b]">{selectedGen?.name || '---'}</span> (政治: {selectedGen ? selectedGen.pol + getGeneralItemBonus(selectedGen.name, gameState.currentScenario).polBonus : 0}) 督造水利，預期洪水率降低 -{selectedGen ? calculateFloodGain(selectedGen.pol + getGeneralItemBonus(selectedGen.name, gameState.currentScenario).polBonus) : 0}（政治 &gt;= 95 達滿標 -5）。
                 </div>
               )}
               {action === '開倉賑民' && (

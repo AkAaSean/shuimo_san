@@ -2,3 +2,18 @@
 @theme {
   --font-serif: 'Noto Serif TC', ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
 }
+
+/* Enable full-screen expansion when screen is rotated to landscape or full-screen class is applied */
+@media (orientation: landscape) {
+  .game-container {
+    max-width: 100% !important;
+    border-left-width: 0px !important;
+    border-right-width: 0px !important;
+  }
+}
+
+.fullscreen-active .game-container {
+  max-width: 100% !important;
+  border-left-width: 0px !important;
+  border-right-width: 0px !important;
+}

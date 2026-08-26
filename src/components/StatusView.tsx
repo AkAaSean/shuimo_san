@@ -122,6 +122,33 @@ export default function StatusView({ gameState, initialAction, onExit }: StatusV
                 <span className="font-black">{generals.length} 人</span>
               </div>
 
+              {(() => {
+                const rulerInProv = generals.find(g => g.isRuler);
+                const appointedPrefect = generals.find(g => g.role === '太守');
+                const govName = rulerInProv
+                  ? `${rulerInProv.name} (君主)`
+                  : appointedPrefect
+                    ? appointedPrefect.name
+                    : generals.length > 0
+                      ? '未指派'
+                      : '無';
+
+                return (
+                  <>
+                    <div className="flex justify-between items-center">
+                      <span className="text-stone-500 font-bold">坐鎮太守</span>
+                      <span className="font-black text-amber-900">{govName}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-stone-500 font-bold">治理模式</span>
+                      <span className={`font-black ${provinceState.isAutonomous ? 'text-amber-800' : 'text-stone-700'}`}>
+                        {provinceState.isAutonomous ? '自治中' : '直轄'}
+                      </span>
+                    </div>
+                  </>
+                );
+              })()}
+
               <div className="col-span-2 border-b border-stone-300 my-1"></div>
 
               <div className="flex justify-between items-center">
