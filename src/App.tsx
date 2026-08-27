@@ -23,6 +23,7 @@ import ActionModal from './components/ActionModal';
 import RulerTerritoryCard from './components/RulerTerritoryCard';
 import SystemModal from './components/SystemModal';
 import PendingBattlesPanel from './components/PendingBattlesPanel';
+import ManualModal from './components/ManualModal';
 import { useGameEngine } from './engine/useGameEngine';
 import { ProvinceState } from './types';
 import { provinces } from './data/provinces';
@@ -67,6 +68,7 @@ function GameApp({
   });
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isManualOpen, setIsManualOpen] = useState(false);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -289,6 +291,7 @@ function GameApp({
             }}
             onToggleFullscreen={onToggleFullscreen}
             isFullscreen={isFullscreen}
+            onOpenManual={() => setIsManualOpen(true)}
           />
           
           <div className="flex-1 relative overflow-hidden">
@@ -472,6 +475,12 @@ function GameApp({
         showToast={showToast}
         onToggleFullscreen={onToggleFullscreen}
         isFullscreen={isFullscreen}
+      />
+
+      {/* Manual Modal: 水墨三國說明書 v0.1 */}
+      <ManualModal
+        isOpen={isManualOpen}
+        onClose={() => setIsManualOpen(false)}
       />
     </div>
   );

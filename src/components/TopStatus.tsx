@@ -6,9 +6,10 @@ interface TopStatusProps {
   onRest?: () => void;
   onToggleFullscreen?: () => void;
   isFullscreen?: boolean;
+  onOpenManual?: () => void;
 }
 
-export default function TopStatus({ gameState, onRest, onToggleFullscreen, isFullscreen }: TopStatusProps) {
+export default function TopStatus({ gameState, onRest, onToggleFullscreen, isFullscreen, onOpenManual }: TopStatusProps) {
   // Calculate ruler total gold and food
   const rulerProvinces = Object.values(gameState.provincesData).filter(p => p.rulerName === gameState.rulerName);
   const totalGold = rulerProvinces.reduce((sum, p) => sum + p.gold, 0);
@@ -30,6 +31,17 @@ export default function TopStatus({ gameState, onRest, onToggleFullscreen, isFul
           <span>{`[${getEraString(gameState.year)}${gameState.month}月${gameState.season}]`}</span>
           
           <div className="flex items-center gap-1.5">
+            {onOpenManual && (
+              <button
+                onClick={onOpenManual}
+                className="bg-[#faf5ea] hover:bg-[#f3ead3] active:scale-95 text-[#78350f] border border-[#a16207] px-2 py-0.5 rounded shadow-xs text-xs font-black cursor-pointer transition-all flex items-center gap-1"
+                title="查看水墨三國說明書 v0.1"
+              >
+                <span>📖</span>
+                <span className="hidden sm:inline">說明書</span>
+              </button>
+            )}
+
             {onToggleFullscreen && (
               <button
                 onClick={onToggleFullscreen}
