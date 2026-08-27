@@ -51,7 +51,7 @@ export default function ProvinceCard({ provinceId, gameState, onClose }: Provinc
   };
 
   return (
-    <div className="absolute top-2 left-2 w-[47%] max-w-[180px] sm:max-w-[210px] bg-stone-100/95 border-2 border-stone-800 p-1.5 shadow-xl z-20 font-serif backdrop-blur-md rounded-sm text-stone-900">
+    <div className="w-[170px] sm:w-[210px] bg-stone-100/95 border-2 border-stone-800 p-1.5 shadow-xl font-serif backdrop-blur-md rounded-sm text-stone-900">
       {/* Header */}
       <div className="flex justify-between items-center border-b border-stone-800 pb-0.5 mb-1">
         <div className="flex items-center gap-1 overflow-hidden leading-tight flex-wrap">
@@ -61,6 +61,11 @@ export default function ProvinceCard({ provinceId, gameState, onClose }: Provinc
           </span>
           {state.isAutonomous && (
             <span className="text-[8.5px] bg-amber-600 text-white px-0.5 py-0.1 rounded font-bold">自治</span>
+          )}
+          {(gameState.pendingBattles || (gameState.pendingBattle ? [gameState.pendingBattle] : [])).some(b => b.targetProvinceId === provinceId) && (
+            <span className="text-[8.5px] bg-red-700 text-white px-1 py-0.1 rounded font-bold animate-pulse">
+              ⚔️ 遭受進攻目標
+            </span>
           )}
         </div>
         <button 

@@ -1,3 +1,4 @@
+import { getGeneralAvailableFormations, getFormationInfo } from '../engine/formations';
 import React, { useState, useMemo } from 'react';
 import { GameState, GeneralState } from '../types';
 import { provinces } from '../data/provinces';
@@ -1176,6 +1177,35 @@ export default function InspectView({
                   <span className="font-black text-emerald-800">{selectedGeneralDetail.training || 50}%</span>
                 </div>
               </div>
+
+              {/* Learned Formations Section */}
+              {(() => {
+                const learnedFormations = selectedGeneralDetail.formations && selectedGeneralDetail.formations.length > 0
+                  ? selectedGeneralDetail.formations
+                  : getGeneralAvailableFormations(selectedGeneralDetail);
+                return (
+                  <div className="bg-stone-50 p-2.5 rounded border border-stone-200 flex flex-col gap-1.5 text-xs">
+                    <div className="flex justify-between items-center">
+                      <span className="font-black text-stone-800 flex items-center gap-1">
+                        <span>🚩</span> 習得陣形 ({learnedFormations.length} / 5 種)
+                      </span>
+                      <span className="text-[10px] text-stone-500 font-bold">戰場可自由指派切換</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {learnedFormations.map(fname => {
+                        const info = getFormationInfo(fname);
+                        return (
+                          <div key={fname} className="bg-white border border-stone-300 px-2 py-1 rounded flex items-center gap-1.5 shadow-2xs">
+                            <span className="font-black text-[#991b1b]">【{fname}陣】</span>
+                            <span className="text-[9px] bg-stone-100 text-stone-600 px-1 rounded border border-stone-200">{info?.type || '平地'}</span>
+                            <span className="text-[10px] text-stone-500">{info?.special || ''}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Location & Action */}
               <div className="flex justify-between items-center text-xs border-t border-stone-200 pt-2">

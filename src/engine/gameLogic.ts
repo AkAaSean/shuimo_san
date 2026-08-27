@@ -1,3 +1,4 @@
+import { getGeneralAvailableFormations } from './formations';
 import { GameState, ProvinceState, GeneralState } from '../types';
 import { provinces } from '../data/provinces';
 import { generals } from '../data/generals';
@@ -270,7 +271,8 @@ export function initGame(scenarioIndex: number, playerRulerName: string): GameSt
         isRuler: isRuler,
         soldiers: startingSoldiers,
         training: baseTraining,
-        hasActed: false
+        hasActed: false,
+        formations: getGeneralAvailableFormations({ ...g, provinceId })
       };
     }
   });
@@ -319,7 +321,8 @@ export function initGame(scenarioIndex: number, playerRulerName: string): GameSt
         training: 40,
         hasActed: false,
         isWild: true, // Marked as wild in this province
-        bio: ht.desc
+        bio: ht.desc,
+        formations: getGeneralAvailableFormations(ht)
       };
     }
   });
@@ -432,7 +435,8 @@ export function initGame(scenarioIndex: number, playerRulerName: string): GameSt
                   isRuler: false,
                   soldiers: newGenTroops,
                   training: 60,
-                  hasActed: false
+                  hasActed: false,
+                  formations: getGeneralAvailableFormations({ name: newGenName, str: 65, int: 55, hp: 70, provinceId: minProvId })
                 };
                 changed = true;
               }
@@ -834,14 +838,41 @@ export function executeCommand(state: GameState, provinceId: number, category: s
         }
       }
     } else if (action === '發動戰役' && payload) {
-      const { attackingGeneralNames, targetProvinceId } = payload;
-      if (Array.isArray(attackingGeneralNames)) {
+      const { attackingGeneralNames, targetProvinceId, gold, food } = payload;
+      const currentList = newState.pendingBattles || (newState.pendingBattle ? [newState.pendingBattle] : []);
+
+      // 已經被攻擊的城市，不能再由其他城市發起二次進攻
+      if (currentList.some(b => b.targetProvinceId === targetProvinceId)) {
+        return state;
+      }
+
+      if (Array.isArray(attackingGeneralNames) && attackingGeneralNames.length > 0) {
+        // 記錄並扣除各出兵城市的隨軍錢糧
+        const participatingProvinces = new Set<number>();
         attackingGeneralNames.forEach((gName: string) => {
           const gen = newState.generalsData[gName];
-          // 已經執行過任務之武將，不能參與發動戰役
           if (gen && !gen.hasActed) {
             gen.hasActed = true;
             newState.generalsData[gName] = gen;
+            if (gen.provinceId) participatingProvinces.add(gen.provinceId);
+          }
+        });
+
+        // 依據各城市現存錢糧扣除配給
+        let remainingGold = gold || 0;
+        let remainingFood = food || 0;
+        const resourcesDeducted: Record<number, { gold: number; food: number }> = {};
+
+        participatingProvinces.forEach(pId => {
+          const prov = newState.provincesData[pId];
+          if (prov) {
+            const deductG = Math.min(prov.gold, remainingGold);
+            const deductF = Math.min(prov.food, remainingFood);
+            prov.gold -= deductG;
+            prov.food -= deductF;
+            remainingGold -= deductG;
+            remainingFood -= deductF;
+            resourcesDeducted[pId] = { gold: deductG, food: deductF };
           }
         });
         
@@ -849,13 +880,55 @@ export function executeCommand(state: GameState, provinceId: number, category: s
           .filter(g => g.provinceId === targetProvinceId && !g.isWild)
           .map(g => g.name);
 
-        newState.activeBattle = {
+        const newBattlePlan = {
+          id: `battle_${targetProvinceId}_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
           targetProvinceId,
           attackerProvinceId: provinceId,
           attackingGenerals: attackingGeneralNames,
-          defendingGenerals
+          defendingGenerals,
+          attackerGold: gold || 0,
+          attackerFood: food || 0,
+          resourcesDeducted
         };
+
+        const updatedList = [...currentList, newBattlePlan];
+        newState.pendingBattles = updatedList;
+        newState.pendingBattle = updatedList[0] || null;
       }
+    } else if (action === '撤銷出征' || action === '取消戰役') {
+      const currentList = newState.pendingBattles || (newState.pendingBattle ? [newState.pendingBattle] : []);
+      const targetPlanId = payload?.planId;
+      const targetProvId = payload?.targetProvinceId;
+
+      const battlesToCancel = (targetPlanId || targetProvId)
+        ? currentList.filter(b => (targetPlanId && b.id === targetPlanId) || (targetProvId && b.targetProvinceId === targetProvId))
+        : currentList;
+
+      const remainingBattles = (targetPlanId || targetProvId)
+        ? currentList.filter(b => !((targetPlanId && b.id === targetPlanId) || (targetProvId && b.targetProvinceId === targetProvId)))
+        : [];
+
+      battlesToCancel.forEach(battlePlan => {
+        // 返還將領行動狀態
+        battlePlan.attackingGenerals.forEach(gName => {
+          if (newState.generalsData[gName]) {
+            newState.generalsData[gName] = { ...newState.generalsData[gName], hasActed: false };
+          }
+        });
+        // 返還各城市扣除的隨軍錢糧
+        if (battlePlan.resourcesDeducted) {
+          Object.entries(battlePlan.resourcesDeducted).forEach(([pIdStr, res]) => {
+            const pId = Number(pIdStr);
+            if (newState.provincesData[pId]) {
+              newState.provincesData[pId].gold += res.gold;
+              newState.provincesData[pId].food += res.food;
+            }
+          });
+        }
+      });
+
+      newState.pendingBattles = remainingBattles;
+      newState.pendingBattle = remainingBattles[0] || null;
     } else if (action === '運送錢糧' && payload) {
       const { targetProvinceId, gold, food } = payload;
       const targetProv = newState.provincesData[targetProvinceId];

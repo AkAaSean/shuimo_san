@@ -22,8 +22,10 @@ import TitleScreen from './components/TitleScreen';
 import ActionModal from './components/ActionModal';
 import RulerTerritoryCard from './components/RulerTerritoryCard';
 import SystemModal from './components/SystemModal';
+import PendingBattlesPanel from './components/PendingBattlesPanel';
 import { useGameEngine } from './engine/useGameEngine';
 import { ProvinceState } from './types';
+import { provinces } from './data/provinces';
 
 function GameApp({
   scenarioIndex,
@@ -138,9 +140,16 @@ function GameApp({
     
     if (gameState.activeMenu !== null) {
       if (rawAction === '休息') {
+        const pendingCount = (gameState.pendingBattles || (gameState.pendingBattle ? [gameState.pendingBattle] : [])).length;
         actions.nextTurn();
         actions.setActiveMenu(null);
-        showToast('時光流逝，進入新的一個月。全體武將恢復待命狀態！');
+        if (pendingCount > 1) {
+          showToast(`⚔️ 全軍出動！即將依序進行 ${pendingCount} 場戰役！`);
+        } else if (pendingCount === 1) {
+          showToast('⚔️ 全軍出動！戰事即刻開打！');
+        } else {
+          showToast('時光流逝，進入新的一個月。全體武將恢復待命狀態！');
+        }
       } else {
         // Auto select ruler province if currently null
         if (gameState.selectedProvinceId === null) {
@@ -268,8 +277,15 @@ function GameApp({
           <TopStatus 
             gameState={gameState} 
             onRest={() => {
+              const pendingCount = (gameState.pendingBattles || (gameState.pendingBattle ? [gameState.pendingBattle] : [])).length;
               actions.nextTurn();
-              showToast('時光流逝，進入新的一個月。全體武將恢復待命狀態！');
+              if (pendingCount > 1) {
+                showToast(`⚔️ 全軍出動！即將依序進行 ${pendingCount} 場戰役！`);
+              } else if (pendingCount === 1) {
+                showToast('⚔️ 全軍出動！戰事即刻開打！');
+              } else {
+                showToast('時光流逝，進入新的一個月。全體武將恢復待命狀態！');
+              }
             }}
             onToggleFullscreen={onToggleFullscreen}
             isFullscreen={isFullscreen}
@@ -283,14 +299,31 @@ function GameApp({
               provincesData={gameState.provincesData}
             />
             
-            {gameState.selectedProvinceId && !gameState.activeMenu && (
-              <ProvinceCard 
-                provinceId={gameState.selectedProvinceId} 
-                gameState={gameState}
-                onClose={actions.clearSelection}
-              />
-            )}
+            {/* 左側浮動區：選中的城池資訊與出征軍務標籤 */}
+            <div className="absolute top-2 left-2 z-20 flex flex-col gap-1.5 items-start pointer-events-none">
+              {gameState.selectedProvinceId && !gameState.activeMenu && (
+                <div className="pointer-events-auto">
+                  <ProvinceCard 
+                    provinceId={gameState.selectedProvinceId} 
+                    gameState={gameState}
+                    onClose={actions.clearSelection}
+                  />
+                </div>
+              )}
 
+              {/* 出征軍務浮動小標籤：置於城池資訊下方，絕不遮擋右側我方城池列表 */}
+              <div className="pointer-events-auto">
+                <PendingBattlesPanel 
+                  gameState={gameState}
+                  onCancelBattle={(planId, targetProvinceId) => {
+                    actions.executeCommand(1, '軍事', '撤銷出征', undefined, { planId, targetProvinceId });
+                    showToast('已撤銷出征計畫，參戰將領與隨軍錢糧均已歸位。');
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* 右側浮動區：我方城池列表 */}
             {!gameState.activeMenu && (
               <RulerTerritoryCard 
                 gameState={gameState}
@@ -350,17 +383,21 @@ function GameApp({
         <BattleLaunchView
           gameState={gameState}
           onExit={() => actions.setView('map')}
-          onLaunchBattle={(targetProvinceId, attackingGeneralNames) => {
-            if (gameState.selectedProvinceId) {
-              actions.executeCommand(
-                gameState.selectedProvinceId,
-                '軍事',
-                '發動戰役',
-                attackingGeneralNames[0],
-                { attackingGeneralNames, targetProvinceId }
-              );
-            }
-            actions.setView('battle');
+          onLaunchBattle={(targetProvinceId, attackingGeneralNames, gold, food) => {
+            const commander = attackingGeneralNames[0];
+            const commanderProvId = gameState.generalsData[commander]?.provinceId 
+              || gameState.selectedProvinceId 
+              || 1;
+            actions.executeCommand(
+              commanderProvId,
+              '軍事',
+              '發動戰役',
+              commander,
+              { attackingGeneralNames, targetProvinceId, gold, food }
+            );
+            actions.setView('map');
+            const targetCityName = provinces.find(p => p.id === targetProvinceId)?.name || '敵城';
+            showToast(`⚔️ 已排定進軍【${targetCityName}】！全軍將於本月『休息』時正式發動進攻！`);
           }}
         />
       ) : gameState.view === 'build_fort' ? (

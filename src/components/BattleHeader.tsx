@@ -13,7 +13,7 @@ export default function BattleHeader({ state }: { state: BattleState }) {
         <span className="text-stone-600 bg-stone-200 px-2 py-0.5 rounded-sm border border-stone-400">
           [風向: {state.windDirection}]
         </span>
-        <span>[{state.time}]</span>
+        <span>[{state.time} {state.currentDay}/{state.maxDays}日]</span>
       </div>
     </div>
   );

@@ -64,8 +64,8 @@ export default function CommandMenu({ gameState, onCommandSelect, showToast }: C
   };
 
   return (
-    <div className="w-full bg-stone-200 border-t-2 border-stone-800 p-2 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] relative z-20 font-serif">
-      <div className="grid grid-cols-5 gap-2">
+    <div className="w-full bg-stone-200 border-t-2 border-stone-800 p-1 sm:p-1.5 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] relative z-20 font-serif">
+      <div className="grid grid-cols-5 gap-1 sm:gap-1.5">
         {COMMANDS.map((cmd) => {
           const isDisallowedByAutonomy = isAutonomous && [3, 4, 5, 8].includes(cmd.id);
           const isAllowed = (!isDisallowedByAutonomy && isPlayerCity) || cmd.id === 0 || cmd.id === 1 || cmd.id === 9;
@@ -74,14 +74,14 @@ export default function CommandMenu({ gameState, onCommandSelect, showToast }: C
             <button
               key={cmd.id}
               onClick={(e) => handleTouch(e, cmd.id)}
-              className={`h-12 relative overflow-hidden border rounded-sm shadow-sm flex items-center justify-center text-sm font-bold transition-transform ${
+              className={`h-8.5 sm:h-9 relative overflow-hidden border rounded-sm shadow-xs flex items-center justify-center text-xs sm:text-sm font-bold transition-transform ${
                 isAllowed
-                  ? 'bg-stone-300 border-stone-600 text-stone-800 active:scale-95 cursor-pointer'
+                  ? 'bg-stone-300 border-stone-600 text-stone-800 active:scale-95 cursor-pointer hover:bg-stone-100'
                   : 'bg-stone-200/90 border-stone-400 text-stone-400 cursor-not-allowed opacity-75'
               }`}
             >
               <span className="relative z-10 pointer-events-none flex items-center gap-0.5">
-                {!isAllowed && <span className="text-[10px]">🔒</span>}
+                {!isAllowed && <span className="text-[9px]">🔒</span>}
                 <span>{cmd.label.split('.')[1]}</span>
               </span>
               <AnimatePresence>
@@ -107,10 +107,10 @@ export default function CommandMenu({ gameState, onCommandSelect, showToast }: C
           );
         })}
       </div>
-      <div className="mt-2 text-center text-xs text-stone-500 pb-1 flex justify-center items-center gap-2">
-        <span>◆ 指令盤 v0.1 ◆</span>
+      <div className="mt-1 text-center text-[10px] text-stone-500 pb-0.5 flex justify-center items-center gap-2">
+        <span>◆ 指令盤 ◆</span>
         {!isPlayerCity && (
-          <span className="text-amber-800 font-bold bg-amber-100 px-1.5 py-0.2 rounded border border-amber-300 text-[10px]">
+          <span className="text-amber-800 font-bold bg-amber-100 px-1 py-0.1 rounded border border-amber-300 text-[9.5px]">
             ⚠️ 非我方轄區，僅限 0狀態/1查看/9系統
           </span>
         )}

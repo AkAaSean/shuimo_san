@@ -6,7 +6,29 @@ export function useGameEngine(initialScenario: number, initialRuler: string) {
   const [gameState, setGameState] = useState<GameState>(() => initGame(initialScenario, initialRuler));
 
   const dispatchNextTurn = useCallback(() => {
-    setGameState(prev => advanceTime(prev));
+    setGameState(prev => {
+      // 1. 若本月有已排定之戰役，點擊休息後依序進入第一場戰役
+      const list = prev.pendingBattles || (prev.pendingBattle ? [prev.pendingBattle] : []);
+      if (list.length > 0) {
+        const [firstBattle, ...remainingBattles] = list;
+        return {
+          ...prev,
+          activeBattle: {
+            targetProvinceId: firstBattle.targetProvinceId,
+            attackerProvinceId: firstBattle.attackerProvinceId,
+            attackingGenerals: firstBattle.attackingGenerals,
+            defendingGenerals: firstBattle.defendingGenerals,
+            attackerGold: firstBattle.attackerGold,
+            attackerFood: firstBattle.attackerFood,
+          },
+          pendingBattles: remainingBattles,
+          pendingBattle: remainingBattles[0] || null,
+          view: 'battle'
+        };
+      }
+      // 2. 無戰役則正常推進時光進入下個月
+      return advanceTime(prev);
+    });
   }, []);
 
   const dispatchExecuteCommand = useCallback((provinceId: number, category: string, action: string, generalName?: string, payload?: any) => {
@@ -18,8 +40,8 @@ export function useGameEngine(initialScenario: number, initialRuler: string) {
       const battle = prev.activeBattle;
       if (!battle) return { ...prev, view: 'map' };
 
-      const newState = { ...prev, provincesData: { ...prev.provincesData }, generalsData: { ...prev.generalsData } };
-      const targetProv = { ...newState.provincesData[battle.targetProvinceId] };
+      const baseState = { ...prev, provincesData: { ...prev.provincesData }, generalsData: { ...prev.generalsData } };
+      const targetProv = { ...baseState.provincesData[battle.targetProvinceId] };
       
       if (winner === 'attacker') {
         targetProv.rulerName = prev.rulerName;
@@ -28,12 +50,12 @@ export function useGameEngine(initialScenario: number, initialRuler: string) {
         
         // Defending generals become wild
         battle.defendingGenerals.forEach(gName => {
-          if (newState.generalsData[gName]) {
-            newState.generalsData[gName] = { ...newState.generalsData[gName], isWild: true, loyalty: Math.max(0, newState.generalsData[gName].loyalty - 30) };
+          if (baseState.generalsData[gName]) {
+            baseState.generalsData[gName] = { ...baseState.generalsData[gName], isWild: true, loyalty: Math.max(0, baseState.generalsData[gName].loyalty - 30) };
           }
         });
         
-        newState.lastActionResult = {
+        baseState.lastActionResult = {
           action: '攻城勝利',
           title: '🔥 攻城勝利：破城奪地！',
           message: `我軍英勇善戰，成功攻破【${targetProv.name}】！守軍潰散，該城已歸入我軍版圖！`,
@@ -42,12 +64,12 @@ export function useGameEngine(initialScenario: number, initialRuler: string) {
       } else {
         // Attacking generals suffer troop loss (basic)
         battle.attackingGenerals.forEach(gName => {
-          if (newState.generalsData[gName]) {
-            newState.generalsData[gName] = { ...newState.generalsData[gName], soldiers: Math.floor(newState.generalsData[gName].soldiers * 0.3) };
+          if (baseState.generalsData[gName]) {
+            baseState.generalsData[gName] = { ...baseState.generalsData[gName], soldiers: Math.floor(baseState.generalsData[gName].soldiers * 0.3) };
           }
         });
         
-        newState.lastActionResult = {
+        baseState.lastActionResult = {
           action: '攻城失敗',
           title: '❌ 攻城失敗：鎩羽而歸',
           message: `敵軍防守嚴密，我軍久攻不下，只好鳴金收兵...【${targetProv.name}】攻城失敗。`,
@@ -55,10 +77,39 @@ export function useGameEngine(initialScenario: number, initialRuler: string) {
         };
       }
 
-      newState.provincesData[targetProv.id] = targetProv;
-      newState.activeBattle = null;
-      newState.view = 'map';
-      return newState;
+      baseState.provincesData[targetProv.id] = targetProv;
+      
+      // 檢查是否還有後續排定之戰役
+      const remainingBattles = baseState.pendingBattles || [];
+      if (remainingBattles.length > 0) {
+        const [nextBattle, ...rest] = remainingBattles;
+        return {
+          ...baseState,
+          activeBattle: {
+            targetProvinceId: nextBattle.targetProvinceId,
+            attackerProvinceId: nextBattle.attackerProvinceId,
+            attackingGenerals: nextBattle.attackingGenerals,
+            defendingGenerals: nextBattle.defendingGenerals,
+            attackerGold: nextBattle.attackerGold,
+            attackerFood: nextBattle.attackerFood,
+          },
+          pendingBattles: rest,
+          pendingBattle: rest[0] || null,
+          view: 'battle'
+        };
+      }
+
+      // 所有戰役皆已結算完成，推進時光至新月份，並恢復將領行動力
+      baseState.activeBattle = null;
+      baseState.pendingBattles = [];
+      baseState.pendingBattle = null;
+      
+      const nextMonthState = advanceTime(baseState);
+      return {
+        ...nextMonthState,
+        lastActionResult: baseState.lastActionResult, // 保留攻城戰報結果
+        view: 'map'
+      };
     });
   }, []);
 

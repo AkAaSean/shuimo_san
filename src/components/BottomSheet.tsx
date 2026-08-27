@@ -67,15 +67,15 @@ export default function BottomSheet({ activeMenu, gameState, onClose, onActionSe
               <div className="w-16 h-1.5 bg-stone-400 rounded-full"></div>
             </div>
             
-            <div className="px-6 pb-8">
-              <h2 className="text-xl font-bold text-stone-900 mb-4 border-b border-stone-400 pb-2 flex justify-between items-center">
+            <div className="px-4 sm:px-6 pb-6">
+              <h2 className="text-lg sm:text-xl font-bold text-stone-900 mb-3 border-b border-stone-400 pb-2 flex justify-between items-center">
                 <span>{menuTitle}</span>
-                <button onClick={onClose} className="text-stone-500 text-sm border border-stone-400 px-2 py-1 rounded bg-stone-300 active:bg-stone-400">
+                <button onClick={onClose} className="text-stone-600 text-xs sm:text-sm border border-stone-400 px-2 py-0.5 rounded bg-stone-300 active:bg-stone-400 font-bold cursor-pointer">
                   返回
                 </button>
               </h2>
               
-              <div className="flex flex-col gap-3 overflow-y-auto max-h-[40vh]">
+              <div className="flex flex-col gap-2 overflow-y-auto max-h-[40vh]">
                 {subCommands.map((cmd, idx) => (
                   <button
                     key={idx}
@@ -83,10 +83,10 @@ export default function BottomSheet({ activeMenu, gameState, onClose, onActionSe
                       if (onActionSelect) onActionSelect(cmd);
                       else onClose();
                     }}
-                    className="w-full text-left px-4 py-4 bg-stone-100 border-l-4 border-stone-800 shadow-sm active:bg-stone-300 transition-colors text-stone-800 font-bold text-lg flex items-center justify-between cursor-pointer"
+                    className="w-full text-left px-3.5 py-2.5 sm:py-3 bg-stone-100 border-l-4 border-stone-800 shadow-xs active:bg-stone-300 hover:bg-stone-50 transition-colors text-stone-800 font-bold text-base flex items-center justify-between cursor-pointer"
                   >
                     <span>{cmd}</span>
-                    <span className="text-stone-400">〉</span>
+                    <span className="text-stone-400 text-sm">〉</span>
                   </button>
                 ))}
               </div>

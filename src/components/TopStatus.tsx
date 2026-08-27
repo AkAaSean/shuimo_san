@@ -44,16 +44,23 @@ export default function TopStatus({ gameState, onRest, onToggleFullscreen, isFul
             <span className="text-stone-700 bg-stone-300 px-2 py-0.5 rounded-sm border border-stone-400 text-xs">
               君主: <span className="font-bold text-stone-900">{gameState.rulerName}</span>
             </span>
-            {onRest && (
-              <button
-                onClick={onRest}
-                className="bg-amber-800 hover:bg-amber-900 active:scale-95 text-amber-100 border-2 border-stone-800 px-2.5 py-0.5 rounded shadow text-xs font-bold cursor-pointer transition-all flex items-center gap-1"
-                title="結束本月回合"
-              >
-                <span>🌙</span>
-                <span>休息</span>
-              </button>
-            )}
+            {onRest && (() => {
+              const pendingCount = (gameState.pendingBattles || (gameState.pendingBattle ? [gameState.pendingBattle] : [])).length;
+              return (
+                <button
+                  onClick={onRest}
+                  className={`border-2 border-stone-800 px-2.5 py-0.5 rounded shadow text-xs font-bold cursor-pointer transition-all flex items-center gap-1 active:scale-95 ${
+                    pendingCount > 0
+                      ? 'bg-[#991b1b] hover:bg-red-800 text-white ring-2 ring-amber-400 font-black animate-pulse'
+                      : 'bg-amber-800 hover:bg-amber-900 text-amber-100'
+                  }`}
+                  title={pendingCount > 0 ? `結束本月並依序發動 ${pendingCount} 場戰役！` : "結束本月回合"}
+                >
+                  <span>{pendingCount > 0 ? '⚔️' : '🌙'}</span>
+                  <span>{pendingCount > 1 ? `休息 (開戰 ${pendingCount}場)` : (pendingCount === 1 ? '休息 (開戰)' : '休息')}</span>
+                </button>
+              );
+            })()}
           </div>
         </div>
 

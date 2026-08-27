@@ -1,3 +1,17 @@
+export type FormationType = "平地" | "山嶽" | "水上";
+
+export interface Formation {
+  name: string;
+  atk: number;
+  def: number;
+  bowAtk: number;
+  bowDef: number;
+  range: number;
+  mobility: number;
+  type: FormationType;
+  special: string;
+}
+
 export interface Province {
   id: number;
   name: string;
@@ -20,6 +34,7 @@ export interface General {
   cha: number; // 魅力
   ambition?: number; // 野心 (0 ~ 10，不於UI顯示)
   scenarios: (number | '主' | 'Ｘ' | '-')[];
+  formations?: string[];
 }
 
 export interface ProvinceState {
@@ -61,7 +76,19 @@ export interface GeneralState {
   rewardedThisMonth?: boolean; // 本月是否已接受過賞賜 (每人每月限一次)
   isWild?: boolean; // 是否為在野武將 (尚未被任何勢力登用)
   bio?: string;
-  activeTask?: { type: string; turnsLeft: number } | null; // 持續性任務 (如建築關塞)
+  activeTask?: { type: string; turnsLeft: number } | null;
+  formations?: string[]; // 持續性任務 (如建築關塞)
+}
+
+export interface PendingBattlePlan {
+  id: string;
+  targetProvinceId: number;
+  attackerProvinceId: number;
+  attackingGenerals: string[];
+  defendingGenerals: string[];
+  attackerGold: number;
+  attackerFood: number;
+  resourcesDeducted?: Record<number, { gold: number; food: number }>;
 }
 
 export interface GameState {
@@ -87,7 +114,11 @@ export interface GameState {
     attackerProvinceId: number;
     attackingGenerals: string[];
     defendingGenerals: string[];
+    attackerGold: number;
+    attackerFood: number;
   } | null;
+  pendingBattles?: PendingBattlePlan[];
+  pendingBattle?: PendingBattlePlan | null;
   diplomacyData?: Record<string, Record<string, number>>; // { rulerA: { rulerB: relationScore } }
   alliances?: Record<string, Record<string, number>>; // { rulerA: { rulerB: expiryAbsoluteMonth } }
 
@@ -122,6 +153,7 @@ export interface BattleUnit {
   col: number;
   row: number;
   isCommander: boolean;
+  formation?: string;
 }
 
 export interface BattleState {
@@ -142,5 +174,7 @@ export interface BattleState {
   grid: GridCell[];
   units: BattleUnit[];
   activeUnitId: string | null;
+  currentDay: number;
+  maxDays: number;
   animatingStrategy: { type: string, col: number, row: number } | null;
 }

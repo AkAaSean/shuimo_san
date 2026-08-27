@@ -7,6 +7,7 @@ import BattleGrid from './BattleGrid';
 import BattleCommandMenu from './BattleCommandMenu';
 import BattlePromptBanner from './BattlePromptBanner';
 import StrategySheet from './StrategySheet';
+import FormationSelectionView from './FormationSelectionView';
 
 interface BattleViewProps {
   gameState: GameState;
@@ -17,11 +18,14 @@ interface BattleViewProps {
 export default function BattleView({ gameState, onExitBattle, onResolveBattle }: BattleViewProps) {
   const [battleState, setBattleState] = useState<BattleState | null>(null);
   const [strategyOpen, setStrategyOpen] = useState(false);
+  const [formationSelectionComplete, setFormationSelectionComplete] = useState(false);
 
   useEffect(() => {
     // Initialize battle state from actual activeBattle
     const battle = gameState.activeBattle;
     if (!battle) return;
+
+    setFormationSelectionComplete(false);
 
     const targetProvinceId = battle.targetProvinceId;
     const grid = generateBattleGrid(targetProvinceId);
@@ -62,7 +66,8 @@ export default function BattleView({ gameState, onExitBattle, onResolveBattle }:
           troops: gen.soldiers,
           col: dCol,
           row: dRow,
-          isCommander: idx === 0
+          isCommander: idx === 0,
+          formation: gen.formations && gen.formations.length > 0 ? gen.formations[0] : '方圓'
         });
         dCol += 2;
         if (dCol > 8) { dCol = 2; dRow -= 2; }
@@ -71,7 +76,7 @@ export default function BattleView({ gameState, onExitBattle, onResolveBattle }:
 
     // If no defenders, add a dummy guard
     if (battle.defendingGenerals.length === 0) {
-       units.push({ id: 'd_0', generalName: '守備兵', isAttacker: false, troops: 500, col: 5, row: 9, isCommander: true });
+       units.push({ id: 'd_0', generalName: '守備兵', isAttacker: false, troops: 500, col: 5, row: 9, isCommander: true, formation: '方圓' });
     }
 
     setBattleState({
@@ -79,11 +84,13 @@ export default function BattleView({ gameState, onExitBattle, onResolveBattle }:
       weather: '晴天',
       windDirection: '東風',
       time: `${gameState.year}年${gameState.month}月 ${gameState.season}`,
-      attacker: { commander: battle.attackingGenerals[0] || '無名', gold: 0, food: 100 },
+      attacker: { commander: battle.attackingGenerals[0] || '無名', gold: battle.attackerGold || 0, food: battle.attackerFood || 0 },
       defender: { commander: battle.defendingGenerals[0] || '守備兵', gold: 100, food: 100 },
       grid,
       units,
       activeUnitId: units[0]?.id || null,
+      currentDay: 1,
+      maxDays: [1, 3, 5, 7, 8, 10, 12].includes(gameState.month) ? 30 : (gameState.month === 2 ? 28 : 29),
       animatingStrategy: null,
     });
   }, [gameState.activeBattle, gameState.year, gameState.month, gameState.season, gameState.generalsData]);
@@ -160,6 +167,25 @@ export default function BattleView({ gameState, onExitBattle, onResolveBattle }:
 
   return (
     <div className="w-full h-full flex flex-col relative bg-stone-200 overflow-hidden">
+      {!formationSelectionComplete && (
+        <FormationSelectionView 
+          gameState={gameState} 
+          battleState={battleState} 
+          onComplete={(assignments) => {
+            setBattleState(prev => {
+              if (!prev) return prev;
+              const newUnits = prev.units.map(u => {
+                if (u.isAttacker && assignments[u.id]) {
+                  return { ...u, formation: assignments[u.id] };
+                }
+                return u;
+              });
+              return { ...prev, units: newUnits };
+            });
+            setFormationSelectionComplete(true);
+          }}
+        />
+      )}
       <BattleHeader state={battleState} />
       <BattleCards state={battleState} />
       
