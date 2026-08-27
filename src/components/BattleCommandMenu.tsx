@@ -3,14 +3,20 @@ import { motion, AnimatePresence } from 'motion/react';
 
 export const BATTLE_COMMANDS = [
   { id: 1, label: '1.移動' },
-  { id: 2, label: '2.對戰' },
-  { id: 3, label: '3.快戰' },
-  { id: 4, label: '4.死戰' },
-  { id: 5, label: '5.弓箭' },
-  { id: 6, label: '6.策略' },
-  { id: 7, label: '7.查看' },
-  { id: 8, label: '8.退兵' },
-  { id: 0, label: '0.休息' },
+  { id: 2, label: '2.通常' },
+  { id: 3, label: '3.一齊' },
+  { id: 4, label: '4.突擊' },
+  { id: 5, label: '5.弓矢' },
+  { id: 6, label: '6.火矢' },
+  { id: 7, label: '7.亂射' },
+  { id: 8, label: '8.奮迅' },
+  { id: 9, label: '9.一騎' },
+  { id: 10, label: '10.計略' },
+  { id: 11, label: '11.佈陣' },
+  { id: 12, label: '12.查看' },
+  { id: 13, label: '13.快戰' },
+  { id: 14, label: '14.退兵' },
+  { id: 0, label: '0.待命' },
 ];
 
 interface BattleCommandMenuProps {
@@ -37,12 +43,12 @@ export default function BattleCommandMenu({ onCommandSelect }: BattleCommandMenu
 
   return (
     <div className="w-full bg-stone-200 border-t-2 border-stone-800 p-2 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] relative z-20 font-serif">
-      <div className="grid grid-cols-5 gap-2">
+      <div className="grid grid-cols-5 gap-1.5">
         {BATTLE_COMMANDS.map((cmd) => (
           <button
             key={cmd.id}
             onClick={(e) => handleTouch(e, cmd.id)}
-            className="h-10 relative overflow-hidden bg-stone-300 border border-stone-600 rounded-sm shadow-sm flex items-center justify-center text-sm font-bold text-stone-800 active:scale-95 transition-transform"
+            className="h-9 relative overflow-hidden bg-stone-300 border border-stone-600 rounded-sm shadow-sm flex items-center justify-center text-[13px] font-bold text-stone-800 active:scale-95 transition-transform"
           >
             <span className="relative z-10 pointer-events-none">{cmd.label.split('.')[1]}</span>
             <AnimatePresence>
@@ -67,8 +73,8 @@ export default function BattleCommandMenu({ onCommandSelect }: BattleCommandMenu
           </button>
         ))}
       </div>
-      <div className="mt-1 text-center text-xs text-stone-500">
-        ◆ 戰術盤 ◆
+      <div className="mt-1 text-center text-[10px] text-stone-500 font-bold">
+        ◆ 戰術指揮盤 ◆
       </div>
     </div>
   );

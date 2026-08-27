@@ -1,4 +1,6 @@
 import { getGeneralAvailableFormations, getFormationInfo } from '../engine/formations';
+import { getGeneralAvailableSkills, getBattleSkillInfo, getGeneralPassives, isPassiveSkill } from '../engine/skills';
+import { PASSIVE_SKILL_REGISTRY } from '../engine/battleCalculations';
 import React, { useState, useMemo } from 'react';
 import { GameState, GeneralState } from '../types';
 import { provinces } from '../data/provinces';
@@ -753,6 +755,41 @@ export default function InspectView({
                         <div className="font-black text-[#991b1b]">{g.soldiers}</div>
                       </div>
                     </div>
+
+                    {/* Passive & Battle Skills Ribbon */}
+                    {(() => {
+                      const passives = getGeneralPassives(g);
+                      const skills = g.skills && g.skills.length > 0 ? g.skills : getGeneralAvailableSkills(g);
+                      const activeSkills = skills.filter(s => !isPassiveSkill(s));
+
+                      return (
+                        <div className="flex items-center justify-between text-[10px] bg-stone-50 px-2 py-1 rounded border border-stone-200/70 flex-wrap gap-1">
+                          <div className="flex items-center gap-1 flex-wrap">
+                            <span className="font-bold text-stone-600">被動:</span>
+                            {passives.length > 0 ? (
+                              passives.map(p => (
+                                <span key={p} className="bg-amber-100 text-amber-900 border border-amber-300 font-black px-1 rounded">
+                                  {p}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-stone-400 italic">無</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1 flex-wrap">
+                            <span className="font-bold text-stone-500">計策:</span>
+                            {activeSkills.slice(0, 4).map(s => (
+                              <span key={s} className="bg-stone-200 text-stone-700 px-1 rounded">
+                                {s}
+                              </span>
+                            ))}
+                            {activeSkills.length > 4 && (
+                              <span className="text-stone-400">+{activeSkills.length - 4}</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 );
               })}
@@ -1203,6 +1240,99 @@ export default function InspectView({
                         );
                       })}
                     </div>
+                  </div>
+                );
+              })()}
+
+              {/* 武將常時被動特技專區 */}
+              {(() => {
+                const passives = getGeneralPassives(selectedGeneralDetail);
+                return (
+                  <div className="bg-amber-50/70 p-2.5 rounded border border-amber-300 flex flex-col gap-1.5 text-xs">
+                    <div className="flex justify-between items-center">
+                      <span className="font-black text-amber-950 flex items-center gap-1">
+                        <span>🛡️</span> 常時被動特技 ({passives.length} 種)
+                      </span>
+                      <span className="text-[10px] text-amber-800 font-bold">戰場自動生效 / 無消耗</span>
+                    </div>
+
+                    {passives.length === 0 ? (
+                      <div className="text-[11px] text-stone-400 py-0.5 italic">
+                        無常駐被動特技
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-1.5">
+                        {passives.map(pName => {
+                          const pDef = PASSIVE_SKILL_REGISTRY[pName];
+                          return (
+                            <div
+                              key={pName}
+                              className="bg-white border border-amber-300/80 p-2 rounded flex flex-col gap-0.5 shadow-2xs"
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-black text-amber-900 flex items-center gap-1">
+                                  <span>{pDef?.iconSymbol || '⚡'}</span>
+                                  <span>【{pName}】</span>
+                                  <span className="text-[9px] bg-amber-100 text-amber-800 px-1 rounded font-bold border border-amber-200">
+                                    {pDef?.category || '被動特技'}
+                                  </span>
+                                </span>
+                                <span className="text-[10px] text-amber-700 font-bold">
+                                  {pDef?.triggerLabel || '常態觸發'}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-stone-600 leading-snug">
+                                {pDef?.desc || '戰場常時生效之特殊效果。'}
+                              </p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* 主動戰鬥技能與計策 */}
+              {(() => {
+                const learnedSkills = selectedGeneralDetail.skills && selectedGeneralDetail.skills.length > 0
+                  ? selectedGeneralDetail.skills
+                  : getGeneralAvailableSkills(selectedGeneralDetail);
+                const activeSkills = learnedSkills.filter(s => !isPassiveSkill(s));
+
+                return (
+                  <div className="bg-stone-50 p-2.5 rounded border border-stone-200 flex flex-col gap-1.5 text-xs">
+                    <div className="flex justify-between items-center">
+                      <span className="font-black text-stone-800 flex items-center gap-1">
+                        <span>⚔️</span> 主動計策戰法 ({activeSkills.length} 種)
+                      </span>
+                      <span className="text-[10px] text-stone-500 font-bold">戰役作戰即時施放</span>
+                    </div>
+                    {activeSkills.length === 0 ? (
+                      <div className="text-[11px] text-stone-400 py-1 italic">
+                        無習得主動計略（未掌握特殊戰法）
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {activeSkills.map(sname => {
+                          const sInfo = getBattleSkillInfo(sname);
+                          return (
+                            <div 
+                              key={sname} 
+                              className="bg-white border border-stone-200 px-2 py-1 rounded flex flex-col gap-0.5 shadow-2xs"
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-black text-stone-900">【{sname}】</span>
+                                <span className="text-[9px] bg-stone-100 text-stone-700 px-1 rounded border font-bold">
+                                  體力 {sInfo?.cost || 10}
+                                </span>
+                              </div>
+                              <span className="text-[10px] text-stone-500 line-clamp-1">{sInfo?.desc || ''}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 );
               })()}

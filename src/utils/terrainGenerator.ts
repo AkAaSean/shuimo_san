@@ -1,8 +1,37 @@
 import { TerrainType, GridCell } from '../types';
 import { TERRAIN_MATRIX } from '../data/terrainMatrix';
+import { getChanganMap } from '../data/maps/changan';
+import { getProvinceTierRules } from '../data/historicalProvinceConfig';
 
-export function generateBattleGrid(provinceId: number, cols: number = 8, rows: number = 12): GridCell[] {
+export function generateBattleGrid(provinceId: number, overrideCols?: number, overrideRows?: number): GridCell[] {
+  // If it's Chang'an, use the predefined huge map
+  if (provinceId === 16) {
+    return getChanganMap();
+  }
+
+  // Determine size based on tier
+  const tierConfig = getProvinceTierRules(provinceId);
+  const tier = tierConfig.tier;
+  
+  let cols = 12;
+  let rows = 12;
+
+  if (tier === 'METROPOLIS') {
+    cols = 25; rows = 25;
+  } else if (tier === 'COMMERCIAL' || tier === 'AGRICULTURAL') {
+    cols = 20; rows = 20;
+  } else if (tier === 'MIDSIZED') {
+    cols = 15; rows = 15;
+  } else {
+    cols = 12; rows = 12;
+  }
+
+  // Allow overrides if explicitly provided
+  if (overrideCols) cols = overrideCols;
+  if (overrideRows) rows = overrideRows;
+
   const matrix = TERRAIN_MATRIX[provinceId] || TERRAIN_MATRIX[1];
+
   
   // Create an array of terrain types weighted by their percentage
   const terrainPool: TerrainType[] = [];

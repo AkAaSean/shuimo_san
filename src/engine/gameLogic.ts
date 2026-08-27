@@ -1,4 +1,5 @@
 import { getGeneralAvailableFormations } from './formations';
+import { getGeneralAvailableSkills, getGeneralPassives } from './skills';
 import { GameState, ProvinceState, GeneralState } from '../types';
 import { provinces } from '../data/provinces';
 import { generals } from '../data/generals';
@@ -272,7 +273,9 @@ export function initGame(scenarioIndex: number, playerRulerName: string): GameSt
         soldiers: startingSoldiers,
         training: baseTraining,
         hasActed: false,
-        formations: getGeneralAvailableFormations({ ...g, provinceId })
+        formations: getGeneralAvailableFormations({ ...g, provinceId }),
+        skills: getGeneralAvailableSkills({ ...g, provinceId, role: effectiveRole }),
+        passives: getGeneralPassives({ ...g, provinceId, role: effectiveRole })
       };
     }
   });
@@ -322,7 +325,8 @@ export function initGame(scenarioIndex: number, playerRulerName: string): GameSt
         hasActed: false,
         isWild: true, // Marked as wild in this province
         bio: ht.desc,
-        formations: getGeneralAvailableFormations(ht)
+        formations: getGeneralAvailableFormations(ht),
+        skills: getGeneralAvailableSkills(ht)
       };
     }
   });
@@ -436,7 +440,8 @@ export function initGame(scenarioIndex: number, playerRulerName: string): GameSt
                   soldiers: newGenTroops,
                   training: 60,
                   hasActed: false,
-                  formations: getGeneralAvailableFormations({ name: newGenName, str: 65, int: 55, hp: 70, provinceId: minProvId })
+                  formations: getGeneralAvailableFormations({ name: newGenName, str: 65, int: 55, hp: 70, provinceId: minProvId }),
+                  skills: getGeneralAvailableSkills({ name: newGenName, str: 65, int: 55, hp: 70, provinceId: minProvId })
                 };
                 changed = true;
               }

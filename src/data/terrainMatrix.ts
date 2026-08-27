@@ -1,6 +1,6 @@
 import { TerrainType } from '../types';
 
-export const TERRAIN_MATRIX: Record<number, Record<TerrainType, number>> = {
+export const TERRAIN_MATRIX: Record<number, Partial<Record<TerrainType, number>>> = {
   1: { '平地': 60, '樹林': 20, '淺水': 10, '山丘': 10, '深水': 0, '城池': 0, '關寨': 0, '沙漠': 0, '沼澤': 0 },
   2: { '平地': 40, '山丘': 30, '樹林': 20, '淺水': 10, '深水': 0, '城池': 0, '關寨': 0, '沙漠': 0, '沼澤': 0 },
   3: { '平地': 65, '樹林': 15, '淺水': 10, '山丘': 10, '深水': 0, '城池': 0, '關寨': 0, '沙漠': 0, '沼澤': 0 },

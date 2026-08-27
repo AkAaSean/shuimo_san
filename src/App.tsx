@@ -92,7 +92,7 @@ function GameApp({
       return;
     }
 
-    if (['查看本郡狀態', '檢視將領', '外交關係'].includes(rawAction)) {
+    if (['查看本郡狀態', '檢視將領', '外交關係', '戰場地圖'].includes(rawAction)) {
       setTempAction(rawAction);
       actions.setView('status');
       actions.setActiveMenu(null);

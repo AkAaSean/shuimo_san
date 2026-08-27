@@ -1,4 +1,4 @@
-import { Formation } from '../types';
+import { Formation, TerrainType } from '../types';
 
 export const FORMATIONS: Formation[] = [
   { name: '魚鱗', atk: 16, def: 4, bowAtk: 6, bowDef: 2, range: 2, mobility: 16, type: '平地', special: '突擊 (攻擊力強，平地突入)' },
@@ -19,6 +19,66 @@ export const FORMATIONS: Formation[] = [
 export const MOUNTAIN_FORMATIONS = ['鋒矢', '長蛇', '鈎行', '衡軛'];
 export const WATER_FORMATIONS = ['水陣'];
 export const DEFENSE_FORMATIONS = ['方圓', '衡軛', '箕行', '鈎行'];
+
+export function getTerrainMobilityCost(formationType: '平地' | '山嶽' | '水上', terrain: TerrainType): number {
+  const isCity = terrain === '城池' || terrain === '關寨';
+  if (formationType === '平地') {
+    if (terrain === '平地' || terrain === '沙漠') return 2;
+    if (terrain === '樹林') return 4;
+    if (terrain === '山丘') return 5;
+    if (terrain === '淺水' || terrain === '深水') return 8;
+    if (terrain === '沼澤') return 6;
+    if (isCity) return 5;
+    return 2; // Default for roads if we had them
+  } else if (formationType === '山嶽') {
+    if (terrain === '平地' || terrain === '沙漠') return 5;
+    if (terrain === '樹林' || terrain === '山丘') return 2;
+    if (terrain === '淺水' || terrain === '深水') return 8;
+    if (terrain === '沼澤') return 6;
+    if (isCity) return 5;
+    return 4; // Default for roads
+  } else { // 水上
+    if (terrain === '平地' || terrain === '沙漠') return 5;
+    if (terrain === '樹林') return 6;
+    if (terrain === '山丘') return 8;
+    if (terrain === '淺水' || terrain === '深水') return 2;
+    if (terrain === '沼澤') return 2;
+    if (isCity) return 5;
+    return 4; // Default for roads
+  }
+}
+
+export function getTerrainEffectiveness(formationType: '平地' | '山嶽' | '水上', terrain: TerrainType): number {
+  const isCity = terrain === '城池' || terrain === '關寨';
+  if (formationType === '平地') {
+    if (terrain === '平地' || terrain === '沙漠') return 12;
+    if (terrain === '樹林') return 5;
+    if (terrain === '山丘') return 4;
+    if (terrain === '淺水' || terrain === '深水') return 1;
+    if (terrain === '沼澤') return 3;
+    if (isCity) return 16;
+    return 10; // Default for roads
+  } else if (formationType === '山嶽') {
+    if (terrain === '平地' || terrain === '沙漠') return 5;
+    if (terrain === '樹林') return 10;
+    if (terrain === '山丘') return 12;
+    if (terrain === '淺水' || terrain === '深水') return 1;
+    if (terrain === '沼澤') return 3;
+    if (isCity) return 16;
+    return 4; // Default for roads
+  } else { // 水上
+    // Half of the normal rules... but wait, the prompt says:
+    // 水上型 1 1 1 1 12 10 8 (上述計算方法的一半? Prompt says "上述計算方法的一半", but wait, it explicitly lists: 1, 1, 1, 1, 12, 10, 8. Wait, no. It says "防禦度70+11" and for water "上述計算方法的一半")
+    // I'll just use the explicit values: 平地1, 道路1, 森林1, 山地1, 水上12, 沼澤10, 城池8
+    if (terrain === '平地' || terrain === '沙漠') return 1;
+    if (terrain === '樹林') return 1;
+    if (terrain === '山丘') return 1;
+    if (terrain === '淺水' || terrain === '深水') return 12;
+    if (terrain === '沼澤') return 10;
+    if (isCity) return 8;
+    return 1; // Default for roads
+  }
+}
 
 // 孫吳勢力 / 江東名將判定集合
 export const SUN_WU_GENERALS = new Set([
@@ -334,19 +394,30 @@ export function getGeneralAvailableFormations(general: {
     }
   }
 
-  // 若仍不足最少要求數量 (例如 >=90 需 >=3, >=80 需 >=2)，依屬性優勢動態增補
-  if (resultFormations.size < minRequired) {
-    if (str >= 85 && !resultFormations.has('魚鱗')) resultFormations.add('魚鱗');
-    if (str >= 85 && !resultFormations.has('鋒矢')) resultFormations.add('鋒矢');
-    if (str >= 80 && !resultFormations.has('偃月')) resultFormations.add('偃月');
-    if (int >= 85 && !resultFormations.has('鶴翼')) resultFormations.add('鶴翼');
-    if (int >= 80 && !resultFormations.has('雁行')) resultFormations.add('雁行');
-    if (hp >= 80 && !resultFormations.has('方圓')) resultFormations.add('方圓');
-    if (hp >= 75 && !resultFormations.has('長蛇')) resultFormations.add('長蛇');
-    if (hp >= 75 && !resultFormations.has('錐行')) resultFormations.add('錐行');
-    if (resultFormations.size < minRequired && !resultFormations.has('箕行')) resultFormations.add('箕行');
-    if (resultFormations.size < minRequired && !resultFormations.has('魚鱗')) resultFormations.add('魚鱗');
-    if (resultFormations.size < minRequired && !resultFormations.has('錐行')) resultFormations.add('錐行');
+  // 若仍不足目標數量，依武將各項能力優勢與特色動態配給陣形
+  if (resultFormations.size < targetCap) {
+    // 猛將/近戰特化 (高武力)
+    if (str >= 75 && !resultFormations.has('魚鱗')) resultFormations.add('魚鱗');
+    if (str >= 78 && !resultFormations.has('偃月')) resultFormations.add('偃月');
+    if (str >= 72 && !resultFormations.has('鋒矢') && resultFormations.size < targetCap) resultFormations.add('鋒矢');
+
+    // 智謀/射手特化 (高智力或智武均衡)
+    if (int >= 75 && !resultFormations.has('鶴翼') && resultFormations.size < targetCap) resultFormations.add('鶴翼');
+    if ((int >= 68 || str >= 70) && !resultFormations.has('雁行') && resultFormations.size < targetCap) resultFormations.add('雁行');
+
+    // 統率/防守特化 (高統率/沉著)
+    if (hp >= 75 && !resultFormations.has('方圓') && resultFormations.size < targetCap) resultFormations.add('方圓');
+    if (hp >= 68 && !resultFormations.has('箕行') && resultFormations.size < targetCap) resultFormations.add('箕行');
+    if (hp >= 70 && !resultFormations.has('衡軛') && resultFormations.size < targetCap) resultFormations.add('衡軛');
+
+    // 機動/行軍特化
+    if ((hp >= 68 || str >= 68) && !resultFormations.has('錐行') && resultFormations.size < targetCap) resultFormations.add('錐行');
+    if ((hp >= 65 || int >= 65) && !resultFormations.has('長蛇') && resultFormations.size < targetCap) resultFormations.add('長蛇');
+
+    // 平衡中堅將領保底常規陣形
+    if (resultFormations.size < targetCap && !resultFormations.has('魚鱗')) resultFormations.add('魚鱗');
+    if (resultFormations.size < targetCap && !resultFormations.has('箕行')) resultFormations.add('箕行');
+    if (resultFormations.size < targetCap && !resultFormations.has('長蛇')) resultFormations.add('長蛇');
   }
 
   let finalArray = Array.from(resultFormations);

@@ -1,8 +1,13 @@
 import React, { useState } from 'react';
-import { GameState } from '../types';
+import { GameState, BattleState } from '../types';
 import { provinces } from '../data/provinces';
 import { getProvinceTierRules } from '../data/historicalProvinceConfig';
 import { getGeneralItemBonus } from '../data/items';
+import { getGeneralAvailableSkills, getBattleSkillInfo, getGeneralPassives, isPassiveSkill } from '../engine/skills';
+import { PASSIVE_SKILL_REGISTRY } from '../engine/battleCalculations';
+import { getGeneralAvailableFormations } from '../engine/formations';
+import { generateBattleGrid } from '../utils/terrainGenerator';
+import BattleGrid from './BattleGrid';
 
 interface StatusViewProps {
   gameState: GameState;
@@ -28,6 +33,24 @@ export default function StatusView({ gameState, initialAction, onExit }: StatusV
   const generals = Object.values(gameState.generalsData).filter(g => g.provinceId === currentProvinceId && !g.isWild);
   const totalGeneralsSoldiers = generals.reduce((sum, g) => sum + g.soldiers, 0);
   const totalSoldiers = (provinceState?.soldiers || 0) + totalGeneralsSoldiers;
+
+  // For dummy battle state in Map View
+  const dummyBattleState: BattleState = {
+    provinceId: currentProvinceId,
+    weather: '晴天',
+    windDirection: '東風',
+    time: '上午',
+    attacker: { commander: '', gold: 0, food: 0 },
+    defender: { commander: '', gold: 0, food: 0 },
+    grid: generateBattleGrid(currentProvinceId),
+    units: [],
+    activeUnitId: null,
+    currentDay: 1,
+    maxDays: 30,
+    animatingStrategy: null,
+    damagePopups: [],
+    battleLogs: [],
+  };
 
   if (!provinceState || !provinceData) {
     return (
@@ -84,11 +107,11 @@ export default function StatusView({ gameState, initialAction, onExit }: StatusV
 
       {/* Tabs */}
       <div className="flex border-b-[2px] border-[#1c1917] bg-white">
-        {['查看本郡狀態', '檢視將領', '外交關係'].map(tab => (
+        {['查看本郡狀態', '檢視將領', '外交關係', '戰場地圖'].map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`flex-1 py-3 font-bold text-center border-r-[2px] border-[#1c1917] last:border-r-0 transition-colors
+            className={`flex-1 py-3 font-bold text-center border-r-[2px] border-[#1c1917] last:border-r-0 transition-colors text-sm
               ${activeTab === tab ? 'bg-[#991b1b] text-[#f2efeb]' : 'hover:bg-stone-200'}
             `}
           >
@@ -98,7 +121,39 @@ export default function StatusView({ gameState, initialAction, onExit }: StatusV
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4 md:p-6 flex flex-col items-center">
+      <div className={`flex-1 overflow-y-auto ${activeTab === '戰場地圖' ? 'p-0 flex flex-col' : 'p-4 md:p-6 flex flex-col items-center'}`}>
+        {activeTab === '戰場地圖' && (
+          <div className="flex-1 w-full h-full bg-[#ebe4d3] relative flex flex-col">
+            {/* Guofeng Header Toolbar Overlay matching Reference Picture */}
+            <div className="absolute top-3 left-3 z-20 bg-[#fdfbf6]/90 p-2.5 px-4 rounded-sm border-2 border-[#8b6f4e] text-[#3e2e1e] text-xs flex items-center gap-5 shadow-[0_4px_12px_rgba(0,0,0,0.15)] backdrop-blur-sm pointer-events-none">
+              <div className="font-serif font-black text-sm text-[#78350f] border-r border-[#c2aa85] pr-3">
+                神州 Hex 地圖
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="font-bold text-[#854d0e]">郡境：</span>
+                <span className="font-black text-[#1c1917]">{provinceData.name}</span>
+                <span className="text-[10px] bg-[#854d0e] text-[#fef3c7] px-1.5 py-0.2 rounded font-bold">
+                  {getProvinceTierRules(currentProvinceId).tierName}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="font-bold text-[#065f46]">戰場網格：</span>
+                <span className="font-mono font-bold text-[#047857]">
+                  {Math.max(...dummyBattleState.grid.map(c=>c.col))+1} × {Math.max(...dummyBattleState.grid.map(c=>c.row))+1} Hex
+                </span>
+              </div>
+              <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-[#78716c]">
+                <span>提示：按住拖曳視角 / 滾輪縮放</span>
+              </div>
+            </div>
+            <BattleGrid 
+              state={dummyBattleState}
+              onSelectUnit={() => {}}
+              onSelectCell={() => {}}
+            />
+          </div>
+        )}
+        
         {activeTab === '查看本郡狀態' && (
           <div className="w-full max-w-lg bg-white border-2 border-[#1c1917] p-6 shadow-[4px_4px_0_#1c1917]">
             <h2 className="text-2xl font-black mb-2 text-center border-b-2 border-[#1c1917] pb-4 flex items-center justify-center gap-2 flex-wrap">
@@ -298,6 +353,70 @@ export default function StatusView({ gameState, initialAction, onExit }: StatusV
                       <div className="font-bold text-emerald-300">{g.training}%</div>
                     </div>
                   </div>
+
+                  {/* Formations & Battle Skills Badges */}
+                  {(() => {
+                    const formations = g.formations && g.formations.length > 0 ? g.formations : getGeneralAvailableFormations(g);
+                    const passives = getGeneralPassives(g);
+                    const skills = g.skills && g.skills.length > 0 ? g.skills : getGeneralAvailableSkills(g);
+                    const activeSkills = skills.filter(s => !isPassiveSkill(s));
+
+                    return (
+                      <div className="mt-2.5 flex flex-col gap-1.5 pt-2 border-t border-stone-200 text-xs">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[11px] font-bold text-stone-500 shrink-0">🚩 陣形:</span>
+                          {formations.map(f => (
+                            <span key={f} className="bg-stone-100 border border-stone-300 px-1.5 py-0.5 rounded text-[11px] font-bold text-stone-800">
+                              {f}
+                            </span>
+                          ))}
+                        </div>
+
+                        {/* Passive Skills */}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[11px] font-bold text-amber-800 shrink-0">🛡️ 被動特技:</span>
+                          {passives.length === 0 ? (
+                            <span className="text-stone-400 text-[11px] italic">無</span>
+                          ) : (
+                            passives.map(p => {
+                              const pDef = PASSIVE_SKILL_REGISTRY[p];
+                              return (
+                                <span 
+                                  key={p} 
+                                  className="bg-amber-100 border border-amber-400 px-1.5 py-0.5 rounded text-[10px] font-black text-amber-950 shadow-2xs cursor-help flex items-center gap-0.5"
+                                  title={`【${p}】${pDef?.desc || ''}`}
+                                >
+                                  <span>{pDef?.iconSymbol || '⚡'}</span>
+                                  <span>{p}</span>
+                                </span>
+                              );
+                            })
+                          )}
+                        </div>
+
+                        {/* Active Skills */}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[11px] font-bold text-stone-600 shrink-0">⚔️ 計策戰法:</span>
+                          {activeSkills.length === 0 ? (
+                            <span className="text-stone-400 text-[11px] italic">無</span>
+                          ) : (
+                            activeSkills.map(s => {
+                              const sInfo = getBattleSkillInfo(s);
+                              return (
+                                <span 
+                                  key={s} 
+                                  className="bg-stone-100 border border-stone-300 px-1.5 py-0.5 rounded text-[10px] font-bold text-stone-800 shadow-2xs"
+                                  title={`${sInfo?.category || ''} | 體力 ${sInfo?.cost || 10} | ${sInfo?.desc || ''}`}
+                                >
+                                  {s}
+                                </span>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })}
