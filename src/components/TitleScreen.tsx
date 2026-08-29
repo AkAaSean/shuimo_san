@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { SCENARIOS } from '../data/scenarios';
 import { provinces } from '../data/provinces';
-import scenarioBg from '../assets/images/scenario_bg_1787577790883.jpg';
+const scenarioBg = '/assets/Open_page.jpg';
 
 interface TitleScreenProps {
   onStartGame: (scenarioIndex: number, rulerName: string) => void;
@@ -28,20 +28,23 @@ export default function TitleScreen({ onStartGame }: TitleScreenProps) {
   };
 
   return (
-    <div className="w-full max-w-[480px] landscape:max-w-none game-container h-full bg-[#f2efeb] text-[#1c1917] relative flex flex-col shadow-[0_0_50px_rgba(0,0,0,0.5)] overflow-hidden font-serif border-x-[15px] landscape:border-x-0 border-[#333] transition-all duration-300">
-      {/* Background Image (Traditional Chinese Ink Painting) */}
+    <div className="w-full max-w-[500px] sm:max-w-[600px] md:max-w-[720px] lg:max-w-[840px] landscape:max-w-none game-container h-full mx-auto bg-[#f2efeb] text-[#1c1917] relative flex flex-col shadow-[0_0_50px_rgba(0,0,0,0.5)] overflow-hidden font-serif transition-all duration-300">
+      {/* Background Image (Historical Cover Art) */}
       <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
         <img 
           src={scenarioBg} 
           alt="Title Background" 
           referrerPolicy="no-referrer"
-          className="w-full h-full object-cover opacity-60 scale-105 filter contrast-125"
+          className="w-full h-full object-cover opacity-85 filter contrast-105 brightness-95 transition-all duration-300"
+          style={{
+            objectPosition: '29% 45%'
+          }}
         />
         {/* Subtle Rice Paper / Vignette Gradient */}
         <div 
           className="absolute inset-0" 
           style={{
-            background: 'radial-gradient(circle at center, rgba(242, 239, 235, 0.4) 0%, rgba(242, 239, 235, 0.75) 100%), linear-gradient(to bottom, rgba(242,239,235,0.3) 0%, rgba(242,239,235,0.7) 100%)'
+            background: 'radial-gradient(circle at center, rgba(242, 239, 235, 0.15) 0%, rgba(242, 239, 235, 0.55) 100%), linear-gradient(to bottom, rgba(242,239,235,0.1) 0%, rgba(242,239,235,0.6) 100%)'
           }}
         />
       </div>

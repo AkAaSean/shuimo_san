@@ -11,7 +11,7 @@ import CommandMenu from './components/CommandMenu';
 import BottomSheet from './components/BottomSheet';
 import ProvinceCard from './components/ProvinceCard';
 import PromptBanner from './components/PromptBanner';
-import BattleView from './components/BattleView';
+import BattleView5v5 from './components/BattleView5v5';
 import BattleLaunchView from './components/BattleLaunchView';
 import MilitaryMoveView from './components/MilitaryMoveView';
 import BuildFortView from './components/BuildFortView';
@@ -204,7 +204,7 @@ function GameApp({
   };
 
   return (
-    <div className="w-full max-w-[480px] landscape:max-w-none game-container h-full bg-stone-200 relative flex flex-col shadow-2xl overflow-hidden transition-all duration-300">
+    <div className="w-full max-w-[500px] sm:max-w-[600px] md:max-w-[720px] lg:max-w-[840px] landscape:max-w-none game-container h-full mx-auto bg-stone-200 relative flex flex-col shadow-2xl overflow-hidden transition-all duration-300">
       {/* Action Outcome Result Modal (e.g., 尋訪人才、登用人才) */}
       <AnimatePresence>
         {(gameState.monthlyEvents && gameState.monthlyEvents.length > 0) && (
@@ -236,35 +236,78 @@ function GameApp({
       </AnimatePresence>
 
       <AnimatePresence>
-        {gameState.lastActionResult && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-stone-900/70 backdrop-blur-sm">
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-[#f4f1ea] border-4 border-[#1c1917] w-full max-w-sm p-5 shadow-2xl font-serif text-[#1c1917] flex flex-col items-center text-center relative"
-            >
-              <div className="text-4xl mb-2">
-                {gameState.lastActionResult.type === 'talent_found' ? '🔍' :
-                 gameState.lastActionResult.type === 'gold_found' ? '💰' :
-                 gameState.lastActionResult.type === 'success' ? '🎉' :
-                 gameState.lastActionResult.type === 'failure' ? '❌' : '📜'}
-              </div>
-              <div className="text-lg font-black text-[#991b1b] border-b-2 border-[#1c1917] pb-2 mb-3 w-full">
-                {gameState.lastActionResult.title}
-              </div>
-              <div className="text-xs font-bold leading-relaxed bg-white/90 p-3.5 border border-stone-400 mb-4 w-full text-stone-800 text-left">
-                {gameState.lastActionResult.message}
-              </div>
-              <button
-                onClick={() => actions.clearActionResult()}
-                className="w-full py-2.5 bg-[#991b1b] text-white font-black border-2 border-[#1c1917] shadow-[2px_2px_0_#1c1917] hover:bg-red-800 active:scale-95 transition-all cursor-pointer"
+        {gameState.lastActionResult && (() => {
+          const isBattleVictory = gameState.lastActionResult.action === '攻城勝利' || 
+            gameState.lastActionResult.title.includes('勝利') || 
+            gameState.lastActionResult.title.includes('大捷') ||
+            gameState.lastActionResult.title.includes('奪地');
+          const isBattleDefeat = gameState.lastActionResult.action === '攻城失敗' || 
+            gameState.lastActionResult.title.includes('失利') || 
+            gameState.lastActionResult.title.includes('失敗') ||
+            gameState.lastActionResult.title.includes('潰敗');
+
+          return (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-stone-900/75 backdrop-blur-sm animate-fade-in">
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="bg-[#f4f1ea] border-4 border-[#1c1917] w-full max-w-sm rounded-xl overflow-hidden shadow-2xl font-serif text-[#1c1917] flex flex-col items-center text-center relative"
               >
-                遵命 (確定)
-              </button>
-            </motion.div>
-          </div>
-        )}
+                {/* 戰爭勝利 / 失敗專屬主題插畫 */}
+                {isBattleVictory ? (
+                  <div className="w-full h-36 relative overflow-hidden bg-black border-b-2 border-[#1c1917]">
+                    <img 
+                      src="/assets/win.jpg" 
+                      alt="戰爭勝利" 
+                      className="w-full h-full object-cover object-center brightness-95"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end justify-center pb-2">
+                      <span className="text-amber-300 font-black text-sm tracking-widest drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
+                        🏆 凱旋破城・大捷
+                      </span>
+                    </div>
+                  </div>
+                ) : isBattleDefeat ? (
+                  <div className="w-full h-36 relative overflow-hidden bg-black border-b-2 border-[#1c1917]">
+                    <img 
+                      src="/assets/lost.jpg" 
+                      alt="戰爭失敗" 
+                      className="w-full h-full object-cover object-center brightness-95"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end justify-center pb-2">
+                      <span className="text-rose-400 font-black text-sm tracking-widest drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
+                        🏴 兵敗撤退・失利
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-4xl mt-5 mb-2">
+                    {gameState.lastActionResult.type === 'talent_found' ? '🔍' :
+                     gameState.lastActionResult.type === 'gold_found' ? '💰' :
+                     gameState.lastActionResult.type === 'success' ? '🎉' :
+                     gameState.lastActionResult.type === 'failure' ? '❌' : '📜'}
+                  </div>
+                )}
+
+                <div className="p-4 sm:p-5 w-full flex flex-col items-center">
+                  <div className="text-lg font-black text-[#991b1b] border-b-2 border-[#1c1917] pb-2 mb-3 w-full">
+                    {gameState.lastActionResult.title}
+                  </div>
+                  <div className="text-xs font-bold leading-relaxed bg-white/90 p-3.5 border border-stone-400 mb-4 w-full text-stone-800 text-left">
+                    {gameState.lastActionResult.message}
+                  </div>
+                  <button
+                    onClick={() => actions.clearActionResult()}
+                    className="w-full py-2.5 bg-[#991b1b] text-white font-black border-2 border-[#1c1917] shadow-[2px_2px_0_#1c1917] hover:bg-red-800 active:scale-95 transition-all cursor-pointer"
+                  >
+                    遵命 (確定)
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          );
+        })()}
       </AnimatePresence>
 
       {/* Action Outcome Toast */}
@@ -386,9 +429,10 @@ function GameApp({
         <BattleLaunchView
           gameState={gameState}
           onExit={() => actions.setView('map')}
-          onLaunchBattle={(targetProvinceId, attackingGeneralNames, gold, food) => {
+          onLaunchBattle={(targetProvinceId, attackingGeneralNames, gold, food, strategist, cityProvisions, attackerPrimaryProvinceId, attackerReinforceProvinceId) => {
             const commander = attackingGeneralNames[0];
-            const commanderProvId = gameState.generalsData[commander]?.provinceId 
+            const commanderProvId = attackerPrimaryProvinceId 
+              || (commander && gameState.generalsData[commander]?.provinceId) 
               || gameState.selectedProvinceId 
               || 1;
             actions.executeCommand(
@@ -396,7 +440,16 @@ function GameApp({
               '軍事',
               '發動戰役',
               commander,
-              { attackingGeneralNames, targetProvinceId, gold, food }
+              { 
+                attackingGeneralNames, 
+                targetProvinceId, 
+                gold, 
+                food, 
+                strategist,
+                cityProvisions,
+                attackerPrimaryProvinceId: commanderProvId,
+                attackerReinforceProvinceId
+              }
             );
             actions.setView('map');
             const targetCityName = provinces.find(p => p.id === targetProvinceId)?.name || '敵城';
@@ -456,9 +509,9 @@ function GameApp({
           }}
         />
       ) : (
-        <BattleView 
+        <BattleView5v5 
           gameState={gameState} 
-          onExitBattle={() => actions.setView('map')}
+          onExit={() => actions.setView('map')}
           onResolveBattle={(winner) => actions.resolveBattle(winner)}
         />
       )}
@@ -477,7 +530,7 @@ function GameApp({
         isFullscreen={isFullscreen}
       />
 
-      {/* Manual Modal: 水墨三國說明書 v0.1 */}
+      {/* Manual Modal: 水墨三國說明書 v0.2 */}
       <ManualModal
         isOpen={isManualOpen}
         onClose={() => setIsManualOpen(false)}

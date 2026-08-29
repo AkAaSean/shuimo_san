@@ -1,15 +1,29 @@
-export type FormationType = "平地" | "山嶽" | "水上";
+export type FormationTerrainType = '平地' | '山嶽' | '水上' | '密林' | '通用';
+
+export interface TerrainRatio {
+  平地: number; // 0 ~ 100%
+  水上: number; // 0 ~ 100%
+  山嶽: number; // 0 ~ 100%
+  密林: number; // 0 ~ 100%
+}
 
 export interface Formation {
   name: string;
-  atk: number;
-  def: number;
-  bowAtk: number;
-  bowDef: number;
-  range: number;
-  mobility: number;
-  type: FormationType;
-  special: string;
+  atkMod: number;
+  defMod: number;
+  terrain: FormationTerrainType;
+  initiativeMod: number;
+  specialDesc: string;
+
+  // 暫時保留舊欄位以避免編譯錯誤
+  atk?: number;
+  def?: number;
+  bowAtk?: number;
+  bowDef?: number;
+  range?: number;
+  mobility?: number;
+  type?: string;
+  special?: string;
 }
 
 export interface Province {
@@ -21,15 +35,17 @@ export interface Province {
   x: number;
   y: number;
   floodGrowthRate: number;
+  terrain?: FormationTerrainType;
+  terrainRatio?: TerrainRatio;
 }
 
 export interface BattleSkill {
   name: string;
   cost: number; // 體力消耗 (0 代表常駐被動)
-  category: '主動戰法' | '謀略計策' | '天候奇術' | '輔助回復' | '特種被動' | '防禦被動' | '戰鬥被動';
+  category: '特殊攻擊' | '計謀' | '被動';
   desc: string;
   condition?: string;
-  target?: '自身' | '相鄰友軍' | '全體友軍' | '目標敵軍' | '範圍敵軍' | '全戰場' | '被動';
+  target?: '單體' | '相鄰' | '全體' | '自己' | '被動';
 }
 
 export type PassiveSkillId = '沉著' | '反計' | '無雙' | '奮發' | '回射' | '騎射' | '藤甲';
@@ -37,11 +53,11 @@ export type PassiveSkillId = '沉著' | '反計' | '無雙' | '奮發' | '回射
 export interface PassiveSkillDef {
   id: PassiveSkillId;
   name: string;
-  category: '防禦被動' | '戰鬥被動' | '特種被動';
+  category: '防禦被動' | '戰鬥被動' | '特種被動' | '被動';
   desc: string;
-  triggerLabel: string;
-  triggerType: 'turn_start' | 'melee_attack' | 'melee_defense' | 'archery_attack' | 'archery_defense' | 'strategy_targeted';
-  iconSymbol: string;
+  triggerLabel?: string;
+  triggerType?: string;
+  iconSymbol?: string;
 }
 
 export interface General {
@@ -57,7 +73,7 @@ export interface General {
   scenarios: (number | '主' | 'Ｘ' | '-')[];
   formations?: string[];
   skills?: string[];
-  passives?: PassiveSkillId[]; // 武將被動特技 (沉著、反計、無雙、奮發、回射、騎射、藤甲)
+  passives?: PassiveSkillId[]; // 武將被動特技 (佈陣)
 }
 
 export interface ProvinceState {
@@ -102,19 +118,27 @@ export interface GeneralState {
   activeTask?: { type: string; turnsLeft: number } | null;
   formations?: string[]; // 持續性任務 (如建築關塞)
   skills?: string[]; // 習得戰鬥技能 (最多 8 個)
-  passives?: PassiveSkillId[]; // 武將被動特技 (沉著、反計、無雙、奮發、回射、騎射、藤甲)
+  passives?: PassiveSkillId[]; // 武將被動特技 (佈陣)
   stamina?: number; // 當前體力值 (預設 100)
 }
 
 export interface PendingBattlePlan {
   id: string;
   targetProvinceId: number;
-  attackerProvinceId: number;
-  attackingGenerals: string[];
-  defendingGenerals: string[];
+  attackerProvinceId: number; // 主要發起進攻之城池
+  attackerReinforceProvinceId?: number | null; // 攻擊方援軍城池 (最多1座)
+  attackingGenerals: string[]; // 全部出征武將 (最多10人，前5人首發，後5人為備援)
+  defendingGenerals: string[]; // 全部防守武將 (最多10人，守城5人+援軍最多5人)
+  attackerStrategist?: string | null;
+  defenderStrategist?: string | null;
   attackerGold: number;
   attackerFood: number;
-  resourcesDeducted?: Record<number, { gold: number; food: number }>;
+  resourcesDeducted?: Record<number, { gold: number; food: number }>; // 各城池實際扣除的軍金與軍糧
+  attackerGeneralOrigins?: Record<string, number>; // 出征武將歸屬城池 ID
+  defenderPrimaryProvinceId?: number; // 守方主要被進攻城池
+  defenderReinforceProvinceId?: number | null; // 守方援軍城池
+  defenderGeneralOrigins?: Record<string, number>; // 守方武將歸屬城池 ID
+  defenderResourcesDeducted?: Record<number, { gold: number; food: number }>; // 守方援軍城池扣除之金糧
 }
 
 export interface GameState {
@@ -138,10 +162,19 @@ export interface GameState {
   activeBattle?: {
     targetProvinceId: number;
     attackerProvinceId: number;
+    attackerReinforceProvinceId?: number | null;
     attackingGenerals: string[];
     defendingGenerals: string[];
+    attackerStrategist?: string | null;
+    defenderStrategist?: string | null;
     attackerGold: number;
     attackerFood: number;
+    resourcesDeducted?: Record<number, { gold: number; food: number }>;
+    attackerGeneralOrigins?: Record<string, number>;
+    defenderPrimaryProvinceId?: number;
+    defenderReinforceProvinceId?: number | null;
+    defenderGeneralOrigins?: Record<string, number>;
+    defenderResourcesDeducted?: Record<number, { gold: number; food: number }>;
   } | null;
   pendingBattles?: PendingBattlePlan[];
   pendingBattle?: PendingBattlePlan | null;
@@ -163,7 +196,7 @@ export interface ActionResult {
   actorGeneral?: string;
 }
 
-export type TerrainType = '平地' | '山丘' | '山嶽' | '樹林' | '淺水' | '深水' | '城池' | '關寨' | '沙漠' | '沼澤';
+export type TerrainType = '平地' | '山丘' | '山嶽' | '樹林' | '淺水' | '深水' | '城池' | '關寨' | '太守府' | '沙漠' | '沼澤';
 
 export interface GridCell {
   col: number;
@@ -200,6 +233,7 @@ export interface BattleUnit {
   stamina?: number;
   status?: 'normal' | 'confused' | 'disarray'; // 狀態：正常 / 混亂 / 無陣
   hasActed?: boolean; // 本日是否已行動
+  hasMovedThisTurn?: boolean; // 本回合是否已移動 (每回合限移動一次)
   attackBuff?: number; // 夾擊激發之攻擊力加成 (如無雙激發)
 }
 
@@ -210,11 +244,13 @@ export interface BattleState {
   time: string;
   attacker: {
     commander: string;
+    strategist?: string | null;
     gold: number;
     food: number;
   };
   defender: {
     commander: string;
+    strategist?: string | null;
     gold: number;
     food: number;
   };

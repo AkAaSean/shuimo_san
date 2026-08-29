@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { GameState } from '../types';
 import { provinces } from '../data/provinces';
 import { getGeneralItemBonus } from '../data/items';
+import { GeneralAvatar } from './GeneralAvatar';
 
 interface MilitaryMoveViewProps {
   gameState: GameState;
@@ -165,6 +166,7 @@ export default function MilitaryMoveView({ gameState, onExit, onConfirmMove }: M
                           onChange={() => {}} // handled by parent div onClick
                           className="w-4 h-4 accent-[#991b1b]"
                         />
+                        <GeneralAvatar name={g.name} size={38} className="shrink-0 rounded shadow-xs" />
                         <div>
                           <div className="font-black text-base flex items-center gap-2 flex-wrap">
                             <span>{g.name}</span>

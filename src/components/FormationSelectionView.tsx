@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { GameState, BattleState } from '../types';
 import { FORMATIONS, getGeneralAvailableFormations } from '../engine/formations';
+import { GeneralAvatar } from './GeneralAvatar';
 
 interface FormationSelectionViewProps {
   gameState: GameState;
@@ -181,27 +182,30 @@ export default function FormationSelectionView({ gameState, battleState, onCompl
                   }`}
                 >
                   <div className="flex justify-between items-start">
-                    <div>
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="font-black text-base text-stone-900">{unit.generalName}</span>
-                        {unit.isCommander && (
-                          <span className="text-[10px] bg-[#991b1b] text-white px-1.5 py-0.5 rounded font-black">
-                            主帥
+                    <div className="flex items-center gap-2.5">
+                      <GeneralAvatar name={unit.generalName} size={36} className="shrink-0 rounded shadow-xs" />
+                      <div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-black text-base text-stone-900">{unit.generalName}</span>
+                          {unit.isCommander && (
+                            <span className="text-[10px] bg-[#991b1b] text-white px-1.5 py-0.5 rounded font-black">
+                              主帥
+                            </span>
+                          )}
+                          <span className="text-[10px] bg-stone-200 text-stone-700 font-bold px-1.5 py-0.5 rounded border border-stone-300">
+                            習得 {learned.length} 種
                           </span>
-                        )}
-                        <span className="text-[10px] bg-stone-200 text-stone-700 font-bold px-1.5 py-0.5 rounded border border-stone-300">
-                          習得 {learned.length} 種
-                        </span>
-                      </div>
-                      <div className="text-xs text-stone-600 mt-1 flex gap-2">
-                        <span>兵力: <strong className="text-[#991b1b]">{unit.troops}</strong></span>
-                        {gen && (
-                          <>
-                            <span>武: <strong>{gen.str}</strong></span>
-                            <span>智: <strong>{gen.int}</strong></span>
-                            <span>統: <strong>{gen.hp}</strong></span>
-                          </>
-                        )}
+                        </div>
+                        <div className="text-xs text-stone-600 mt-1 flex gap-2">
+                          <span>兵力: <strong className="text-[#991b1b]">{unit.troops}</strong></span>
+                          {gen && (
+                            <>
+                              <span>武: <strong>{gen.str}</strong></span>
+                              <span>智: <strong>{gen.int}</strong></span>
+                              <span>統: <strong>{gen.hp}</strong></span>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -311,17 +315,33 @@ export default function FormationSelectionView({ gameState, battleState, onCompl
                       <span className={`text-xs px-2 py-0.5 border rounded-full font-bold ${
                         isSelected
                           ? 'border-red-200 bg-red-900/60 text-red-100'
-                          : form.type === '水上'
+                          : (form.terrain || form.type) === '水上'
                           ? 'bg-sky-100 text-sky-800 border-sky-300'
-                          : form.type === '山嶽'
-                          ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                          : 'bg-amber-100 text-amber-800 border-amber-300'
+                          : (form.terrain || form.type) === '山嶽'
+                          ? 'bg-amber-100 text-amber-900 border-amber-300'
+                          : (form.terrain || form.type) === '密林'
+                          ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                          : (form.terrain || form.type) === '通用'
+                          ? 'bg-purple-100 text-purple-900 border-purple-300'
+                          : 'bg-lime-100 text-lime-800 border-lime-300'
                       }`}>
-                        {form.type}
+                        {form.terrain || form.type}
                       </span>
                     </div>
 
-                    {/* Stats 6-grid */}
+                    {/* Terrain Adaptability Badge & Stats 6-grid */}
+                    <div className={`text-[11px] font-bold py-1 px-2 mb-1.5 rounded flex justify-between items-center ${
+                      isSelected ? 'bg-black/25 text-amber-200' : 'bg-stone-200 text-stone-800'
+                    }`}>
+                      <span>優勢地形: <strong className="underline">{form.terrain || form.type}</strong></span>
+                      <span>
+                        {(form.terrain || form.type) === '平地' && '平地極速(+20%攻擊) / 山水受制'}
+                        {(form.terrain || form.type) === '山嶽' && '山地險阻(+30%暴擊/金湯) / 窄道突擊'}
+                        {(form.terrain || form.type) === '水上' && '江河水網(+20%攻防) / 水計減耗'}
+                        {(form.terrain || form.type) === '通用' && '奇門神陣 / 全地形適應+計謀增幅'}
+                      </span>
+                    </div>
+
                     <div className={`grid grid-cols-3 gap-x-2 gap-y-1 text-xs py-1.5 px-2 rounded ${
                       isSelected ? 'bg-black/15 text-rose-50' : 'bg-stone-100 text-stone-700'
                     }`}>

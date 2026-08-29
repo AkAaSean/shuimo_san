@@ -2,6 +2,7 @@ import React from 'react';
 import { X, Shield, Swords, ArrowRight, Sparkles, Navigation, Crosshair } from 'lucide-react';
 import { FORMATIONS, getGeneralAvailableFormations } from '../engine/formations';
 import { GeneralState, BattleUnit } from '../types';
+import { GeneralAvatar } from './GeneralAvatar';
 
 interface BattleFormationModalProps {
   isOpen: boolean;
@@ -61,9 +62,7 @@ export default function BattleFormationModal({
         {/* General Summary Bar */}
         <div className="bg-stone-200/90 border-b border-stone-400 px-4 py-2 flex items-center justify-between flex-wrap gap-2 text-xs">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-rose-900 text-white font-black text-sm rounded flex items-center justify-center border border-stone-900">
-              {activeUnit.generalName.slice(0, 2)}
-            </div>
+            <GeneralAvatar name={activeUnit.generalName} size={40} className="shrink-0 rounded border-2 border-stone-800 shadow-xs" />
             <div>
               <div className="font-black text-sm text-stone-900 flex items-center gap-2">
                 {activeUnit.generalName}
@@ -121,13 +120,17 @@ export default function BattleFormationModal({
                       <div className="flex items-center gap-1.5">
                         <span className="font-black text-base text-stone-900">【{f.name}陣】</span>
                         <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold border ${
-                          f.type === '平地'
+                          (f.terrain || f.type) === '水上'
+                            ? 'bg-sky-100 text-sky-900 border-sky-300'
+                            : (f.terrain || f.type) === '山嶽'
                             ? 'bg-amber-100 text-amber-900 border-amber-300'
-                            : f.type === '山嶽'
+                            : (f.terrain || f.type) === '密林'
                             ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
-                            : 'bg-sky-100 text-sky-900 border-sky-300'
+                            : (f.terrain || f.type) === '通用'
+                            ? 'bg-purple-100 text-purple-900 border-purple-300'
+                            : 'bg-lime-100 text-lime-900 border-lime-300'
                         }`}>
-                          {f.type}適性
+                          {f.terrain || f.type}適性
                         </span>
                       </div>
 

@@ -1,5 +1,24 @@
-import { BattleUnit, GeneralState, TerrainType, PassiveSkillDef, PassiveSkillId } from '../types';
-import { FORMATIONS, getTerrainEffectiveness } from './formations';
+import { BattleUnit, GeneralState, TerrainType, GridCell, PassiveSkillDef, PassiveSkillId } from '../types';
+import { 
+  FORMATIONS, 
+  getTerrainEffectiveness, 
+  getTerrainMobilityCost,
+  calculateFormationTerrainCombatModifier,
+  calculateBatchFormationCombatModifiers,
+  getBestFormationForProvince,
+  FormationTerrainCombatPowerResult,
+  TerrainCombatModifierBreakdown
+} from './formations';
+
+export {
+  calculateFormationTerrainCombatModifier,
+  calculateBatchFormationCombatModifiers,
+  getBestFormationForProvince
+};
+export type {
+  FormationTerrainCombatPowerResult,
+  TerrainCombatModifierBreakdown
+};
 
 /**
  * 光榮《三國志V》被動特技定義庫
@@ -92,10 +111,134 @@ export function hasPassiveSkill(
 }
 
 /**
- * 計算兩格座標間之曼哈頓/戰術距離
+ * 取得六角格鄰近六方向座標 (odd-q vertical layout)
+ */
+export function getHexNeighbors(col: number, row: number, maxCols: number, maxRows: number): { col: number; row: number }[] {
+  const isOdd = (col % 2 !== 0);
+  const offsets = isOdd ? [
+    { dc: 0, dr: -1 },  // 上
+    { dc: 0, dr: 1 },   // 下
+    { dc: -1, dr: 0 },  // 左上
+    { dc: -1, dr: 1 },  // 左下
+    { dc: 1, dr: 0 },   // 右上
+    { dc: 1, dr: 1 },   // 右下
+  ] : [
+    { dc: 0, dr: -1 },  // 上
+    { dc: 0, dr: 1 },   // 下
+    { dc: -1, dr: -1 }, // 左上
+    { dc: -1, dr: 0 },  // 左下
+    { dc: 1, dr: -1 },  // 右上
+    { dc: 1, dr: 0 },   // 右下
+  ];
+
+  const results: { col: number; row: number }[] = [];
+  for (let i = 0; i < offsets.length; i++) {
+    const nc = col + offsets[i].dc;
+    const nr = row + offsets[i].dr;
+    if (nc >= 0 && nc < maxCols && nr >= 0 && nr < maxRows) {
+      results.push({ col: nc, row: nr });
+    }
+  }
+  return results;
+}
+
+/**
+ * 計算兩六角格座標間之精確六角戰術距離 (odd-q vertical layout)
  */
 export function getHexDistance(c1: number, r1: number, c2: number, r2: number): number {
-  return Math.abs(c1 - c2) + Math.abs(r1 - r2);
+  const q1 = c1;
+  const r1_ax = r1 - Math.floor((c1 - (c1 & 1)) / 2);
+  const s1 = -q1 - r1_ax;
+
+  const q2 = c2;
+  const r2_ax = r2 - Math.floor((c2 - (c2 & 1)) / 2);
+  const s2 = -q2 - r2_ax;
+
+  return Math.max(
+    Math.abs(q1 - q2),
+    Math.abs(r1_ax - r2_ax),
+    Math.abs(s1 - s2)
+  );
+}
+
+/**
+ * 依陣形機動力與地形移動消耗，計算部隊可移動目標格（Dijkstra 最短消耗演算法）
+ */
+export function calculateValidMovementRange(
+  activeUnit: BattleUnit,
+  allUnits: BattleUnit[],
+  grid: { col: number; row: number; terrain: TerrainType }[],
+  maxCols: number,
+  maxRows: number
+): { col: number; row: number }[] {
+  const formationStats = getUnitFormationStats(activeUnit.formation);
+  const maxMobility = formationStats.mobility || 16;
+  const formationType = formationStats.type || '平地';
+
+  // 地形快速查詢字典
+  const terrainMap = new Map<string, TerrainType>();
+  for (let i = 0; i < grid.length; i++) {
+    terrainMap.set(`${grid[i].col},${grid[i].row}`, grid[i].terrain);
+  }
+
+  // 佔位單位快速查詢字典
+  const unitMap = new Map<string, BattleUnit>();
+  for (let i = 0; i < allUnits.length; i++) {
+    const u = allUnits[i];
+    if (u.troops > 0) {
+      unitMap.set(`${u.col},${u.row}`, u);
+    }
+  }
+
+  // Dijkstra / Priority Queue
+  const minCostMap = new Map<string, number>();
+  const queue: { col: number; row: number; cost: number }[] = [];
+
+  const startKey = `${activeUnit.col},${activeUnit.row}`;
+  minCostMap.set(startKey, 0);
+  queue.push({ col: activeUnit.col, row: activeUnit.row, cost: 0 });
+
+  const validTargets: { col: number; row: number }[] = [];
+
+  while (queue.length > 0) {
+    queue.sort((a, b) => a.cost - b.cost);
+    const curr = queue.shift()!;
+
+    if (curr.cost > minCostMap.get(`${curr.col},${curr.row}`)!) {
+      continue;
+    }
+
+    // 若該格非起點，且沒有任何存活部隊佔位，則可作為合法停駐點
+    const occupyingUnit = unitMap.get(`${curr.col},${curr.row}`);
+    if ((curr.col !== activeUnit.col || curr.row !== activeUnit.row) && !occupyingUnit) {
+      validTargets.push({ col: curr.col, row: curr.row });
+    }
+
+    // 展開 6 個方向的相鄰六角格
+    const neighbors = getHexNeighbors(curr.col, curr.row, maxCols, maxRows);
+    for (let i = 0; i < neighbors.length; i++) {
+      const n = neighbors[i];
+      const nKey = `${n.col},${n.row}`;
+      const terrain = terrainMap.get(nKey) || '平地';
+      const moveCost = getTerrainMobilityCost(formationType, terrain);
+      const nextCost = curr.cost + moveCost;
+
+      if (nextCost <= maxMobility) {
+        // 敵軍阻擋判定：不能穿過敵方部隊
+        const obstacleUnit = unitMap.get(nKey);
+        if (obstacleUnit && obstacleUnit.isAttacker !== activeUnit.isAttacker) {
+          continue; // 敵軍阻斷行軍路線
+        }
+
+        if (!minCostMap.has(nKey) || nextCost < minCostMap.get(nKey)!) {
+          minCostMap.set(nKey, nextCost);
+          queue.push({ col: n.col, row: n.row, cost: nextCost });
+        }
+      }
+    }
+  }
+
+  return validTargets;
 }
 
 /**
@@ -269,6 +412,16 @@ export function calculateMeleeCombat(
   // 計算最終守方損失
   const randomFactor1 = 0.9 + Math.random() * 0.2;
   let attackerDamage = Math.floor(Math.max(80, (rawAtkPower / Math.max(20, rawDefArmor)) * 120 * randomFactor1));
+  
+  // 城防地利減傷庇護 (Option A+C)
+  if (terrain === '城池' || terrain === '關寨') {
+    attackerDamage = Math.floor(attackerDamage * 0.60);
+    combatLogs.push(`🛡️ 【城垣避護】${defender.generalName} 駐守城垛關口，掩體使受到的近戰傷害減免 40%！`);
+  } else if (terrain === '太守府') {
+    attackerDamage = Math.floor(attackerDamage * 0.70);
+    combatLogs.push(`🏯 【太守府防衛】${defender.generalName} 駐守大本營核心，獲得 30% 防禦減傷加成！`);
+  }
+
   attackerDamage = Math.min(defender.troops, attackerDamage);
 
   // 3. 守方反擊計算
@@ -437,6 +590,16 @@ export function calculateArcheryCombat(
 
   const randomFactor = 0.9 + Math.random() * 0.2;
   let archeryDamage = Math.floor(Math.max(50, (bowAtkPower / Math.max(20, bowDefArmor)) * 100 * randomFactor));
+  
+  // 城防防箭庇護 (Option A+C)
+  if (terrain === '城池' || terrain === '關寨') {
+    archeryDamage = Math.floor(archeryDamage * 0.60);
+    combatLogs.push(`🛡️ 【城垛遮蔽】${defender.generalName} 處於城池關口，掩體使受到的箭矢傷害大幅減免 40%！`);
+  } else if (terrain === '太守府') {
+    archeryDamage = Math.floor(archeryDamage * 0.70);
+    combatLogs.push(`🏯 【太守府防衛】${defender.generalName} 駐守大本營，受到的箭矢傷害減免 30%！`);
+  }
+
   archeryDamage = Math.min(defender.troops, archeryDamage);
 
   combatLogs.push(`🏹 ${attacker.generalName} 箭陣齊射，射傷 ${defender.generalName} 軍 ${archeryDamage} 人！`);
@@ -677,7 +840,8 @@ export function calculateStrategyExecution(
  */
 export function processTurnStartPassives(
   units: BattleUnit[],
-  generalsData: Record<string, GeneralState>
+  generalsData: Record<string, GeneralState>,
+  grid?: GridCell[]
 ): {
   updatedUnits: BattleUnit[];
   notifications: string[];
@@ -685,7 +849,7 @@ export function processTurnStartPassives(
   const notifications: string[] = [];
   const updatedUnits = units.map(unit => {
     const gen = generalsData[unit.generalName];
-    if (!gen) return { ...unit, hasActed: false };
+    if (!gen) return { ...unit, hasActed: false, hasMovedThisTurn: false };
 
     let status = unit.status || 'normal';
     // 【沉著】：每回合自動恢復部隊不良狀態（解除混亂、無陣）
@@ -696,10 +860,27 @@ export function processTurnStartPassives(
       }
     }
 
+    let troops = unit.troops;
+    if (grid && troops > 0) {
+      const cell = grid.find(c => c.col === unit.col && c.row === unit.row);
+      if (cell) {
+        if (cell.terrain === '太守府' || (!unit.isAttacker && (cell.terrain === '城池' || cell.terrain === '關寨'))) {
+          // 後勤補給與傷兵救治：每回合恢復 5% 兵力 (最多 500 人，最高上限 10,000)
+          const healAmount = Math.min(500, Math.floor(troops * 0.05));
+          if (healAmount > 0 && troops < 10000) {
+            troops = Math.min(10000, troops + healAmount);
+            notifications.push(`🏥 【後勤補給】${unit.generalName} 駐紮 ${cell.terrain}，獲得軍醫救治與糧草補充，兵力恢復 +${healAmount} 人！`);
+          }
+        }
+      }
+    }
+
     return {
       ...unit,
+      troops,
       status,
       hasActed: false,
+      hasMovedThisTurn: false,
       attackBuff: 0 // Reset temporary buff
     };
   });

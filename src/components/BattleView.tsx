@@ -1,18 +1,18 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { GameState, BattleState, BattleUnit, TerrainType, DamagePopup, CombatLogEntry, GeneralState } from '../types';
+import { GameState, BattleState, BattleUnit, TerrainType, DamagePopup, CombatLogEntry, GeneralState, GridCell } from '../types';
 import { generateBattleGrid } from '../utils/terrainGenerator';
 import { getGeneralAvailableSkills, getGeneralPassives } from '../engine/skills';
 import { provinces } from '../data/provinces';
 import { getTerrainMobilityCost } from '../engine/formations';
 import {
   calculateMeleeCombat,
-
   calculateArcheryCombat,
   calculateStrategyExecution,
   processTurnStartPassives,
   hasPassiveSkill,
   getHexDistance,
   getUnitFormationStats,
+  calculateValidMovementRange,
   PASSIVE_SKILL_REGISTRY
 } from '../engine/battleCalculations';
 import BattleHeader from './BattleHeader';
@@ -51,46 +51,87 @@ export default function BattleView({ gameState, onExitBattle, onResolveBattle }:
     const targetProvinceId = battle.targetProvinceId;
     const grid = generateBattleGrid(targetProvinceId);
     
-    const units: BattleUnit[] = [];
-    
-    // 攻方參戰將領部隊
-    let aRow = 1;
-    let aCol = 2;
-    battle.attackingGenerals.forEach((gName, idx) => {
-      const gen = gameState.generalsData[gName];
-      if (gen) {
-        units.push({
-          id: `a_${idx}`,
-          generalName: gName,
-          isAttacker: true,
-          troops: gen.soldiers,
-          col: aCol,
-          row: aRow,
-          isCommander: idx === 0,
-          skills: gen.skills || getGeneralAvailableSkills(gen),
-          passives: gen.passives || getGeneralPassives(gen),
-          stamina: 100,
-          status: 'normal',
-          hasActed: false
-        });
-        aCol += 2;
-        if (aCol > 8) { aCol = 2; aRow += 2; }
-      }
+    // 計算戰場地圖尺寸
+    let cols = 12;
+    let rows = 12;
+    grid.forEach(c => {
+      if (c.col + 1 > cols) cols = c.col + 1;
+      if (c.row + 1 > rows) rows = c.row + 1;
     });
 
-    // 守方參戰將領部隊
-    let dRow = 9;
-    let dCol = 2;
+    const centerCol = Math.floor(cols / 2);
+    const centerRow = Math.floor(rows / 2);
+
+    const occupiedSet = new Set<string>();
+    const cellMap = new Map<string, GridCell>();
+    grid.forEach(c => cellMap.set(`${c.col},${c.row}`, c));
+
+    // 尋找目標點周圍最佳可用（未佔用且可通行）座標
+    const findAvailableCellNear = (idealC: number, idealR: number, isAttacker: boolean): { col: number; row: number } => {
+      let bestCell = { col: idealC, row: idealR };
+      let minScore = Infinity;
+
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const key = `${c},${r}`;
+          if (occupiedSet.has(key)) continue;
+
+          const cell = cellMap.get(key);
+          const dist = Math.abs(c - idealC) + Math.abs(r - idealR);
+
+          let terrainPenalty = 0;
+          if (cell) {
+            if (cell.terrain === '城池' && isAttacker) terrainPenalty += 20; // 攻軍避開城牆內部出生
+            if (cell.terrain === '山嶽' || cell.terrain === '深水') terrainPenalty += 8;
+          }
+
+          const score = dist * 2 + terrainPenalty;
+          if (score < minScore) {
+            minScore = score;
+            bestCell = { col: c, row: r };
+          }
+        }
+      }
+
+      const chosenKey = `${bestCell.col},${bestCell.row}`;
+      const chosenCell = cellMap.get(chosenKey);
+      if (chosenCell && (chosenCell.terrain === '山嶽' || chosenCell.terrain === '深水')) {
+        chosenCell.terrain = '平地';
+      }
+
+      occupiedSet.add(chosenKey);
+      return bestCell;
+    };
+
+    const units: BattleUnit[] = [];
+
+    // 1. 守方參戰將領部隊：優先配置在城池 (City hexes) 中，若擠滿則依序向周圍擴展
+    const cityCells = grid
+      .filter(c => c.terrain === '城池')
+      .sort((a, b) => (Math.abs(a.col - centerCol) + Math.abs(a.row - centerRow)) - (Math.abs(b.col - centerCol) + Math.abs(b.row - centerRow)));
+
+    const findDefenderCityCell = (): { col: number; row: number } => {
+      for (const cCell of cityCells) {
+        const key = `${cCell.col},${cCell.row}`;
+        if (!occupiedSet.has(key)) {
+          occupiedSet.add(key);
+          return { col: cCell.col, row: cCell.row };
+        }
+      }
+      return findAvailableCellNear(centerCol, centerRow, false);
+    };
+
     battle.defendingGenerals.forEach((gName, idx) => {
       const gen = gameState.generalsData[gName];
       if (gen) {
+        const pos = findDefenderCityCell();
         units.push({
           id: `d_${idx}`,
           generalName: gName,
           isAttacker: false,
           troops: gen.soldiers,
-          col: dCol,
-          row: dRow,
+          col: pos.col,
+          row: pos.row,
           isCommander: idx === 0,
           formation: gen.formations && gen.formations.length > 0 ? gen.formations[0] : '方圓',
           skills: gen.skills || getGeneralAvailableSkills(gen),
@@ -99,29 +140,84 @@ export default function BattleView({ gameState, onExitBattle, onResolveBattle }:
           status: 'normal',
           hasActed: false
         });
-        dCol += 2;
-        if (dCol > 8) { dCol = 2; dRow -= 2; }
       }
     });
 
-    // 守備備援部隊
+    // 守備備援部隊 (若無守將)
     if (battle.defendingGenerals.length === 0) {
-       units.push({
-         id: 'd_0',
-         generalName: '守備將軍',
-         isAttacker: false,
-         troops: 1000,
-         col: 5,
-         row: 9,
-         isCommander: true,
-         formation: '方圓',
-         skills: ['沉著', '鼓舞', '收拾'],
-         passives: ['沉著'],
-         stamina: 100,
-         status: 'normal',
-         hasActed: false
-       });
+      const pos = findDefenderCityCell();
+      units.push({
+        id: 'd_0',
+        generalName: '守備將軍',
+        isAttacker: false,
+        troops: 1000,
+        col: pos.col,
+        row: pos.row,
+        isCommander: true,
+        formation: '方圓',
+        skills: ['沉著', '鼓舞', '收拾'],
+        passives: ['沉著'],
+        stamina: 100,
+        status: 'normal',
+        hasActed: false
+      });
     }
+
+    // 2. 攻方參戰將領部隊：依據各將領出發地城市相對於目標城市的幾何方向，配置在對應方向的地圖邊界
+    const targetProvObj = provinces.find(p => p.id === targetProvinceId);
+
+    battle.attackingGenerals.forEach((gName, idx) => {
+      const gen = gameState.generalsData[gName];
+      if (gen) {
+        const originProvId = gen.provinceId !== null ? gen.provinceId : battle.attackerProvinceId;
+        const originProvObj = provinces.find(p => p.id === originProvId);
+
+        let dx = -1;
+        let dy = 0;
+        if (originProvObj && targetProvObj) {
+          dx = originProvObj.x - targetProvObj.x;
+          dy = originProvObj.y - targetProvObj.y;
+        }
+
+        if (dx === 0 && dy === 0) {
+          dx = -1;
+          dy = 0;
+        }
+
+        // 依據相對向量 (dx, dy)，由戰場中心點做邊界投射
+        const len = Math.hypot(dx, dy) || 1;
+        const ndx = dx / len;
+        const ndy = dy / len;
+
+        const tX = ndx > 0 ? (cols - 1 - centerCol) / ndx : (ndx < 0 ? (0 - centerCol) / ndx : Infinity);
+        const tY = ndy > 0 ? (rows - 1 - centerRow) / ndy : (ndy < 0 ? (0 - centerRow) / ndy : Infinity);
+        const t = Math.min(tX, tY);
+
+        let spawnCol = Math.round(centerCol + t * ndx);
+        let spawnRow = Math.round(centerRow + t * ndy);
+
+        spawnCol = Math.max(0, Math.min(cols - 1, spawnCol));
+        spawnRow = Math.max(0, Math.min(rows - 1, spawnRow));
+
+        // 尋找邊界 Spawn 入口點附近的最佳空位
+        const pos = findAvailableCellNear(spawnCol, spawnRow, true);
+
+        units.push({
+          id: `a_${idx}`,
+          generalName: gName,
+          isAttacker: true,
+          troops: gen.soldiers,
+          col: pos.col,
+          row: pos.row,
+          isCommander: idx === 0,
+          skills: gen.skills || getGeneralAvailableSkills(gen),
+          passives: gen.passives || getGeneralPassives(gen),
+          stamina: 100,
+          status: 'normal',
+          hasActed: false
+        });
+      }
+    });
 
     const provObj = provinces.find(p => p.id === targetProvinceId);
     const initialLogs: CombatLogEntry[] = [
@@ -133,8 +229,18 @@ export default function BattleView({ gameState, onExitBattle, onResolveBattle }:
       weather: '晴天',
       windDirection: '東風',
       time: `${gameState.year}年${gameState.month}月 ${gameState.season}`,
-      attacker: { commander: battle.attackingGenerals[0] || '無名', gold: battle.attackerGold || 0, food: battle.attackerFood || 0 },
-      defender: { commander: battle.defendingGenerals[0] || '守備軍', gold: 100, food: 100 },
+      attacker: { 
+        commander: battle.attackingGenerals[0] || '無名', 
+        strategist: battle.attackerStrategist,
+        gold: battle.attackerGold || 0, 
+        food: battle.attackerFood || 0 
+      },
+      defender: { 
+        commander: battle.defendingGenerals[0] || '守備軍', 
+        strategist: battle.defenderStrategist,
+        gold: 100, 
+        food: 100 
+      },
       grid,
       units,
       activeUnitId: units[0]?.id || null,
@@ -197,59 +303,9 @@ export default function BattleView({ gameState, onExitBattle, onResolveBattle }:
     if (!battleState || !activeUnit || !targetingMode) return [];
     
     if (targetingMode === 'move') {
-      const activeFormation = activeUnit.formation || '平地';
-      const stats = getUnitFormationStats(activeFormation);
-      const maxMobility = stats.mobility || 16;
-      const formationType = stats.type || '平地';
-
-      const queue: { col: number; row: number; cost: number }[] = [];
-      const visited = new Map<string, number>();
-      
-      queue.push({ col: activeUnit.col, row: activeUnit.row, cost: 0 });
-      visited.set(`${activeUnit.col},${activeUnit.row}`, 0);
-
-      const valid: { col: number; row: number }[] = [];
-
-      while (queue.length > 0) {
-        queue.sort((a, b) => a.cost - b.cost);
-        const curr = queue.shift()!;
-
-        const isOccupied = battleState.units.some(u => u.troops > 0 && u.col === curr.col && u.row === curr.row);
-        
-        if (!isOccupied && (curr.col !== activeUnit.col || curr.row !== activeUnit.row)) {
-          if (!valid.some(v => v.col === curr.col && v.row === curr.row)) {
-            valid.push({ col: curr.col, row: curr.row });
-          }
-        }
-
-        const neighbors = [
-          { col: curr.col + 1, row: curr.row },
-          { col: curr.col - 1, row: curr.row },
-          { col: curr.col, row: curr.row + 1 },
-          { col: curr.col, row: curr.row - 1 }
-        ];
-
-        for (const n of neighbors) {
-          if (n.col >= 0 && n.col < 8 && n.row >= 0 && n.row < 12) {
-            const cell = battleState.grid.find(c => c.col === n.col && c.row === n.row);
-            const terrain = cell ? cell.terrain : '平地';
-            const moveCost = getTerrainMobilityCost(formationType, terrain);
-            const nextCost = curr.cost + moveCost;
-            
-            // Cannot pass through enemies
-            const enemyOccupied = battleState.units.some(u => u.troops > 0 && u.isAttacker !== activeUnit.isAttacker && u.col === n.col && u.row === n.row);
-            
-            if (nextCost <= maxMobility && !enemyOccupied) {
-              const key = `${n.col},${n.row}`;
-              if (!visited.has(key) || visited.get(key)! > nextCost) {
-                visited.set(key, nextCost);
-                queue.push({ col: n.col, row: n.row, cost: nextCost });
-              }
-            }
-          }
-        }
-      }
-      return valid;
+      const maxCols = Math.max(0, ...battleState.grid.map(c => c.col)) + 1;
+      const maxRows = Math.max(0, ...battleState.grid.map(c => c.row)) + 1;
+      return calculateValidMovementRange(activeUnit, battleState.units, battleState.grid, maxCols, maxRows);
     }
 
     if (targetingMode === 'melee' || targetingMode === 'deadly' || targetingMode === 'joint' || targetingMode === 'assault' || targetingMode === 'duel') {
@@ -262,7 +318,10 @@ export default function BattleView({ gameState, onExitBattle, onResolveBattle }:
     if (targetingMode === 'archery' || targetingMode === 'firearrow') {
       const activeGen = gameState.generalsData[activeUnit.generalName] || { str: 60, hp: 60, int: 60 };
       const hasMountedArchery = hasPassiveSkill(activeUnit, activeGen as GeneralState, '騎射');
-      const maxRange = (hasMountedArchery ? 1 : 0) + (getUnitFormationStats(activeUnit.formation).range || 2);
+      
+      const currentCell = battleState.grid.find(c => c.col === activeUnit.col && c.row === activeUnit.row);
+      const isHighGround = currentCell && (currentCell.terrain === '城池' || currentCell.terrain === '關寨' || currentCell.terrain === '太守府');
+      const maxRange = (hasMountedArchery ? 1 : 0) + (getUnitFormationStats(activeUnit.formation).range || 2) + (isHighGround ? 1 : 0);
 
       // 距離 1 ~ maxRange 內的敵軍
       return battleState.units
@@ -286,6 +345,18 @@ export default function BattleView({ gameState, onExitBattle, onResolveBattle }:
 
   // 檢查勝負條件
   const checkBattleEnd = useCallback((units: BattleUnit[]) => {
+    if (!battleState) return false;
+
+    // 檢查攻方是否成功攻佔守方「太守府」(HQ Core Victory Condition - Option A)
+    const palaceCells = battleState.grid.filter(c => c.terrain === '太守府');
+    const attackerInPalace = units.find(u => u.isAttacker && u.troops > 0 && palaceCells.some(p => p.col === u.col && p.row === u.row));
+
+    if (attackerInPalace) {
+      addBattleLogs([`👑 【太守府陷落】攻方大軍突破重圍，直取並攻佔太守府大本營！守軍全線潰敗，攻方大獲全勝！`], 'critical');
+      setTimeout(() => onResolveBattle('attacker'), 1500);
+      return true;
+    }
+
     const attackersAlive = units.filter(u => u.isAttacker && u.troops > 0);
     const defendersAlive = units.filter(u => !u.isAttacker && u.troops > 0);
 
@@ -302,7 +373,7 @@ export default function BattleView({ gameState, onExitBattle, onResolveBattle }:
     }
 
     return false;
-  }, [addBattleLogs, onResolveBattle]);
+  }, [battleState, addBattleLogs, onResolveBattle]);
 
   // 執行近戰或死戰
   const executeMeleeAttack = useCallback((targetUnit: BattleUnit, isDeadly: boolean = false) => {
@@ -681,8 +752,8 @@ export default function BattleView({ gameState, onExitBattle, onResolveBattle }:
       } : null);
       setCustomPromptMessage(`輪到將領【${nextAttacker.generalName}】行動`);
     } else {
-      // 己方所有部隊皆已行動完畢，進入次日：觸發回合初維護（包含【沉著】自動解除不良狀態）
-      const { updatedUnits, notifications } = processTurnStartPassives(units, gameState.generalsData);
+      // 己方所有部隊皆已行動完畢，進入次日：觸發回合初維護（包含【沉著】自動解除不良狀態、城池/太守府後勤傷兵恢復）
+      const { updatedUnits, notifications } = processTurnStartPassives(units, gameState.generalsData, battleState.grid);
       
       const newDay = battleState.currentDay + 1;
       notifications.forEach(note => {
@@ -712,6 +783,13 @@ export default function BattleView({ gameState, onExitBattle, onResolveBattle }:
     if (!battleState || !activeUnit) return;
     const activeGen = gameState.generalsData[activeUnit.generalName];
 
+    // 非待命/查看/退兵指令時，若武將本回合已行動過，則阻擋
+    if (activeUnit.hasActed && cmdId !== 0 && cmdId !== 12 && cmdId !== 14) {
+      addBattleLogs([`⚠️ 部隊【${activeUnit.generalName}】本回合已完成行動（已進行過攻擊或計謀），每回合限攻擊或計謀一次！請指派其他部隊或選擇「待命」推進戰局。`], 'info');
+      setCustomPromptMessage(`⚠️【${activeUnit.generalName}】今日已行動完畢，請指派其他部隊`);
+      return;
+    }
+
     // 取得鄰近敵軍
     const adjacentEnemies = battleState.units.filter(u => 
       u.isAttacker !== activeUnit.isAttacker && 
@@ -729,6 +807,11 @@ export default function BattleView({ gameState, onExitBattle, onResolveBattle }:
     );
 
     if (cmdId === 1) { // 1. 移動
+      if (activeUnit.hasMovedThisTurn) {
+        addBattleLogs([`⚠️ 部隊【${activeUnit.generalName}】本回合已完成移動，每回合只能移動一次！`], 'info');
+        setCustomPromptMessage(`⚠️【${activeUnit.generalName}】本回合已完成移動`);
+        return;
+      }
       setTargetingMode('move');
       setCustomPromptMessage('請點擊戰盤上的高亮格子以進行移動');
     } else if (cmdId === 2) { // 2. 通常 (近戰肉搏)
@@ -756,8 +839,8 @@ export default function BattleView({ gameState, onExitBattle, onResolveBattle }:
         setCustomPromptMessage('請點選目標敵軍發動一齊攻擊');
       }
     } else if (cmdId === 4) { // 4. 突擊
-      if (!['魚鱗', '鋒矢'].includes(activeUnit.formation || '')) {
-        addBattleLogs([`⚠️ 【突擊】需要編組「魚鱗」或「鋒矢」陣形才能發動！`], 'info');
+      if (!['魚鱗', '鋒矢', '錐行'].includes(activeUnit.formation || '')) {
+        addBattleLogs([`⚠️ 【突擊】需要編組「魚鱗」、「鋒矢」或「錐行」陣形才能發動！`], 'info');
         return;
       }
       if (adjacentEnemies.length === 0) {
@@ -780,6 +863,11 @@ export default function BattleView({ gameState, onExitBattle, onResolveBattle }:
         setCustomPromptMessage('請點擊射程範圍內的敵軍進行弓箭射擊');
       }
     } else if (cmdId === 6) { // 6. 火矢
+      if (['雨天', '雪天'].includes(battleState.weather)) {
+        addBattleLogs([`⚠️ 在雨天或雪天狀態下無法發動【火矢】攻擊！`], 'info');
+        setCustomPromptMessage(`⚠️ 雨天或雪天無法發動火矢`);
+        return;
+      }
       if (enemiesInRange.length === 0) {
         addBattleLogs([`⚠️ 射程範圍內無敵軍！`], 'info');
       } else if (enemiesInRange.length === 1) {
@@ -988,20 +1076,49 @@ export default function BattleView({ gameState, onExitBattle, onResolveBattle }:
     if (!battleState || !activeUnit) return;
     setStrategyOpen(false);
 
+    if (activeUnit.hasActed) {
+      addBattleLogs([`⚠️ 部隊【${activeUnit.generalName}】本回合已完成行動，無法再施展計略！`], 'info');
+      setCustomPromptMessage(`⚠️【${activeUnit.generalName}】今日已行動完畢`);
+      return;
+    }
+
     // 若為友軍/自身輔助型技能（如鼓舞、治療、收拾、滅火、仙術）
     if (['鼓舞', '激勵', '治療', '收拾', '滅火', '仙術', '天變', '祈雨', '速攻'].includes(strategy)) {
+      let logMsg = `✨ ${activeUnit.generalName} 施展計略【${strategy}】！`;
+      let popupText = strategy;
+      let popupColor: DamagePopup['color'] = 'green';
+
       if (strategy === '收拾') {
-        const updatedUnits = battleState.units.map(u => u.id === activeUnit.id ? { ...u, status: 'normal', hasActed: true } : u);
-        setBattleState(prev => prev ? { ...prev, units: updatedUnits } : null);
-        addDamagePopup(activeUnit.col, activeUnit.row, '軍容整肅', 'green');
-        addBattleLogs([`✨ ${activeUnit.generalName} 施展【收拾】，成功解除混亂狀態重回戰陣！`], 'passive');
-      } else if (strategy === '鼓舞') {
-        addDamagePopup(activeUnit.col, activeUnit.row, '士氣+30', 'amber');
-        addBattleLogs([`🎺 ${activeUnit.generalName} 擊鼓激勵，部隊士氣大幅提振！`], 'info');
-      } else if (strategy === '仙術') {
-        addDamagePopup(activeUnit.col, activeUnit.row, '傷兵盡復', 'green');
-        addBattleLogs([`☯️ ${activeUnit.generalName} 施展【仙術】，天降甘霖全軍傷勢痊癒！`], 'critical');
+        popupText = '軍容整肅';
+        logMsg = `✨ ${activeUnit.generalName} 施展【收拾】，成功解除混亂狀態重回戰陣！`;
+      } else if (strategy === '鼓舞' || strategy === '激勵') {
+        popupText = '士氣+30';
+        popupColor = 'amber';
+        logMsg = `🎺 ${activeUnit.generalName} 擊鼓激勵，部隊士氣大幅提振！`;
+      } else if (strategy === '治療' || strategy === '仙術') {
+        popupText = strategy === '仙術' ? '傷兵盡復' : '療傷救治';
+        logMsg = `☯️ ${activeUnit.generalName} 施展【${strategy}】，施救軍醫與道術，部隊傷勢痊癒！`;
       }
+
+      addDamagePopup(activeUnit.col, activeUnit.row, popupText, popupColor);
+      addBattleLogs([logMsg], 'passive');
+
+      const updatedUnits = battleState.units.map(u => {
+        if (u.id === activeUnit.id) {
+          const healedTroops = (strategy === '治療' || strategy === '仙術') ? Math.min(u.troops + 1500, 10000) : u.troops;
+          return {
+            ...u,
+            troops: healedTroops,
+            status: strategy === '收拾' ? 'normal' : u.status,
+            hasActed: true
+          };
+        }
+        return u;
+      });
+
+      setBattleState(prev => prev ? { ...prev, units: updatedUnits } : null);
+      setTargetingMode(null);
+      setPendingStrategy(null);
       return;
     }
 
@@ -1092,8 +1209,15 @@ export default function BattleView({ gameState, onExitBattle, onResolveBattle }:
         customMessage={customPromptMessage}
       />
       
-      {/* 經典 9 格戰術命令盤 */}
-      <BattleCommandMenu onCommandSelect={handleCommandSelect} />
+      {/* 經典水墨戰術命令盤 */}
+      <BattleCommandMenu 
+        onCommandSelect={handleCommandSelect} 
+        onStrategySelect={handleApplyStrategy}
+        activeUnit={activeUnit}
+        activeSkills={activeSkills}
+        activeStamina={activeStamina}
+        weather={battleState.weather}
+      />
       
       {/* 策略計策選單 */}
       <StrategySheet 

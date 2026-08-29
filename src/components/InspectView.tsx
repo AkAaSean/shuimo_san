@@ -1,8 +1,8 @@
-import { getGeneralAvailableFormations, getFormationInfo } from '../engine/formations';
-import { getGeneralAvailableSkills, getBattleSkillInfo, getGeneralPassives, isPassiveSkill } from '../engine/skills';
-import { PASSIVE_SKILL_REGISTRY } from '../engine/battleCalculations';
+import { getGeneralAvailableFormations, getFormationInfo, FORMATION_TERRAIN_MATRIX, TERRAIN_DETAILS } from '../engine/formations';
+import { getGeneralAvailableSkills, getBattleSkillInfo, isPassiveSkill } from '../engine/skills';
+import { GeneralAvatar } from "./GeneralAvatar";
 import React, { useState, useMemo } from 'react';
-import { GameState, GeneralState } from '../types';
+import { GameState, GeneralState, FormationTerrainType } from '../types';
 import { provinces } from '../data/provinces';
 import { SCENARIOS } from '../data/scenarios';
 import { PROVINCE_BASE_CONFIGS } from '../data/provinceBaseConfig';
@@ -45,6 +45,9 @@ export default function InspectView({
   const [generalRoleFilter, setGeneralRoleFilter] = useState<string>('全部');
   const [generalSortKey, setGeneralSortKey] = useState<'str' | 'int' | 'pol' | 'cha' | 'soldiers' | 'loyalty' | 'hp'>('hp');
   const [selectedGeneralDetail, setSelectedGeneralDetail] = useState<GeneralState | null>(null);
+  const [zoomedAvatarGeneral, setZoomedAvatarGeneral] = useState<GeneralState | null>(null);
+  const [selectedFormationForDetail, setSelectedFormationForDetail] = useState<string | null>(null);
+  const [selectedSkillForDetail, setSelectedSkillForDetail] = useState<string | null>(null);
 
   // 3. 領土列表 Tab State
   const [selectedRulerDetail, setSelectedRulerDetail] = useState<string | null>(null);
@@ -385,6 +388,36 @@ export default function InspectView({
                 </div>
               </div>
 
+              {/* 地理地形比例 (加總 100%) */}
+              {currentInspectProvince.meta.terrainRatio && (
+                <div className="bg-[#faf8f5] border border-stone-300 p-2.5 rounded text-xs">
+                  <div className="flex justify-between items-center mb-1.5 font-bold text-stone-700">
+                    <span className="flex items-center gap-1">🗺️ 郡境地形比例</span>
+                    <span className="text-[10px] text-stone-500">平/山/水/林 合計 100%</span>
+                  </div>
+                  <div className="h-2.5 w-full rounded-full overflow-hidden flex border border-stone-400 mb-2">
+                    {currentInspectProvince.meta.terrainRatio.平地 > 0 && (
+                      <div className="bg-emerald-600 h-full" style={{ width: `${currentInspectProvince.meta.terrainRatio.平地}%` }} title={`平地: ${currentInspectProvince.meta.terrainRatio.平地}%`} />
+                    )}
+                    {currentInspectProvince.meta.terrainRatio.山嶽 > 0 && (
+                      <div className="bg-amber-600 h-full" style={{ width: `${currentInspectProvince.meta.terrainRatio.山嶽}%` }} title={`山嶽: ${currentInspectProvince.meta.terrainRatio.山嶽}%`} />
+                    )}
+                    {currentInspectProvince.meta.terrainRatio.水上 > 0 && (
+                      <div className="bg-sky-600 h-full" style={{ width: `${currentInspectProvince.meta.terrainRatio.水上}%` }} title={`水上: ${currentInspectProvince.meta.terrainRatio.水上}%`} />
+                    )}
+                    {currentInspectProvince.meta.terrainRatio.密林 > 0 && (
+                      <div className="bg-green-700 h-full" style={{ width: `${currentInspectProvince.meta.terrainRatio.密林}%` }} title={`密林: ${currentInspectProvince.meta.terrainRatio.密林}%`} />
+                    )}
+                  </div>
+                  <div className="grid grid-cols-4 gap-1 text-center text-[10px] font-bold">
+                    <div className="bg-emerald-50 text-emerald-900 border border-emerald-200 py-0.5 rounded">🌾 平地 {currentInspectProvince.meta.terrainRatio.平地}%</div>
+                    <div className="bg-amber-50 text-amber-900 border border-amber-200 py-0.5 rounded">🏔️ 山嶽 {currentInspectProvince.meta.terrainRatio.山嶽}%</div>
+                    <div className="bg-sky-50 text-sky-900 border border-sky-200 py-0.5 rounded">🌊 水上 {currentInspectProvince.meta.terrainRatio.水上}%</div>
+                    <div className="bg-green-50 text-green-900 border border-green-200 py-0.5 rounded">🌲 密林 {currentInspectProvince.meta.terrainRatio.密林}%</div>
+                  </div>
+                </div>
+              )}
+
               {/* Core Economy & Population Grid */}
               <div className="grid grid-cols-4 gap-2 bg-[#fbf9f5] border border-stone-300 p-2.5 rounded text-center">
                 <div className="border-r border-stone-200">
@@ -502,6 +535,15 @@ export default function InspectView({
                           className="p-2 bg-stone-100 hover:bg-amber-50 border border-stone-300 rounded flex justify-between items-center cursor-pointer transition-colors"
                         >
                           <div className="flex items-center gap-1.5">
+                            <GeneralAvatar 
+                              name={g.name} 
+                              size={28} 
+                              className="shrink-0"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setZoomedAvatarGeneral(g);
+                              }}
+                            />
                             <span className={`text-[10px] px-1 py-0.5 rounded font-bold
                               ${g.isRuler ? 'bg-[#991b1b] text-white' : 'bg-stone-700 text-stone-100'}`}
                             >
@@ -662,6 +704,15 @@ export default function InspectView({
                   >
                     <div className="flex justify-between items-center border-b border-stone-200 pb-1.5">
                       <div className="flex items-center gap-1.5 flex-wrap">
+                        <GeneralAvatar 
+                          name={g.name} 
+                          size={38} 
+                          className="shrink-0 rounded shadow-xs border border-stone-800" 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setZoomedAvatarGeneral(g);
+                          }}
+                        />
                         <span className="text-sm font-black text-[#1c1917]">{g.name}</span>
                         <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold
                           ${g.isRuler ? 'bg-[#991b1b] text-white' : 'bg-stone-700 text-stone-100'}`}
@@ -756,30 +807,26 @@ export default function InspectView({
                       </div>
                     </div>
 
-                    {/* Passive & Battle Skills Ribbon */}
+                    {/* Formations & Battle Skills Ribbon */}
                     {(() => {
-                      const passives = getGeneralPassives(g);
+                      const formations = g.formations && g.formations.length > 0 ? g.formations : getGeneralAvailableFormations(g);
                       const skills = g.skills && g.skills.length > 0 ? g.skills : getGeneralAvailableSkills(g);
                       const activeSkills = skills.filter(s => !isPassiveSkill(s));
 
                       return (
                         <div className="flex items-center justify-between text-[10px] bg-stone-50 px-2 py-1 rounded border border-stone-200/70 flex-wrap gap-1">
                           <div className="flex items-center gap-1 flex-wrap">
-                            <span className="font-bold text-stone-600">被動:</span>
-                            {passives.length > 0 ? (
-                              passives.map(p => (
-                                <span key={p} className="bg-amber-100 text-amber-900 border border-amber-300 font-black px-1 rounded">
-                                  {p}
-                                </span>
-                              ))
-                            ) : (
-                              <span className="text-stone-400 italic">無</span>
-                            )}
+                            <span className="font-bold text-stone-600">🚩 陣形:</span>
+                            {formations.map(f => (
+                              <span key={f} className="bg-red-50 text-[#991b1b] border border-red-200 font-black px-1.5 py-0.5 rounded">
+                                {f}
+                              </span>
+                            ))}
                           </div>
                           <div className="flex items-center gap-1 flex-wrap">
-                            <span className="font-bold text-stone-500">計策:</span>
+                            <span className="font-bold text-stone-500">⚔️ 計策:</span>
                             {activeSkills.slice(0, 4).map(s => (
-                              <span key={s} className="bg-stone-200 text-stone-700 px-1 rounded">
+                              <span key={s} className="bg-stone-200 text-stone-700 px-1.5 py-0.5 rounded font-bold">
                                 {s}
                               </span>
                             ))}
@@ -1105,17 +1152,44 @@ export default function InspectView({
             <div className="bg-white border-2 border-[#1c1917] rounded-lg p-5 max-w-sm w-full shadow-2xl flex flex-col gap-3 font-serif max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-start border-b-2 border-[#1c1917] pb-2">
                 <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-xl font-black text-[#1c1917]">{selectedGeneralDetail.name}</h3>
-                    <span className={`text-xs px-2 py-0.5 rounded font-bold
-                      ${selectedGeneralDetail.isRuler ? 'bg-[#991b1b] text-white' : 'bg-stone-700 text-stone-100'}`}
+                  <div className="flex items-center gap-3.5">
+                    {/* 武將頭像 - 支援點擊放大檢視肖像 */}
+                    <div 
+                      onClick={() => setZoomedAvatarGeneral(selectedGeneralDetail)}
+                      className="relative group cursor-pointer shrink-0 rounded-lg p-0.5 bg-gradient-to-br from-amber-500 via-stone-800 to-amber-700 shadow-md transition-all hover:scale-105 active:scale-95"
+                      title="點擊放大檢視武將精繪肖像"
                     >
-                      {selectedGeneralDetail.isRuler ? '君主' : selectedGeneralDetail.role}
-                    </span>
+                      <GeneralAvatar 
+                        name={selectedGeneralDetail.name} 
+                        size={64} 
+                        className="rounded-md border border-amber-400/80 shadow-inner" 
+                      />
+                      <div className="absolute -bottom-1 -right-1 bg-stone-900/90 text-amber-300 border border-amber-400/70 rounded-full px-1.5 py-0.2 text-[8px] font-black flex items-center gap-0.5 shadow-sm">
+                        <span>🔍</span>
+                        <span>放大</span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-xl font-black text-[#1c1917] tracking-wider">{selectedGeneralDetail.name}</h3>
+                        <span className={`text-xs px-2 py-0.5 rounded font-bold shadow-2xs
+                          ${selectedGeneralDetail.isRuler ? 'bg-[#991b1b] text-white' : 'bg-stone-700 text-stone-100'}`}
+                        >
+                          {selectedGeneralDetail.isRuler ? '君主' : selectedGeneralDetail.role}
+                        </span>
+                        <button
+                          onClick={() => setZoomedAvatarGeneral(selectedGeneralDetail)}
+                          className="text-[10px] text-amber-800 hover:text-amber-950 font-bold bg-amber-100/90 hover:bg-amber-200 border border-amber-300 px-1.5 py-0.5 rounded flex items-center gap-0.5 cursor-pointer transition-colors"
+                        >
+                          <span>🔍 放大圖像</span>
+                        </button>
+                      </div>
+                      <span className="text-xs text-stone-500 font-bold">
+                        最大統兵上限：{selectedGeneralDetail.maxTroops || 3000} 兵
+                      </span>
+                    </div>
                   </div>
-                  <span className="text-xs text-stone-500 font-bold">
-                    最大統兵上限：{selectedGeneralDetail.maxTroops || 3000} 兵
-                  </span>
                 </div>
                 <button
                   onClick={() => setSelectedGeneralDetail(null)}
@@ -1226,17 +1300,36 @@ export default function InspectView({
                       <span className="font-black text-stone-800 flex items-center gap-1">
                         <span>🚩</span> 習得陣形 ({learnedFormations.length} / 5 種)
                       </span>
-                      <span className="text-[10px] text-stone-500 font-bold">戰場可自由指派切換</span>
+                      <span className="text-[10px] text-amber-900 font-bold">點選陣形查看兵法適性與加成</span>
                     </div>
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="grid grid-cols-2 gap-1.5">
                       {learnedFormations.map(fname => {
                         const info = getFormationInfo(fname);
+                        const terrainType = info?.terrain || info?.type || '平地';
+                        const badgeCls = 
+                          terrainType === '水上' ? 'bg-sky-100 text-sky-900 border-sky-300' :
+                          terrainType === '山嶽' ? 'bg-amber-100 text-amber-900 border-amber-300' :
+                          terrainType === '密林' ? 'bg-emerald-100 text-emerald-900 border-emerald-300' :
+                          terrainType === '通用' ? 'bg-purple-100 text-purple-900 border-purple-300' :
+                          'bg-lime-100 text-lime-900 border-lime-300';
+
                         return (
-                          <div key={fname} className="bg-white border border-stone-300 px-2 py-1 rounded flex items-center gap-1.5 shadow-2xs">
-                            <span className="font-black text-[#991b1b]">【{fname}陣】</span>
-                            <span className="text-[9px] bg-stone-100 text-stone-600 px-1 rounded border border-stone-200">{info?.type || '平地'}</span>
-                            <span className="text-[10px] text-stone-500">{info?.special || ''}</span>
-                          </div>
+                          <button
+                            key={fname}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedFormationForDetail(fname);
+                            }}
+                            className="bg-white hover:bg-amber-50 active:scale-98 border-2 border-stone-300 hover:border-amber-600 px-2 py-1.5 rounded flex items-center justify-between text-left shadow-2xs transition-all cursor-pointer group"
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-black text-[#991b1b] group-hover:text-red-700">【{fname}陣】</span>
+                              <span className={`text-[9px] px-1 py-0.5 rounded border font-bold ${badgeCls}`}>{terrainType}</span>
+                            </div>
+                            <span className="text-[10px] text-stone-400 group-hover:text-amber-800 font-bold">
+                              詳解 🔍
+                            </span>
+                          </button>
                         );
                       })}
                     </div>
@@ -1244,56 +1337,7 @@ export default function InspectView({
                 );
               })()}
 
-              {/* 武將常時被動特技專區 */}
-              {(() => {
-                const passives = getGeneralPassives(selectedGeneralDetail);
-                return (
-                  <div className="bg-amber-50/70 p-2.5 rounded border border-amber-300 flex flex-col gap-1.5 text-xs">
-                    <div className="flex justify-between items-center">
-                      <span className="font-black text-amber-950 flex items-center gap-1">
-                        <span>🛡️</span> 常時被動特技 ({passives.length} 種)
-                      </span>
-                      <span className="text-[10px] text-amber-800 font-bold">戰場自動生效 / 無消耗</span>
-                    </div>
-
-                    {passives.length === 0 ? (
-                      <div className="text-[11px] text-stone-400 py-0.5 italic">
-                        無常駐被動特技
-                      </div>
-                    ) : (
-                      <div className="flex flex-col gap-1.5">
-                        {passives.map(pName => {
-                          const pDef = PASSIVE_SKILL_REGISTRY[pName];
-                          return (
-                            <div
-                              key={pName}
-                              className="bg-white border border-amber-300/80 p-2 rounded flex flex-col gap-0.5 shadow-2xs"
-                            >
-                              <div className="flex items-center justify-between">
-                                <span className="font-black text-amber-900 flex items-center gap-1">
-                                  <span>{pDef?.iconSymbol || '⚡'}</span>
-                                  <span>【{pName}】</span>
-                                  <span className="text-[9px] bg-amber-100 text-amber-800 px-1 rounded font-bold border border-amber-200">
-                                    {pDef?.category || '被動特技'}
-                                  </span>
-                                </span>
-                                <span className="text-[10px] text-amber-700 font-bold">
-                                  {pDef?.triggerLabel || '常態觸發'}
-                                </span>
-                              </div>
-                              <p className="text-[11px] text-stone-600 leading-snug">
-                                {pDef?.desc || '戰場常時生效之特殊效果。'}
-                              </p>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-
-              {/* 主動戰鬥技能與計策 */}
+              {/* 計策戰法 */}
               {(() => {
                 const learnedSkills = selectedGeneralDetail.skills && selectedGeneralDetail.skills.length > 0
                   ? selectedGeneralDetail.skills
@@ -1304,31 +1348,42 @@ export default function InspectView({
                   <div className="bg-stone-50 p-2.5 rounded border border-stone-200 flex flex-col gap-1.5 text-xs">
                     <div className="flex justify-between items-center">
                       <span className="font-black text-stone-800 flex items-center gap-1">
-                        <span>⚔️</span> 主動計策戰法 ({activeSkills.length} 種)
+                        <span>⚔️</span> 計策戰法 ({activeSkills.length} 種)
                       </span>
-                      <span className="text-[10px] text-stone-500 font-bold">戰役作戰即時施放</span>
+                      <span className="text-[10px] text-stone-500 font-bold">點選計策查看威力與消耗</span>
                     </div>
                     {activeSkills.length === 0 ? (
                       <div className="text-[11px] text-stone-400 py-1 italic">
-                        無習得主動計略（未掌握特殊戰法）
+                        無掌握特殊計策戰法
                       </div>
                     ) : (
                       <div className="grid grid-cols-2 gap-1.5">
                         {activeSkills.map(sname => {
                           const sInfo = getBattleSkillInfo(sname);
                           return (
-                            <div 
-                              key={sname} 
-                              className="bg-white border border-stone-200 px-2 py-1 rounded flex flex-col gap-0.5 shadow-2xs"
+                            <button
+                              key={sname}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedSkillForDetail(sname);
+                              }}
+                              className="bg-white hover:bg-sky-50 active:scale-98 border border-stone-300 hover:border-sky-500 px-2.5 py-1.5 rounded flex items-center justify-between shadow-2xs transition-all text-left cursor-pointer group"
                             >
-                              <div className="flex items-center justify-between">
-                                <span className="font-black text-stone-900">【{sname}】</span>
-                                <span className="text-[9px] bg-stone-100 text-stone-700 px-1 rounded border font-bold">
-                                  體力 {sInfo?.cost || 10}
+                              <div className="flex items-center gap-1">
+                                <span className="font-black text-stone-900 group-hover:text-sky-900">【{sname}】</span>
+                                <span className="text-[9px] bg-stone-100 text-stone-600 px-1 rounded border">
+                                  {sInfo?.category === '特殊攻擊' ? '武' : '計'}
                                 </span>
                               </div>
-                              <span className="text-[10px] text-stone-500 line-clamp-1">{sInfo?.desc || ''}</span>
-                            </div>
+                              <div className="flex items-center gap-1">
+                                <span className="text-[10px] font-bold text-amber-700">
+                                  ⚡{sInfo?.cost || 10}
+                                </span>
+                                <span className="text-[9px] text-stone-400 group-hover:text-sky-700">
+                                  🔍
+                                </span>
+                              </div>
+                            </button>
                           );
                         })}
                       </div>
@@ -1354,9 +1409,333 @@ export default function InspectView({
 
               <button
                 onClick={() => setSelectedGeneralDetail(null)}
-                className="w-full py-2 bg-stone-800 text-amber-100 text-xs font-black rounded hover:bg-stone-700 active:scale-95 transition-transform"
+                className="w-full py-2 bg-stone-800 text-amber-100 text-xs font-black rounded hover:bg-stone-700 active:scale-95 transition-transform cursor-pointer"
               >
                 確定
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ═══════════════════════════════════════════════════════════════
+          SUB-MODAL 1: 陣形詳解視窗 (Formation Detail Modal)
+         ═══════════════════════════════════════════════════════════════ */}
+      {selectedFormationForDetail && (() => {
+        const formation = getFormationInfo(selectedFormationForDetail);
+        const matrix = FORMATION_TERRAIN_MATRIX[selectedFormationForDetail];
+        if (!formation) return null;
+
+        return (
+          <div
+            className="fixed inset-0 bg-black/75 z-70 flex items-center justify-center p-3 animate-fade-in"
+            onClick={() => setSelectedFormationForDetail(null)}
+          >
+            <div
+              className="bg-[#fffdfa] border-3 border-[#991b1b] rounded-lg max-w-md w-full p-4 shadow-2xl flex flex-col gap-3 max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex justify-between items-center border-b-2 border-stone-300 pb-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl font-black text-[#991b1b]">
+                    🚩 【{formation.name}陣】
+                  </span>
+                  <span className={`text-xs px-2 py-0.5 rounded font-bold ${
+                    (formation.terrain || formation.type) === '水上' ? 'bg-cyan-800 text-cyan-100' :
+                    (formation.terrain || formation.type) === '山嶽' ? 'bg-amber-800 text-amber-100' :
+                    (formation.terrain || formation.type) === '密林' ? 'bg-emerald-800 text-emerald-100' :
+                    (formation.terrain || formation.type) === '通用' ? 'bg-purple-800 text-purple-100' :
+                    'bg-stone-800 text-amber-200'
+                  }`}>
+                    {formation.terrain || formation.type}專精
+                  </span>
+                </div>
+                <button
+                  onClick={() => setSelectedFormationForDetail(null)}
+                  className="text-stone-400 hover:text-stone-800 text-xl font-black cursor-pointer px-1"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Base Combat Attributes */}
+              <div className="grid grid-cols-4 gap-2 text-center text-xs">
+                <div className="bg-stone-100 p-2 rounded border border-stone-300">
+                  <div className="text-[10px] text-stone-500 font-bold">物理攻擊</div>
+                  <div className={`font-black text-sm ${formation.atkMod > 0 ? 'text-red-700' : formation.atkMod < 0 ? 'text-blue-700' : 'text-stone-700'}`}>
+                    {formation.atkMod > 0 ? `+${Math.round(formation.atkMod * 100)}%` : formation.atkMod < 0 ? `${Math.round(formation.atkMod * 100)}%` : '±0%'}
+                  </div>
+                </div>
+                <div className="bg-stone-100 p-2 rounded border border-stone-300">
+                  <div className="text-[10px] text-stone-500 font-bold">物理防禦</div>
+                  <div className={`font-black text-sm ${formation.defMod > 0 ? 'text-emerald-700' : formation.defMod < 0 ? 'text-rose-700' : 'text-stone-700'}`}>
+                    {formation.defMod > 0 ? `+${Math.round(formation.defMod * 100)}%` : formation.defMod < 0 ? `${Math.round(formation.defMod * 100)}%` : '±0%'}
+                  </div>
+                </div>
+                <div className="bg-stone-100 p-2 rounded border border-stone-300">
+                  <div className="text-[10px] text-stone-500 font-bold">行軍機動</div>
+                  <div className="font-black text-sm text-amber-900">
+                    {formation.mobility || 5} 格
+                  </div>
+                </div>
+                <div className="bg-stone-100 p-2 rounded border border-stone-300">
+                  <div className="text-[10px] text-stone-500 font-bold">先攻調整</div>
+                  <div className={`font-black text-sm ${formation.initiativeMod > 0 ? 'text-emerald-700' : formation.initiativeMod < 0 ? 'text-rose-700' : 'text-stone-700'}`}>
+                    {formation.initiativeMod > 0 ? `+${formation.initiativeMod}` : formation.initiativeMod}
+                  </div>
+                </div>
+              </div>
+
+              {/* Special Tactical Features */}
+              <div className="bg-amber-50/90 border border-amber-300 p-2.5 rounded text-xs">
+                <div className="font-bold text-amber-950 mb-1 flex items-center gap-1">
+                  <span>📜</span> 陣形戰術特色：
+                </div>
+                <div className="text-stone-800 leading-relaxed font-semibold">
+                  {formation.specialDesc || formation.special || '各項攻防平衡，無特殊異常加減成。'}
+                </div>
+              </div>
+
+              {/* Terrain Compatibility Matrix (4 Real Terrains) */}
+              <div className="flex flex-col gap-1.5 text-xs">
+                <div className="font-black text-stone-800 flex justify-between items-center">
+                  <span>🗺️ 四大歷史地形適性剖析：</span>
+                  <span className="text-[10px] text-stone-500">S 卓越 / A 良好 / B 普通 / C 欠佳 / D 受阻</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {(['平地', '山嶽', '水上', '密林'] as FormationTerrainType[]).map(tKey => {
+                    const tMeta = TERRAIN_DETAILS[tKey];
+                    const comp = matrix ? matrix[tKey] : null;
+                    if (!comp) return null;
+
+                    const ratingBg =
+                      comp.rating === 'S' ? 'bg-purple-100 text-purple-900 border-purple-300' :
+                      comp.rating === 'A' ? 'bg-emerald-100 text-emerald-900 border-emerald-300' :
+                      comp.rating === 'B' ? 'bg-blue-100 text-blue-900 border-blue-300' :
+                      comp.rating === 'C' ? 'bg-amber-100 text-amber-900 border-amber-300' :
+                      'bg-rose-100 text-rose-900 border-rose-300';
+
+                    return (
+                      <div key={tKey} className="bg-white border border-stone-300 p-2 rounded shadow-2xs flex flex-col gap-1">
+                        <div className="flex justify-between items-center">
+                          <span className="font-black flex items-center gap-1 text-stone-800">
+                            <span>{tMeta.symbol}</span>
+                            <span>{tKey}</span>
+                          </span>
+                          <div className="flex items-center gap-1">
+                            <span className={`text-[10px] font-black px-1.5 py-0.2 rounded border ${ratingBg}`}>
+                              {comp.rating} 級 ({comp.ratingScore}分)
+                            </span>
+                            <span className={`text-[9px] font-bold px-1 rounded border ${comp.tagColor}`}>
+                              {comp.tag}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="text-[11px] font-bold text-stone-700">
+                          {comp.summary}
+                        </div>
+
+                        <div className="text-[10px] text-stone-500 leading-snug">
+                          {comp.detailedEffect}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Close Button */}
+              <button
+                onClick={() => setSelectedFormationForDetail(null)}
+                className="w-full py-2 bg-stone-800 text-amber-100 text-xs font-black rounded hover:bg-stone-700 active:scale-95 transition-transform cursor-pointer mt-1"
+              >
+                返回武將資訊
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ═══════════════════════════════════════════════════════════════
+          SUB-MODAL 2: 計策戰法詳解視窗 (Battle Skill Detail Modal)
+         ═══════════════════════════════════════════════════════════════ */}
+      {selectedSkillForDetail && (() => {
+        const skill = getBattleSkillInfo(selectedSkillForDetail);
+        if (!skill) return null;
+
+        return (
+          <div
+            className="fixed inset-0 bg-black/75 z-70 flex items-center justify-center p-3 animate-fade-in"
+            onClick={() => setSelectedSkillForDetail(null)}
+          >
+            <div
+              className="bg-[#fffdfa] border-3 border-sky-900 rounded-lg max-w-sm w-full p-4 shadow-2xl flex flex-col gap-3 animate-scale-up"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex justify-between items-center border-b-2 border-stone-300 pb-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl font-black text-sky-950">
+                    ⚔️ 【{skill.name}】
+                  </span>
+                  <span className="text-xs bg-sky-100 text-sky-900 border border-sky-300 px-2 py-0.5 rounded font-bold">
+                    {skill.category}
+                  </span>
+                </div>
+                <button
+                  onClick={() => setSelectedSkillForDetail(null)}
+                  className="text-stone-400 hover:text-stone-800 text-xl font-black cursor-pointer px-1"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Cost & Range Info Grid */}
+              <div className="grid grid-cols-2 gap-2 text-center text-xs">
+                <div className="bg-amber-50 p-2 rounded border border-amber-300">
+                  <div className="text-[10px] text-amber-800 font-bold">體力消耗</div>
+                  <div className="font-black text-base text-amber-900">
+                    ⚡ {skill.cost} 點
+                  </div>
+                </div>
+                <div className="bg-sky-50 p-2 rounded border border-sky-300">
+                  <div className="text-[10px] text-sky-800 font-bold">作用範圍</div>
+                  <div className="font-black text-base text-sky-950">
+                    🎯 {skill.target}
+                  </div>
+                </div>
+              </div>
+
+              {/* Skill Description */}
+              <div className="bg-stone-50 border border-stone-300 p-3 rounded text-xs flex flex-col gap-1.5">
+                <span className="font-black text-stone-700 flex items-center gap-1">
+                  <span>📜</span> 戰法計謀效果詳解：
+                </span>
+                <p className="text-stone-900 text-xs leading-relaxed font-semibold">
+                  {skill.desc}
+                </p>
+              </div>
+
+              {/* Combat Usage Guide */}
+              <div className="text-[10px] text-stone-500 bg-stone-100 p-2 rounded border border-stone-200 leading-snug">
+                💡 <strong>作戰提示：</strong>在戰場戰役中，武將累積足夠體力值時即可在「計策/戰法」指令中即時選取施放。
+              </div>
+
+              {/* Close Button */}
+              <button
+                onClick={() => setSelectedSkillForDetail(null)}
+                className="w-full py-2 bg-stone-800 text-amber-100 text-xs font-black rounded hover:bg-stone-700 active:scale-95 transition-transform cursor-pointer"
+              >
+                返回武將資訊
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ═══════════════════════════════════════════════════════════════
+          SUB-MODAL 3: 武將肖像特寫畫像視窗 (Zoomed General Portrait Modal)
+         ═══════════════════════════════════════════════════════════════ */}
+      {zoomedAvatarGeneral && (() => {
+        const gProv = zoomedAvatarGeneral.provinceId ? provinces.find(p => p.id === zoomedAvatarGeneral.provinceId) : null;
+        const provState = zoomedAvatarGeneral.provinceId ? gameState.provincesData[zoomedAvatarGeneral.provinceId] : null;
+        const rulerName = provState?.rulerName || (zoomedAvatarGeneral.isWild ? '在野隱士' : '獨立');
+
+        return (
+          <div 
+            className="fixed inset-0 z-80 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in"
+            onClick={() => setZoomedAvatarGeneral(null)}
+          >
+            <div 
+              className="bg-[#1c1815] border-4 border-amber-500/80 rounded-2xl p-5 sm:p-6 max-w-sm w-full shadow-[0_0_50px_rgba(245,158,11,0.3)] flex flex-col items-center gap-4 text-center font-serif text-[#f4f1ea] relative animate-scale-up"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* 關閉按鈕 */}
+              <button
+                onClick={() => setZoomedAvatarGeneral(null)}
+                className="absolute top-3 right-3 text-stone-400 hover:text-amber-300 text-2xl font-black w-8 h-8 rounded-full bg-stone-900/80 border border-stone-700 flex items-center justify-center cursor-pointer transition-colors"
+                title="關閉"
+              >
+                ✕
+              </button>
+
+              {/* 頂部稱號與勢力徽標 */}
+              <div className="flex flex-col items-center gap-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs bg-amber-950/80 text-amber-300 border border-amber-500/50 px-2.5 py-0.5 rounded-full font-black tracking-wider">
+                    {zoomedAvatarGeneral.isRuler ? '👑 君王至尊' : `⚔️ ${zoomedAvatarGeneral.role}`}
+                  </span>
+                  <span className="text-xs bg-stone-800 text-stone-300 border border-stone-600 px-2 py-0.5 rounded-full font-bold">
+                    {rulerName} 麾下
+                  </span>
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-amber-100 via-amber-300 to-yellow-200 mt-1">
+                  {zoomedAvatarGeneral.name}
+                </h2>
+              </div>
+
+              {/* 核心大畫像展示框 */}
+              <div className="relative p-2.5 rounded-2xl bg-gradient-to-b from-[#3a2d20] to-[#120e0b] border-2 border-amber-500/60 shadow-[inset_0_0_20px_rgba(0,0,0,0.8)]">
+                <div className="rounded-xl overflow-hidden border-2 border-amber-400/90 shadow-2xl bg-[#0d0a08]">
+                  <GeneralAvatar 
+                    name={zoomedAvatarGeneral.name} 
+                    size={220} 
+                    className="w-48 h-48 sm:w-56 sm:h-56 object-cover object-center transform hover:scale-105 transition-transform" 
+                    showBorder={false}
+                  />
+                </div>
+                {/* 四角古典裝飾圖紋 */}
+                <div className="absolute top-1 left-1 text-amber-400/70 text-xs font-serif select-none">◈</div>
+                <div className="absolute top-1 right-1 text-amber-400/70 text-xs font-serif select-none">◈</div>
+                <div className="absolute bottom-1 left-1 text-amber-400/70 text-xs font-serif select-none">◈</div>
+                <div className="absolute bottom-1 right-1 text-amber-400/70 text-xs font-serif select-none">◈</div>
+              </div>
+
+              {/* 五維素質速覽 */}
+              <div className="grid grid-cols-5 gap-1.5 w-full text-xs">
+                <div className="bg-[#2a221b] p-1.5 rounded border border-stone-700">
+                  <div className="text-[10px] text-stone-400">統帥</div>
+                  <div className="font-black text-amber-300">{zoomedAvatarGeneral.hp}</div>
+                </div>
+                <div className="bg-[#2a221b] p-1.5 rounded border border-stone-700">
+                  <div className="text-[10px] text-stone-400">戰力</div>
+                  <div className="font-black text-rose-400">{zoomedAvatarGeneral.str}</div>
+                </div>
+                <div className="bg-[#2a221b] p-1.5 rounded border border-stone-700">
+                  <div className="text-[10px] text-stone-400">謀略</div>
+                  <div className="font-black text-sky-400">{zoomedAvatarGeneral.int}</div>
+                </div>
+                <div className="bg-[#2a221b] p-1.5 rounded border border-stone-700">
+                  <div className="text-[10px] text-stone-400">政治</div>
+                  <div className="font-black text-emerald-400">{zoomedAvatarGeneral.pol || 50}</div>
+                </div>
+                <div className="bg-[#2a221b] p-1.5 rounded border border-stone-700">
+                  <div className="text-[10px] text-stone-400">魅力</div>
+                  <div className="font-black text-purple-400">{zoomedAvatarGeneral.cha || 50}</div>
+                </div>
+              </div>
+
+              {/* 所在郡縣與統兵 */}
+              <div className="flex justify-between items-center w-full px-2.5 py-1.5 bg-[#14100d] rounded-lg border border-[#3b3128] text-xs text-stone-400">
+                <div>
+                  <span>所在都市：</span>
+                  <strong className="text-amber-200">{gProv ? gProv.name : '未駐紮'}</strong>
+                </div>
+                <div>
+                  <span>帶兵容量：</span>
+                  <strong className="text-amber-200">{zoomedAvatarGeneral.maxTroops || 3000} 兵</strong>
+                </div>
+              </div>
+
+              {/* 點擊確認關閉按鈕 */}
+              <button
+                onClick={() => setZoomedAvatarGeneral(null)}
+                className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-700 to-amber-600 hover:from-amber-600 hover:to-amber-500 text-stone-950 font-black text-sm border border-amber-400 shadow-md active:scale-98 transition-all cursor-pointer"
+              >
+                返回武將履歷
               </button>
             </div>
           </div>

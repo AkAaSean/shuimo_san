@@ -26,7 +26,7 @@ export default function StrategySheet({
       cost: 25,
       category: '謀略計策' as const,
       desc: '戰場特殊作戰技藝',
-      target: '目標敵軍' as const
+      target: '目標敵軍' as any, condition: ''
     });
 
   const getCategoryColor = (category: string) => {

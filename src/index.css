@@ -3,6 +3,11 @@
   --font-serif: 'Noto Serif TC', ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
 }
 
+.game-container {
+  margin-left: auto;
+  margin-right: auto;
+}
+
 /* Enable full-screen expansion when screen is rotated to landscape or full-screen class is applied */
 @media (orientation: landscape) {
   .game-container {

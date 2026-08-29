@@ -6,6 +6,7 @@ import { getGeneralItemBonus } from '../data/items';
 import { getProvinceTierRules, calculateDevGain, calculateFloodGain } from '../data/historicalProvinceConfig';
 import { getGeneralAmbition } from '../data/historicalLoyalty';
 import { getStrategistReport } from '../engine/strategistAdvice';
+import { GeneralAvatar } from './GeneralAvatar';
 
 interface ActionModalProps {
   isOpen: boolean;
@@ -536,6 +537,7 @@ export default function ActionModal({
                             <div className="w-4 h-4 rounded-full border border-stone-600 flex items-center justify-center bg-white shrink-0">
                               {isSelected && <div className="w-2.5 h-2.5 bg-[#991b1b] rounded-full" />}
                             </div>
+                            <GeneralAvatar name={g.name} size={36} className="shrink-0 rounded shadow-xs" />
                             <div>
                               <div className="font-black text-sm flex items-center gap-1.5 flex-wrap">
                                 {g.name}
@@ -811,9 +813,14 @@ export default function ActionModal({
                                 isTarget ? 'border-[#991b1b] bg-amber-50 text-[#991b1b] ring-1 ring-[#991b1b]' : 'border-stone-300 bg-stone-100 hover:bg-stone-200'
                               }`}
                             >
-                              <div className="flex justify-between items-center">
-                                <span>{g.name}</span>
-                                <span className="text-[10px] text-stone-500 font-normal">忠: <strong className="text-emerald-800">{g.loyalty}</strong></span>
+                              <div className="flex items-center gap-1.5">
+                                <GeneralAvatar name={g.name} size={24} className="shrink-0 rounded" />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex justify-between items-center">
+                                    <span className="truncate">{g.name}</span>
+                                    <span className="text-[10px] text-stone-500 font-normal ml-1 shrink-0">忠: <strong className="text-emerald-800">{g.loyalty}</strong></span>
+                                  </div>
+                                </div>
                               </div>
                               {itemBonus.items.length > 0 && (
                                 <div className="text-[9px] text-amber-900 font-normal truncate">
@@ -941,13 +948,16 @@ export default function ActionModal({
                                       : 'border-stone-300 bg-stone-100 hover:bg-stone-200'
                                   }`}
                                 >
-                                  <div>
-                                    <div className="text-sm font-black text-stone-900 flex items-center gap-1">
-                                      <span>{fg.name}</span>
-                                      <span className="text-[10px] text-stone-500 font-normal">({fg.role || '武將'})</span>
-                                    </div>
-                                    <div className="text-[10px] text-stone-600 font-normal mt-0.5">
-                                      武: {fg.str} | 智: {fg.int} | 魅: {fg.cha} | 忠誠: <strong className={fg.loyalty < 75 ? 'text-rose-700 font-black' : 'text-stone-800'}>{fg.loyalty}</strong>
+                                  <div className="flex items-center gap-2">
+                                    <GeneralAvatar name={fg.name} size={32} className="shrink-0 rounded" />
+                                    <div>
+                                      <div className="text-sm font-black text-stone-900 flex items-center gap-1">
+                                        <span>{fg.name}</span>
+                                        <span className="text-[10px] text-stone-500 font-normal">({fg.role || '武將'})</span>
+                                      </div>
+                                      <div className="text-[10px] text-stone-600 font-normal mt-0.5">
+                                        武: {fg.str} | 智: {fg.int} | 魅: {fg.cha} | 忠誠: <strong className={fg.loyalty < 75 ? 'text-rose-700 font-black' : 'text-stone-800'}>{fg.loyalty}</strong>
+                                      </div>
                                     </div>
                                   </div>
 
@@ -1109,13 +1119,18 @@ export default function ActionModal({
                                 : 'border-stone-300 bg-stone-100 hover:bg-stone-200'
                             }`}
                           >
-                            <div className="flex justify-between items-center">
-                              <div>{g.name}</div>
-                              {isRewarded && (
-                                <span className="text-[9px] bg-stone-400 text-stone-900 font-bold px-1 py-0.2 rounded shrink-0">
-                                  本月已賞
-                                </span>
-                              )}
+                            <div className="flex items-center gap-1.5">
+                              <GeneralAvatar name={g.name} size={26} className="shrink-0 rounded" />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex justify-between items-center">
+                                  <div className="truncate">{g.name}</div>
+                                  {isRewarded && (
+                                    <span className="text-[9px] bg-stone-400 text-stone-900 font-bold px-1 py-0.2 rounded shrink-0">
+                                      本月已賞
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
                             </div>
                             <div className="text-[10px] text-stone-500 mt-0.5">
                               忠誠: <strong className={g.loyalty < 80 ? 'text-amber-700' : 'text-emerald-700'}>{g.loyalty}</strong> | 兵力: {g.soldiers}
@@ -1166,12 +1181,15 @@ export default function ActionModal({
                                   : 'border-stone-300 bg-stone-100 hover:bg-stone-200'
                               }`}
                             >
-                              <div>
-                                <div className="text-sm font-black">{wg.name} ({wg.role || '在野'})</div>
-                                <div className="text-[10px] text-stone-600">
-                                  武: {wg.str} | 智: {wg.int} | 政: {wg.pol} | 魅: {wg.cha}
+                              <div className="flex items-center gap-2">
+                                <GeneralAvatar name={wg.name} size={32} className="shrink-0 rounded" />
+                                <div>
+                                  <div className="text-sm font-black">{wg.name} ({wg.role || '在野'})</div>
+                                  <div className="text-[10px] text-stone-600">
+                                    武: {wg.str} | 智: {wg.int} | 政: {wg.pol} | 魅: {wg.cha}
+                                  </div>
+                                  {wg.bio && <div className="text-[10px] text-amber-900 mt-0.5">{wg.bio}</div>}
                                 </div>
-                                {wg.bio && <div className="text-[10px] text-amber-900 mt-0.5">{wg.bio}</div>}
                               </div>
                               <div className="text-right">
                                 <span className="text-[10px] bg-amber-200 text-amber-900 px-1.5 py-0.5 font-bold rounded">在野</span>

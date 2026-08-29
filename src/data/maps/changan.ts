@@ -52,6 +52,7 @@ const charToTerrain: Record<string, TerrainType> = {
   'W': '淺水',
   'D': '深水',
   'C': '城池',
+  'K': '太守府',
   'G': '關寨',
   'S': '沙漠',
   'F': '沼澤',
@@ -80,7 +81,7 @@ export function getChanganMap(): GridCell[] {
     "MMMMMMMPPPPPPPPTTTTTTMMMM", // 9 (西散關北翼山嶽 / 東潼關北翼山嶽)
     "MMMMMMMPPPPPPPPPPPPPTMMMM", // 10
     "PPPGPPPPPPCCCCPPPPPPGPPPP", // 11 (【西散關大道 P-G-P】|【長安帝城 C】|【東潼關大道 P-G-P】)
-    "PPPGPPPPPPCCCCPPPPPPGPPPP", // 12 (行軍通道：關外平原 P -> 關塞 G -> 關內平原 P，兩側皆為崇山夾峙！)
+    "PPPGPPPPPPCCKKPPPPPPGPPPP", // 12 (行軍通道：關外平原 P -> 關塞 G -> 關內平原 P，兩側皆為崇山夾峙！【長安太守府 K】)
     "MMMMMMMPPPCCCCPPPPPPTMMMM", // 13 (散關南翼山嶽 / 潼關南翼華山)
     "MMMMMMMPPPPPPPPPPPPPPMMMM", // 14
     "MMMMMHHPPPPPTTTTPPPPPMMMM", // 15

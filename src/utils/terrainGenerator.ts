@@ -62,17 +62,47 @@ export function generateBattleGrid(provinceId: number, overrideCols?: number, ov
     }
   }
 
-  // Guarantee at least one Castle or Gate if the matrix specified it
-  if (matrix['城池'] && matrix['城池'] > 0) {
-    const hasCastle = grid.some(c => c.terrain === '城池');
-    if (!hasCastle) {
-      grid[Math.floor(Math.random() * grid.length)].terrain = '城池';
-    }
+  // Guarantee central City (城池) fortress layout for defender deployment
+  const centerCol = Math.floor(cols / 2);
+  const centerRow = Math.floor(rows / 2);
+
+  const cellMap = new Map<string, GridCell>();
+  grid.forEach(c => cellMap.set(`${c.col},${c.row}`, c));
+
+  // Determine city cluster size based on map tier/size
+  const cityCoords: { col: number; row: number }[] = [];
+  cityCoords.push({ col: centerCol, row: centerRow });
+  cityCoords.push({ col: centerCol + 1, row: centerRow });
+  if (cols >= 15) {
+    cityCoords.push({ col: centerCol, row: centerRow + 1 });
   }
-  if (matrix['關寨'] && matrix['關寨'] > 0) {
-    const hasGate = grid.some(c => c.terrain === '關寨');
-    if (!hasGate) {
-      grid[Math.floor(Math.random() * grid.length)].terrain = '關寨';
+  if (cols >= 20) {
+    cityCoords.push({ col: centerCol + 1, row: centerRow + 1 });
+  }
+
+  // Set central City terrain (Center hex is 太守府, surrounding are 城池)
+  cityCoords.forEach(({ col, row }, idx) => {
+    const cell = cellMap.get(`${col},${row}`);
+    if (cell) cell.terrain = idx === 0 ? '太守府' : '城池';
+  });
+
+  // Ensure surrounding 1-ring hexes are traversable plains/gates for city defense & maneuvers
+  let gatePlaced = false;
+  for (let dr = -1; dr <= 2; dr++) {
+    for (let dc = -1; dc <= 2; dc++) {
+      const cr = centerRow + dr;
+      const cc = centerCol + dc;
+      if (cr >= 0 && cr < rows && cc >= 0 && cc < cols) {
+        const cell = cellMap.get(`${cc},${cr}`);
+        if (cell && cell.terrain !== '城池') {
+          if (!gatePlaced && (dr === -1 || dr === 2) && dc === 0) {
+            cell.terrain = '關寨';
+            gatePlaced = true;
+          } else if (cell.terrain === '山嶽' || cell.terrain === '深水') {
+            cell.terrain = '平地';
+          }
+        }
+      }
     }
   }
 

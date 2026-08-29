@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { GameState, GeneralState } from '../types';
 import { getGeneralItemBonus } from '../data/items';
+import { GeneralAvatar } from './GeneralAvatar';
 import { 
   getProvinceTierRules, 
   calculateDraftCost, 
@@ -469,15 +470,20 @@ export default function TroopView({ gameState, initialAction, onExit, onExecute 
                             : 'border-stone-300 bg-white hover:border-stone-500'
                         } ${hasAlreadyDrafted ? 'opacity-60 cursor-not-allowed' : ''}`}
                       >
-                        <div className="flex items-center justify-between">
-                          <span className="font-black text-xs text-[#1c1917]">{g.name}</span>
-                          {g.isRuler && (
-                            <span className="text-[10px] bg-[#991b1b] text-white px-1 py-0.2 font-bold">君主</span>
-                          )}
-                        </div>
-                        <div className="text-[11px] text-stone-600 mt-1 flex justify-between">
-                          <span>魅力: <strong className="text-amber-800">{totalCha}</strong></span>
-                          <span className="text-emerald-800 font-bold">省 {discPct}%</span>
+                        <div className="flex items-center gap-2">
+                          <GeneralAvatar name={g.name} size={32} className="shrink-0 rounded shadow-xs" />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <span className="font-black text-xs text-[#1c1917] truncate">{g.name}</span>
+                              {g.isRuler && (
+                                <span className="text-[10px] bg-[#991b1b] text-white px-1 py-0.2 font-bold shrink-0">君主</span>
+                              )}
+                            </div>
+                            <div className="text-[11px] text-stone-600 mt-0.5 flex justify-between">
+                              <span>魅力: <strong className="text-amber-800">{totalCha}</strong></span>
+                              <span className="text-emerald-800 font-bold">省 {discPct}%</span>
+                            </div>
+                          </div>
                         </div>
                       </button>
                     );
@@ -600,29 +606,32 @@ export default function TroopView({ gameState, initialAction, onExit, onExecute 
                       }`}
                     >
                       {/* General Info */}
-                      <div className="min-w-[150px]">
-                        <div className="flex items-center justify-between sm:justify-start gap-2">
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-black text-xs sm:text-sm text-[#1c1917]">{g.name}</span>
-                            <span className="text-[9px] sm:text-[10px] bg-stone-200 text-stone-700 px-1 py-0.2 font-bold">
-                              {g.role || '將領'}
-                            </span>
+                      <div className="min-w-[150px] flex items-center gap-2">
+                        <GeneralAvatar name={g.name} size={36} className="shrink-0 rounded shadow-xs" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between sm:justify-start gap-2">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-black text-xs sm:text-sm text-[#1c1917]">{g.name}</span>
+                              <span className="text-[9px] sm:text-[10px] bg-stone-200 text-stone-700 px-1 py-0.2 font-bold">
+                                {g.role || '將領'}
+                              </span>
+                            </div>
+                            <div className="text-right font-mono font-black text-xs sm:text-sm text-[#991b1b] sm:hidden">
+                              +{addCount.toLocaleString()} 兵
+                            </div>
                           </div>
-                          <div className="text-right font-mono font-black text-xs sm:text-sm text-[#991b1b] sm:hidden">
-                            +{addCount.toLocaleString()} 兵
+                          <div className="text-[10px] sm:text-[11px] text-stone-600 mt-0.5">
+                            現有: <strong className="text-red-800">{currentTroops.toLocaleString()}</strong> / {g.maxTroops.toLocaleString()} 人
+                            <span className="text-stone-500 ml-1">(餘 {room.toLocaleString()})</span>
                           </div>
-                        </div>
-                        <div className="text-[10px] sm:text-[11px] text-stone-600 mt-0.5">
-                          現有: <strong className="text-red-800">{currentTroops.toLocaleString()}</strong> / {g.maxTroops.toLocaleString()} 人
-                          <span className="text-stone-500 ml-1">(餘 {room.toLocaleString()})</span>
-                        </div>
-                        <div className="text-[10px] sm:text-[11px] text-stone-600 mt-0.5">
-                          訓練度: {oldTraining}%
-                          {addCount > 0 && (
-                            <span className="text-stone-700 font-bold ml-1">
-                              ➔ <strong className="text-amber-900">{projectedTraining}%</strong>
-                            </span>
-                          )}
+                          <div className="text-[10px] sm:text-[11px] text-stone-600 mt-0.5">
+                            訓練度: {oldTraining}%
+                            {addCount > 0 && (
+                              <span className="text-stone-700 font-bold ml-1">
+                                ➔ <strong className="text-amber-900">{projectedTraining}%</strong>
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
 
@@ -792,21 +801,26 @@ export default function TroopView({ gameState, initialAction, onExit, onExecute 
                             : 'border-stone-300 bg-white hover:border-stone-500'
                         }`}
                       >
-                        <div className="flex items-center justify-between">
-                          <span className="font-black text-xs text-[#1c1917]">{g.name}</span>
-                          {bonus.items.map(it => (
-                            <span key={it.id} className="text-[9px] bg-amber-100 border border-amber-300 text-amber-950 px-1 font-bold">
-                              {it.name}
-                            </span>
-                          ))}
-                        </div>
-                        <div className="text-[11px] text-stone-600 mt-1 flex justify-between items-center">
-                          <span>武力: <strong className="text-red-800 text-xs">{totalStr}</strong></span>
-                          <span className={`text-[10px] px-1.5 py-0.2 font-bold ${
-                            isSelected ? 'bg-[#991b1b] text-white' : 'bg-stone-200 text-stone-700'
-                          }`}>
-                            {isSelected ? '總教官' : '選定'}
-                          </span>
+                        <div className="flex items-center gap-2">
+                          <GeneralAvatar name={g.name} size={32} className="shrink-0 rounded shadow-xs" />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <span className="font-black text-xs text-[#1c1917] truncate">{g.name}</span>
+                              {bonus.items.map(it => (
+                                <span key={it.id} className="text-[9px] bg-amber-100 border border-amber-300 text-amber-950 px-1 font-bold">
+                                  {it.name}
+                                </span>
+                              ))}
+                            </div>
+                            <div className="text-[11px] text-stone-600 mt-0.5 flex justify-between items-center">
+                              <span>武力: <strong className="text-red-800 text-xs">{totalStr}</strong></span>
+                              <span className={`text-[10px] px-1.5 py-0.2 font-bold ${
+                                isSelected ? 'bg-[#991b1b] text-white' : 'bg-stone-200 text-stone-700'
+                              }`}>
+                                {isSelected ? '總教官' : '選定'}
+                              </span>
+                            </div>
+                          </div>
                         </div>
                       </button>
                     );
@@ -838,13 +852,16 @@ export default function TroopView({ gameState, initialAction, onExit, onExecute 
                       className="bg-[#f9f8f5] border border-stone-300 p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
                     >
                       <div className="flex items-center gap-2.5 min-w-[160px]">
-                        <span className="font-black text-sm text-[#1c1917]">{g.name}</span>
-                        <span className="text-[10px] bg-stone-200 text-stone-700 px-1.5 py-0.2 font-bold">
-                          {g.role || '將領'}
-                        </span>
-                        <span className="text-stone-600 font-bold">
-                          {soldiers > 0 ? `${soldiers.toLocaleString()} 兵` : '無帶兵'}
-                        </span>
+                        <GeneralAvatar name={g.name} size={30} className="shrink-0 rounded shadow-xs" />
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-black text-sm text-[#1c1917]">{g.name}</span>
+                          <span className="text-[10px] bg-stone-200 text-stone-700 px-1.5 py-0.2 font-bold">
+                            {g.role || '將領'}
+                          </span>
+                          <span className="text-stone-600 font-bold">
+                            {soldiers > 0 ? `${soldiers.toLocaleString()} 兵` : '無帶兵'}
+                          </span>
+                        </div>
                       </div>
 
                       {hasTroops ? (
@@ -960,7 +977,8 @@ export default function TroopView({ gameState, initialAction, onExit, onExecute 
                   return (
                     <div key={g.name} className="bg-[#f9f8f5] border border-stone-300 p-2.5 sm:p-3 space-y-2">
                       <div className="flex flex-wrap items-center justify-between gap-1">
-                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <GeneralAvatar name={g.name} size={32} className="shrink-0 rounded shadow-xs" />
                           <span className="font-black text-xs sm:text-sm text-[#1c1917]">{g.name}</span>
                           <span className="text-[9px] sm:text-[10px] bg-stone-200 text-stone-700 px-1 py-0.2 font-bold">
                             {g.role || '將領'}

@@ -843,7 +843,16 @@ export function executeCommand(state: GameState, provinceId: number, category: s
         }
       }
     } else if (action === '發動戰役' && payload) {
-      const { attackingGeneralNames, targetProvinceId, gold, food } = payload;
+      const { 
+        attackingGeneralNames, 
+        targetProvinceId, 
+        gold, 
+        food, 
+        strategist,
+        cityProvisions,
+        attackerPrimaryProvinceId,
+        attackerReinforceProvinceId
+      } = payload;
       const currentList = newState.pendingBattles || (newState.pendingBattle ? [newState.pendingBattle] : []);
 
       // 已經被攻擊的城市，不能再由其他城市發起二次進攻
@@ -852,48 +861,150 @@ export function executeCommand(state: GameState, provinceId: number, category: s
       }
 
       if (Array.isArray(attackingGeneralNames) && attackingGeneralNames.length > 0) {
-        // 記錄並扣除各出兵城市的隨軍錢糧
+        const attackerGeneralOrigins: Record<string, number> = {};
         const participatingProvinces = new Set<number>();
+
         attackingGeneralNames.forEach((gName: string) => {
           const gen = newState.generalsData[gName];
           if (gen && !gen.hasActed) {
             gen.hasActed = true;
             newState.generalsData[gName] = gen;
-            if (gen.provinceId) participatingProvinces.add(gen.provinceId);
+            if (gen.provinceId !== null && gen.provinceId !== undefined) {
+              participatingProvinces.add(gen.provinceId);
+              attackerGeneralOrigins[gName] = gen.provinceId;
+            }
           }
         });
 
-        // 依據各城市現存錢糧扣除配給
-        let remainingGold = gold || 0;
-        let remainingFood = food || 0;
+        // 依據各城市獨立配置或現存錢糧扣除配給
         const resourcesDeducted: Record<number, { gold: number; food: number }> = {};
+        let totalGoldDeducted = 0;
+        let totalFoodDeducted = 0;
 
-        participatingProvinces.forEach(pId => {
-          const prov = newState.provincesData[pId];
-          if (prov) {
-            const deductG = Math.min(prov.gold, remainingGold);
-            const deductF = Math.min(prov.food, remainingFood);
-            prov.gold -= deductG;
-            prov.food -= deductF;
-            remainingGold -= deductG;
-            remainingFood -= deductF;
-            resourcesDeducted[pId] = { gold: deductG, food: deductF };
-          }
-        });
-        
-        const defendingGenerals = Object.values(newState.generalsData)
+        if (cityProvisions && typeof cityProvisions === 'object') {
+          Object.entries(cityProvisions).forEach(([pIdStr, prov]) => {
+            const pId = Number(pIdStr);
+            const provState = newState.provincesData[pId];
+            if (provState && prov) {
+              const deductG = Math.min(provState.gold, Math.max(0, (prov as any).gold || 0));
+              const deductF = Math.min(provState.food, Math.max(0, (prov as any).food || 0));
+              provState.gold -= deductG;
+              provState.food -= deductF;
+              resourcesDeducted[pId] = { gold: deductG, food: deductF };
+              totalGoldDeducted += deductG;
+              totalFoodDeducted += deductF;
+            }
+          });
+        } else {
+          let remainingGold = gold || 0;
+          let remainingFood = food || 0;
+
+          participatingProvinces.forEach(pId => {
+            const prov = newState.provincesData[pId];
+            if (prov) {
+              const deductG = Math.min(prov.gold, remainingGold);
+              const deductF = Math.min(prov.food, remainingFood);
+              prov.gold -= deductG;
+              prov.food -= deductF;
+              remainingGold -= deductG;
+              remainingFood -= deductF;
+              resourcesDeducted[pId] = { gold: deductG, food: deductF };
+              totalGoldDeducted += deductG;
+              totalFoodDeducted += deductF;
+            }
+          });
+        }
+
+        // 防守方武將與歸屬城池
+        const targetProvState = newState.provincesData[targetProvinceId];
+        const targetRuler = targetProvState?.rulerName;
+        const defenderGeneralOrigins: Record<string, number> = {};
+        const defenderResourcesDeducted: Record<number, { gold: number; food: number }> = {};
+
+        // 1. 目標城池原本駐守的武將 (最多 5 人首發 + 備援)
+        const nativeDefendingGens = Object.values(newState.generalsData)
           .filter(g => g.provinceId === targetProvinceId && !g.isWild)
-          .map(g => g.name);
+          .sort((a, b) => b.soldiers - a.soldiers);
+
+        nativeDefendingGens.forEach(g => {
+          defenderGeneralOrigins[g.name] = targetProvinceId;
+        });
+
+        // 2. 敵方被進攻城池：AI 決定是否派出一座相鄰友軍城池馳援 (最多 5 人，自動攜帶糧食金錢)
+        let defenderReinforceProvinceId: number | null = null;
+        const targetProvInfo = provinces.find(p => p.id === targetProvinceId);
+        const reinforceGenerals: string[] = [];
+
+        if (targetRuler && targetProvInfo) {
+          // 尋找相鄰同勢力城池
+          const candidateReinforceCities = targetProvInfo.connections
+            .filter(cid => newState.provincesData[cid]?.rulerName === targetRuler)
+            .map(cid => {
+              const cState = newState.provincesData[cid];
+              const cGens = Object.values(newState.generalsData).filter(g => g.provinceId === cid && !g.isWild && g.soldiers > 0);
+              const totalTroops = cGens.reduce((sum, g) => sum + g.soldiers, 0);
+              return { id: cid, state: cState, gens: cGens, totalTroops };
+            })
+            .filter(c => c.gens.length > 0 && c.totalTroops >= 800)
+            .sort((a, b) => b.totalTroops - a.totalTroops);
+
+          // 若有足夠兵力的相鄰同勢力城池，派出該城援軍
+          if (candidateReinforceCities.length > 0) {
+            const bestReinforceCity = candidateReinforceCities[0];
+            defenderReinforceProvinceId = bestReinforceCity.id;
+
+            // 挑選該城前 5 名最強武將參戰
+            const chosenReinforceGens = bestReinforceCity.gens.slice(0, 5);
+            let reinforceTroopsTotal = 0;
+
+            chosenReinforceGens.forEach(rg => {
+              reinforceGenerals.push(rg.name);
+              defenderGeneralOrigins[rg.name] = bestReinforceCity.id;
+              reinforceTroopsTotal += rg.soldiers;
+              // 標記該援軍將領本月已出征行動
+              rg.hasActed = true;
+              newState.generalsData[rg.name] = rg;
+            });
+
+            // 援軍城池自動扣除隨軍錢糧 (金 300~500, 30日口糧)
+            const rCityState = newState.provincesData[bestReinforceCity.id];
+            if (rCityState) {
+              const defFoodDeduct = Math.min(rCityState.food, Math.ceil((reinforceTroopsTotal / 10) * 30));
+              const defGoldDeduct = Math.min(rCityState.gold, 500);
+              rCityState.food -= defFoodDeduct;
+              rCityState.gold -= defGoldDeduct;
+              defenderResourcesDeducted[bestReinforceCity.id] = { gold: defGoldDeduct, food: defFoodDeduct };
+            }
+          }
+        }
+
+        const allDefendingGeneralNames = [
+          ...nativeDefendingGens.map(g => g.name),
+          ...reinforceGenerals
+        ];
+
+        const primaryAtkCity = attackerPrimaryProvinceId 
+          || (Array.from(participatingProvinces)[0] || provinceId);
+        const reinforceAtkCity = attackerReinforceProvinceId 
+          || (Array.from(participatingProvinces).find(id => id !== primaryAtkCity) || null);
 
         const newBattlePlan = {
           id: `battle_${targetProvinceId}_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
           targetProvinceId,
-          attackerProvinceId: provinceId,
+          attackerProvinceId: primaryAtkCity,
+          attackerReinforceProvinceId: reinforceAtkCity,
           attackingGenerals: attackingGeneralNames,
-          defendingGenerals,
-          attackerGold: gold || 0,
-          attackerFood: food || 0,
-          resourcesDeducted
+          defendingGenerals: allDefendingGeneralNames,
+          attackerStrategist: strategist || null,
+          defenderStrategist: null, // will auto compute in battle
+          attackerGold: totalGoldDeducted || gold || 0,
+          attackerFood: totalFoodDeducted || food || 0,
+          resourcesDeducted,
+          attackerGeneralOrigins,
+          defenderPrimaryProvinceId: targetProvinceId,
+          defenderReinforceProvinceId,
+          defenderGeneralOrigins,
+          defenderResourcesDeducted
         };
 
         const updatedList = [...currentList, newBattlePlan];
@@ -914,15 +1025,32 @@ export function executeCommand(state: GameState, provinceId: number, category: s
         : [];
 
       battlesToCancel.forEach(battlePlan => {
-        // 返還將領行動狀態
+        // 返還進攻將領行動狀態
         battlePlan.attackingGenerals.forEach(gName => {
           if (newState.generalsData[gName]) {
             newState.generalsData[gName] = { ...newState.generalsData[gName], hasActed: false };
           }
         });
-        // 返還各城市扣除的隨軍錢糧
+        // 返還各進攻城市扣除的隨軍錢糧
         if (battlePlan.resourcesDeducted) {
           Object.entries(battlePlan.resourcesDeducted).forEach(([pIdStr, res]) => {
+            const pId = Number(pIdStr);
+            if (newState.provincesData[pId]) {
+              newState.provincesData[pId].gold += res.gold;
+              newState.provincesData[pId].food += res.food;
+            }
+          });
+        }
+        // 返還防守援軍將領行動狀態與資源
+        if (battlePlan.defenderReinforceProvinceId && battlePlan.defenderGeneralOrigins) {
+          Object.entries(battlePlan.defenderGeneralOrigins).forEach(([gName, pId]) => {
+            if (pId === battlePlan.defenderReinforceProvinceId && newState.generalsData[gName]) {
+              newState.generalsData[gName] = { ...newState.generalsData[gName], hasActed: false };
+            }
+          });
+        }
+        if (battlePlan.defenderResourcesDeducted) {
+          Object.entries(battlePlan.defenderResourcesDeducted).forEach(([pIdStr, res]) => {
             const pId = Number(pIdStr);
             if (newState.provincesData[pId]) {
               newState.provincesData[pId].gold += res.gold;

@@ -35,7 +35,7 @@ export default function TopStatus({ gameState, onRest, onToggleFullscreen, isFul
               <button
                 onClick={onOpenManual}
                 className="bg-[#faf5ea] hover:bg-[#f3ead3] active:scale-95 text-[#78350f] border border-[#a16207] px-2 py-0.5 rounded shadow-xs text-xs font-black cursor-pointer transition-all flex items-center gap-1"
-                title="查看水墨三國說明書 v0.1"
+                title="查看水墨三國說明書 v0.2"
               >
                 <span>📖</span>
                 <span className="hidden sm:inline">說明書</span>

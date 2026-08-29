@@ -7,7 +7,7 @@ interface ManualModalProps {
 }
 
 export default function ManualModal({ isOpen, onClose }: ManualModalProps) {
-  const [activeTab, setActiveTab] = useState<'intro' | 'commands' | 'strategy' | 'battle' | 'tips'>('intro');
+  const [activeTab, setActiveTab] = useState<'intro' | 'commands' | 'strategy' | 'battle' | 'tips' | 'combat' | 'update'>('intro');
 
   if (!isOpen) return null;
 
@@ -94,6 +94,26 @@ export default function ManualModal({ isOpen, onClose }: ManualModalProps) {
               }`}
             >
               五、新手五大訣
+            </button>
+            <button
+              onClick={() => setActiveTab('combat')}
+              className={`flex-1 min-w-[86px] py-2 sm:py-2.5 text-center transition-colors cursor-pointer whitespace-nowrap px-2 ${
+                activeTab === 'combat'
+                  ? 'bg-[#fbf8f0] text-[#8b261d] font-black border-b-2 border-[#8b261d] shadow-2xs'
+                  : 'text-[#5d4a36] hover:bg-[#dfd5c0]'
+              }`}
+            >
+              六、戰鬥系統
+            </button>
+            <button
+              onClick={() => setActiveTab('update')}
+              className={`flex-1 min-w-[86px] py-2 sm:py-2.5 text-center transition-colors cursor-pointer whitespace-nowrap px-2 ${
+                activeTab === 'update'
+                  ? 'bg-[#fbf8f0] text-[#8b261d] font-black border-b-2 border-[#8b261d] shadow-2xs'
+                  : 'text-[#5d4a36] hover:bg-[#dfd5c0]'
+              }`}
+            >
+              七、更新日誌(v0.2)
             </button>
           </div>
 
@@ -364,6 +384,43 @@ export default function ManualModal({ isOpen, onClose }: ManualModalProps) {
                 <div className="border-l-4 border-red-600 bg-red-50/80 p-2.5 rounded-r">
                   <strong className="text-red-900">5. 善用多路出征：</strong>
                   本遊戲支援「排定多個戰役出征計畫」，在當月結束（休息）時依序發動多線合擊，迅速瓦解敵國！
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'combat' && (
+              <div className="space-y-3">
+                <div className="bg-[#f0e8d6] p-3 rounded border border-[#d6c7ac]">
+                  <h3 className="font-black text-sm text-[#8b261d] mb-1.5 flex items-center gap-1.5">
+                    <span>⚔️</span> 戰鬥系統與傷害機制
+                  </h3>
+                  <p className="mb-2">
+                    戰鬥中的部隊傷害不僅取決於兵力多寡，武將的<strong>屬性（武力、智力）</strong>與<strong>寶物加成</strong>也會帶來決定性影響。
+                  </p>
+                  <ul className="list-disc pl-4 space-y-1 text-xs">
+                    <li><strong>武力決定物理傷害</strong>：發動「攻擊」或「特殊攻擊」時，系統會計算雙方的武將武力差，高武力的一方將造成極高的壓制傷害。</li>
+                    <li><strong>智力影響計策成功與威力</strong>：軍師發動「計謀」時，自身的高智力不僅能提升計策成功率，更是法術攻擊（如火計、水攻）的核心倍率來源。</li>
+                    <li><strong>兵種相剋</strong>：步兵剋弓兵、弓兵剋騎兵、騎兵剋步兵。攻擊被剋制的兵種時將有巨幅傷害加成。</li>
+                    <li><strong>士氣系統</strong>：高士氣能讓部隊發揮 120% 的實力，而士氣崩潰的部隊不僅攻擊力大減，還容易直接潰散逃兵。</li>
+                    <li><strong>武將被動技能</strong>：名將皆擁有強大被動（如趙雲的「渾身是膽」、呂布的「飛將」），在戰鬥中會自動觸發並大幅改變戰局。</li>
+                  </ul>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'update' && (
+              <div className="space-y-3">
+                <div className="bg-[#f0e8d6] p-3 rounded border border-[#d6c7ac]">
+                  <h3 className="font-black text-sm text-[#8b261d] mb-1.5 flex items-center gap-1.5">
+                    <span>📢</span> v0.2 版更新日誌 (與前次版本比較)
+                  </h3>
+                  <ul className="list-disc pl-4 space-y-1 text-xs">
+                    <li><strong>修復武器疊加問題</strong>：現在武將裝備多把武器（如長柄刀、戟、弓等）時，能力加成不再無限制累加，而是智慧取<strong>各項屬性的最高值</strong>。名馬、兵書、奇寶等非武器物品則保留疊加。</li>
+                    <li><strong>名馬效果調整</strong>：所有名馬（包含赤兔馬、的盧等）皆移除屬性加成，統一修改為僅提供<strong>「確實撤退」</strong>效果。</li>
+                    <li><strong>新增傳世名馬</strong>：追加「涼州馬」（未現世）與「四輪車」（分配予諸葛亮）。</li>
+                    <li><strong>擴充武器庫</strong>：大幅增加各種專屬武器，包含長柄刀（鳳嘴刀、眉尖刀、大桿刀、大刀）、戟（雙鐵戟、金馬槊、棗木槊、三丈矛）、暗器（手戟、袖箭系列）、鐵鞭與各類神弓，並自動正確歸類至「武器」分類中。</li>
+                    <li><strong>新增兵書與地圖</strong>：新增「太平要術書」、「西蜀地形圖」、「平蠻指掌圖」，進一步豐富智將的裝備搭配。</li>
+                  </ul>
                 </div>
               </div>
             )}

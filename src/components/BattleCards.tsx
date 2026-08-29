@@ -2,6 +2,7 @@ import React from 'react';
 import { BattleState, BattleUnit, PassiveSkillId } from '../types';
 import { PASSIVE_SKILL_REGISTRY } from '../engine/battleCalculations';
 import { isPassiveSkill } from '../engine/skills';
+import { GeneralAvatar } from './GeneralAvatar';
 
 interface BattleCardsProps {
   state: BattleState;
@@ -54,14 +55,16 @@ export default function BattleCards({ state, activeUnit }: BattleCardsProps) {
       <div className="flex w-full">
         {/* Attacker Section */}
         <div className="flex-1 border-r border-stone-400 p-2 relative bg-rose-50/40">
-          <div className="flex justify-between items-start border-b border-stone-400 pb-1 mb-1">
-            <div className="text-sm font-bold text-stone-900 flex items-center gap-1.5 flex-wrap">
-              <span className="bg-rose-800 text-white text-[10px] px-1.5 py-0.2 rounded font-bold">主攻</span>
-              <span>{state.attacker.commander}軍</span>
-              <span className="text-xs text-stone-600 font-normal">({attackerGenerals}將)</span>
-            </div>
-            <div className="w-8 h-9 bg-rose-800 border border-stone-800 flex justify-center items-center text-white text-xs font-bold shrink-0 shadow-2xs">
-              {state.attacker.commander.slice(0, 2)}
+          <div className="flex justify-between items-center border-b border-stone-400 pb-1 mb-1">
+            <div className="flex items-center gap-2">
+              <GeneralAvatar name={state.attacker.commander} size={36} className="shrink-0 rounded shadow-xs border-rose-900" />
+              <div>
+                <div className="text-sm font-bold text-stone-900 flex items-center gap-1.5 flex-wrap">
+                  <span className="bg-rose-800 text-white text-[10px] px-1.5 py-0.2 rounded font-bold">主攻</span>
+                  <span>{state.attacker.commander}軍</span>
+                  <span className="text-xs text-stone-600 font-normal">({attackerGenerals}將)</span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -98,14 +101,16 @@ export default function BattleCards({ state, activeUnit }: BattleCardsProps) {
         
         {/* Defender Section */}
         <div className="flex-1 p-2 relative bg-sky-50/40">
-          <div className="flex justify-between items-start border-b border-stone-400 pb-1 mb-1">
-            <div className="text-sm font-bold text-stone-900 flex items-center gap-1.5 flex-wrap">
-              <span className="bg-sky-800 text-white text-[10px] px-1.5 py-0.2 rounded font-bold">主守</span>
-              <span>{state.defender.commander}軍</span>
-              <span className="text-xs text-stone-600 font-normal">({defenderGenerals}將)</span>
-            </div>
-            <div className="w-8 h-9 bg-sky-800 border border-stone-800 flex justify-center items-center text-white text-xs font-bold shrink-0 shadow-2xs">
-              {state.defender.commander.slice(0, 2)}
+          <div className="flex justify-between items-center border-b border-stone-400 pb-1 mb-1">
+            <div className="flex items-center gap-2">
+              <GeneralAvatar name={state.defender.commander} size={36} className="shrink-0 rounded shadow-xs border-sky-900" />
+              <div>
+                <div className="text-sm font-bold text-stone-900 flex items-center gap-1.5 flex-wrap">
+                  <span className="bg-sky-800 text-white text-[10px] px-1.5 py-0.2 rounded font-bold">主守</span>
+                  <span>{state.defender.commander}軍</span>
+                  <span className="text-xs text-stone-600 font-normal">({defenderGenerals}將)</span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -143,8 +148,9 @@ export default function BattleCards({ state, activeUnit }: BattleCardsProps) {
 
       {/* Active Unit Focus Strip */}
       {currentUnit && (
-        <div className="bg-stone-300/80 px-2.5 py-1 border-t border-stone-400 flex items-center justify-between text-xs flex-wrap gap-1">
-          <div className="flex items-center gap-1.5">
+        <div className="bg-stone-300/80 px-2.5 py-1.5 border-t border-stone-400 flex items-center justify-between text-xs flex-wrap gap-1">
+          <div className="flex items-center gap-2">
+            <GeneralAvatar name={currentUnit.generalName} size={28} className="shrink-0 rounded" />
             <span className="text-[11px] font-black text-stone-800">
               當前行動將領：
               <span className={`px-1.5 py-0.5 rounded text-white font-bold ml-1 ${currentUnit.isAttacker ? 'bg-rose-800' : 'bg-sky-800'}`}>

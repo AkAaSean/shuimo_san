@@ -21,6 +21,7 @@ export const TREASURE_ITEMS: TreasureItem[] = [
   // ═══════════════════════════════════════════════
   // ─── 神兵利器 (Weapons) ───
   // ═══════════════════════════════════════════════
+
   {
     id: 'weapon_1',
     name: '青龍偃月刀',
@@ -31,6 +32,7 @@ export const TREASURE_ITEMS: TreasureItem[] = [
     defaultOwner: { 0: '關羽', 1: '關羽', 2: '關羽', 3: '關羽', 4: '關羽', 5: '關羽' },
     provinceOrigin: 11
   },
+
   {
     id: 'weapon_2',
     name: '丈八蛇矛',
@@ -41,6 +43,7 @@ export const TREASURE_ITEMS: TreasureItem[] = [
     defaultOwner: { 0: '張飛', 1: '張飛', 2: '張飛', 3: '張飛', 4: '張飛', 5: '張飛' },
     provinceOrigin: 11
   },
+
   {
     id: 'weapon_3',
     name: '方天畫戟',
@@ -51,6 +54,7 @@ export const TREASURE_ITEMS: TreasureItem[] = [
     defaultOwner: { 0: '呂布', 1: '呂布', 2: null, 3: null, 4: null, 5: null },
     provinceOrigin: 15
   },
+
   {
     id: 'weapon_4',
     name: '雌雄雙股劍',
@@ -61,6 +65,7 @@ export const TREASURE_ITEMS: TreasureItem[] = [
     defaultOwner: { 0: '劉備', 1: '劉備', 2: '劉備', 3: '劉備', 4: '劉備', 5: '劉備' },
     provinceOrigin: 3
   },
+
   {
     id: 'weapon_5',
     name: '倚天劍',
@@ -71,6 +76,7 @@ export const TREASURE_ITEMS: TreasureItem[] = [
     defaultOwner: { 0: '曹操', 1: '曹操', 2: '曹操', 3: '曹操', 4: '曹操', 5: '曹丕' },
     provinceOrigin: 12
   },
+
   {
     id: 'weapon_6',
     name: '青釭劍',
@@ -81,6 +87,7 @@ export const TREASURE_ITEMS: TreasureItem[] = [
     defaultOwner: { 0: '曹操', 1: '曹操', 2: '曹操', 3: '趙雲', 4: '趙雲', 5: '趙雲' },
     provinceOrigin: 13
   },
+
   {
     id: 'weapon_7',
     name: '古錠刀',
@@ -91,6 +98,7 @@ export const TREASURE_ITEMS: TreasureItem[] = [
     defaultOwner: { 0: '孫堅', 1: '孫策', 2: '孫權', 3: '孫權', 4: '孫權', 5: '孫權' },
     provinceOrigin: 31
   },
+
   {
     id: 'weapon_8',
     name: '雙鐵戟',
@@ -101,6 +109,7 @@ export const TREASURE_ITEMS: TreasureItem[] = [
     defaultOwner: { 0: null, 1: '典韋', 2: null, 3: null, 4: null, 5: null },
     provinceOrigin: 12
   },
+
   {
     id: 'weapon_9',
     name: '涯角槍',
@@ -111,6 +120,7 @@ export const TREASURE_ITEMS: TreasureItem[] = [
     defaultOwner: { 0: '趙雲', 1: '趙雲', 2: '趙雲', 3: '趙雲', 4: '趙雲', 5: '趙雲' },
     provinceOrigin: 3
   },
+
   {
     id: 'weapon_10',
     name: '養由基弓',
@@ -121,6 +131,7 @@ export const TREASURE_ITEMS: TreasureItem[] = [
     defaultOwner: { 0: '黃忠', 1: '黃忠', 2: '黃忠', 3: '黃忠', 4: '黃忠', 5: '黃忠' },
     provinceOrigin: 30
   },
+
   {
     id: 'weapon_11',
     name: '大斧',
@@ -131,6 +142,7 @@ export const TREASURE_ITEMS: TreasureItem[] = [
     defaultOwner: { 0: null, 1: '徐晃', 2: '徐晃', 3: '徐晃', 4: '徐晃', 5: '徐晃' },
     provinceOrigin: 14
   },
+
   {
     id: 'weapon_12',
     name: '三尖刀',
@@ -141,6 +153,7 @@ export const TREASURE_ITEMS: TreasureItem[] = [
     defaultOwner: { 0: '紀靈', 1: '紀靈', 2: null, 3: null, 4: null, 5: null },
     provinceOrigin: 13
   },
+
   {
     id: 'weapon_13',
     name: '七星寶刀',
@@ -151,6 +164,7 @@ export const TREASURE_ITEMS: TreasureItem[] = [
     defaultOwner: { 0: '曹操', 1: null, 2: null, 3: null, 4: null, 5: null },
     provinceOrigin: 15
   },
+
   {
     id: 'weapon_14',
     name: '鐵蒺藜骨朵',
@@ -165,72 +179,79 @@ export const TREASURE_ITEMS: TreasureItem[] = [
   // ═══════════════════════════════════════════════
   // ─── 絕世名駒 (Horses) ───
   // ═══════════════════════════════════════════════
+
   {
     id: 'horse_1',
     name: '赤兔馬',
     category: '名馬',
-    bonusDesc: '統帥 +10，戰場撤退成功率 100%',
-    effect: { hp: 10, special: '退卻必定成功' },
+    bonusDesc: '確實撤退',
+    effect: { special: '確實撤退' },
     desc: '「人中有呂布，馬中有赤兔」，日行千里，夜行八百，渡水登山如履平地。',
     defaultOwner: { 0: '董卓', 1: '呂布', 2: '關羽', 3: '關羽', 4: '關羽', 5: null },
     provinceOrigin: 15
   },
+
   {
     id: 'horse_2',
     name: '的盧馬',
     category: '名馬',
-    bonusDesc: '統帥 +8，避凶化吉',
-    effect: { hp: 8, special: '福星高照' },
+    bonusDesc: '確實撤退',
+    effect: { special: '確實撤退' },
     desc: '額頭帶白點之名駒，曾於檀溪一躍三丈，救劉備脫離險境。',
     defaultOwner: { 0: null, 1: null, 2: '劉備', 3: '劉備', 4: '龐統', 5: null },
     provinceOrigin: 28
   },
+
   {
     id: 'horse_3',
     name: '爪黃飛電',
     category: '名馬',
-    bonusDesc: '統帥 +7，魅力 +3，貴氣非凡',
-    effect: { hp: 7, cha: 3 },
+    bonusDesc: '確實撤退',
+    effect: { special: '確實撤退' },
     desc: '曹操愛馬，通體雪白，蹄如包金，神采奕奕，許田打圍時曾乘之。',
     defaultOwner: { 0: null, 1: '曹操', 2: '曹操', 3: '曹操', 4: '曹操', 5: '曹丕' },
     provinceOrigin: 13
   },
+
   {
     id: 'horse_4',
     name: '絕影',
     category: '名馬',
-    bonusDesc: '統帥 +7，迅捷絕倫',
-    effect: { hp: 7 },
+    bonusDesc: '確實撤退',
+    effect: { special: '確實撤退' },
     desc: '曹操之坐騎，行疾如風，奔馳時身影難辨，宛城之戰救主中箭身亡。',
     defaultOwner: { 0: '曹操', 1: '曹操', 2: null, 3: null, 4: null, 5: null },
     provinceOrigin: 12
   },
+
   {
     id: 'horse_5',
     name: '照夜玉獅子',
     category: '名馬',
-    bonusDesc: '統帥 +6，白馬神駿',
-    effect: { hp: 6 },
+    bonusDesc: '確實撤退',
+    effect: { special: '確實撤退' },
     desc: '趙雲所騎白馬，通體雪白無雜毛，長坂坡陷落枯井一躍而起。',
     defaultOwner: { 0: null, 1: null, 2: '趙雲', 3: '趙雲', 4: '趙雲', 5: '趙雲' },
     provinceOrigin: 3
   },
+
   {
     id: 'horse_6',
     name: '快航',
     category: '名馬',
-    bonusDesc: '統帥 +5，江東青驄',
-    effect: { hp: 5 },
+    bonusDesc: '確實撤退',
+    effect: { special: '確實撤退' },
     desc: '孫權之座騎，逍遙津被張遼突襲時飛躍小師橋脫險。',
     defaultOwner: { 0: null, 1: null, 2: '孫權', 3: '孫權', 4: '孫權', 5: '孫權' },
     provinceOrigin: 21
   },
+
   {
     id: 'horse_7',
     name: '汗血馬',
     category: '名馬',
-    bonusDesc: '統帥 +5，大宛神駒',
-    effect: { hp: 5 },
+    bonusDesc: '確實撤退',
+    effect: { special: '確實撤退' },
     desc: '產自西域大宛之名馬，奔馳流汗如血，日行千里。',
     defaultOwner: { 0: '馬騰', 1: '馬騰', 2: '馬騰', 3: '馬超', 4: '馬超', 5: '馬超' },
     provinceOrigin: 17
@@ -239,6 +260,7 @@ export const TREASURE_ITEMS: TreasureItem[] = [
   // ═══════════════════════════════════════════════
   // ─── 兵法韜略 (Books & Treatises) ───
   // ═══════════════════════════════════════════════
+
   {
     id: 'book_1',
     name: '孫子兵法',
@@ -249,6 +271,7 @@ export const TREASURE_ITEMS: TreasureItem[] = [
     defaultOwner: { 0: '孫堅', 1: '孫策', 2: '孫權', 3: '孫權', 4: '孫權', 5: '孫權' },
     provinceOrigin: 22
   },
+
   {
     id: 'book_2',
     name: '兵法二十四篇',
@@ -259,6 +282,7 @@ export const TREASURE_ITEMS: TreasureItem[] = [
     defaultOwner: { 0: null, 1: null, 2: null, 3: '諸葛亮', 4: '諸葛亮', 5: '諸葛亮' },
     provinceOrigin: 36
   },
+
   {
     id: 'book_3',
     name: '孟德新書',
@@ -269,6 +293,7 @@ export const TREASURE_ITEMS: TreasureItem[] = [
     defaultOwner: { 0: null, 1: null, 2: '曹操', 3: '曹操', 4: '曹操', 5: '曹丕' },
     provinceOrigin: 13
   },
+
   {
     id: 'book_4',
     name: '六韜',
@@ -279,6 +304,7 @@ export const TREASURE_ITEMS: TreasureItem[] = [
     defaultOwner: { 0: null, 1: null, 2: null, 3: '司馬懿', 4: '司馬懿', 5: '司馬懿' },
     provinceOrigin: 15
   },
+
   {
     id: 'book_5',
     name: '三略',
@@ -289,16 +315,18 @@ export const TREASURE_ITEMS: TreasureItem[] = [
     defaultOwner: { 0: null, 1: null, 2: null, 3: '徐庶', 4: '龐統', 5: null },
     provinceOrigin: 28
   },
+
   {
     id: 'book_6',
-    name: '太平要術',
+    name: '太平要術書',
     category: '兵書',
-    bonusDesc: '謀略 +7，呼風喚雨',
-    effect: { int: 7 },
+    bonusDesc: '統帥 +5，謀略 +5',
+    effect: { hp: 5, int: 5 },
     desc: '南華老仙授與張角之奇書三卷，能呼風喚雨、號令黃巾。',
     defaultOwner: { 0: null, 1: null, 2: null, 3: null, 4: null, 5: null },
     provinceOrigin: 4
   },
+
   {
     id: 'book_7',
     name: '遁甲天書',
@@ -309,6 +337,7 @@ export const TREASURE_ITEMS: TreasureItem[] = [
     defaultOwner: { 0: null, 1: null, 2: null, 3: null, 4: null, 5: null },
     provinceOrigin: 36
   },
+
   {
     id: 'book_8',
     name: '春秋左氏傳',
@@ -319,6 +348,7 @@ export const TREASURE_ITEMS: TreasureItem[] = [
     defaultOwner: { 0: '關羽', 1: '關羽', 2: '關羽', 3: '關羽', 4: '關羽', 5: '關羽' },
     provinceOrigin: 11
   },
+
   {
     id: 'book_9',
     name: '吳子兵法',
@@ -333,6 +363,7 @@ export const TREASURE_ITEMS: TreasureItem[] = [
   // ═══════════════════════════════════════════════
   // ─── 傳世重器與奇寶 (Relics & Treasures) ───
   // ═══════════════════════════════════════════════
+
   {
     id: 'relic_1',
     name: '傳國玉璽',
@@ -343,6 +374,7 @@ export const TREASURE_ITEMS: TreasureItem[] = [
     defaultOwner: { 0: '董卓', 1: '袁術', 2: '曹操', 3: '曹操', 4: '曹操', 5: '曹丕' },
     provinceOrigin: 15
   },
+
   {
     id: 'relic_2',
     name: '和氏璧',
@@ -353,6 +385,7 @@ export const TREASURE_ITEMS: TreasureItem[] = [
     defaultOwner: { 0: null, 1: null, 2: null, 3: null, 4: null, 5: null },
     provinceOrigin: 28
   },
+
   {
     id: 'relic_3',
     name: '九錫',
@@ -363,6 +396,7 @@ export const TREASURE_ITEMS: TreasureItem[] = [
     defaultOwner: { 0: null, 1: null, 2: null, 3: null, 4: '曹操', 5: '曹丕' },
     provinceOrigin: 15
   },
+
   {
     id: 'relic_4',
     name: '銅雀',
@@ -373,6 +407,7 @@ export const TREASURE_ITEMS: TreasureItem[] = [
     defaultOwner: { 0: null, 1: null, 2: null, 3: '曹操', 4: '曹操', 5: '曹丕' },
     provinceOrigin: 4
   },
+
   {
     id: 'relic_5',
     name: '夜光珠',
@@ -387,6 +422,7 @@ export const TREASURE_ITEMS: TreasureItem[] = [
   // ═══════════════════════════════════════════════
   // ─── 醫道神書 (Medical Books) ───
   // ═══════════════════════════════════════════════
+
   {
     id: 'relic_6',
     name: '青囊書',
@@ -397,6 +433,7 @@ export const TREASURE_ITEMS: TreasureItem[] = [
     defaultOwner: { 0: null, 1: null, 2: null, 3: null, 4: null, 5: null },
     provinceOrigin: 12
   },
+
   {
     id: 'relic_7',
     name: '傷寒雜病論',
@@ -407,6 +444,7 @@ export const TREASURE_ITEMS: TreasureItem[] = [
     defaultOwner: { 0: null, 1: null, 2: null, 3: null, 4: null, 5: null },
     provinceOrigin: 30
   },
+
   {
     id: 'relic_8',
     name: '太平清領道',
@@ -416,7 +454,200 @@ export const TREASURE_ITEMS: TreasureItem[] = [
     desc: '于吉於曲陽泉水上所得之道家神書，能符水治病、度人濟世。',
     defaultOwner: { 0: null, 1: null, 2: null, 3: null, 4: null, 5: null },
     provinceOrigin: 23
-  }
+  },
+
+
+  {
+    id: 'horse_8',
+    name: '涼州馬',
+    category: '名馬',
+    bonusDesc: '確實撤退',
+    effect: { special: '確實撤退' },
+    desc: '產自涼州之駿馬。',
+    defaultOwner: { 0: null, 1: null, 2: null, 3: null, 4: null, 5: null },
+    provinceOrigin: 17
+  },
+
+  {
+    id: 'horse_9',
+    name: '四輪車',
+    category: '名馬',
+    bonusDesc: '確實撤退',
+    effect: { special: '確實撤退' },
+    desc: '諸葛亮常乘坐之木製四輪車。',
+    defaultOwner: { 0: null, 1: null, 2: null, 3: '諸葛亮', 4: '諸葛亮', 5: '諸葛亮' },
+    provinceOrigin: 36
+  },
+
+  {
+    id: 'weapon_15',
+    name: '鳳嘴刀',
+    category: '武器',
+    bonusDesc: '戰力 +2',
+    effect: { str: 2 },
+    desc: '鳳嘴刀。',
+    defaultOwner: { 0: null, 1: null, 2: null, 3: null, 4: null, 5: null }
+  },
+
+  {
+    id: 'weapon_16',
+    name: '眉尖刀',
+    category: '武器',
+    bonusDesc: '戰力 +2',
+    effect: { str: 2 },
+    desc: '眉尖刀。',
+    defaultOwner: { 0: null, 1: null, 2: null, 3: null, 4: null, 5: null }
+  },
+
+  {
+    id: 'weapon_17',
+    name: '大桿刀',
+    category: '武器',
+    bonusDesc: '戰力 +1',
+    effect: { str: 1 },
+    desc: '大桿刀。',
+    defaultOwner: { 0: null, 1: null, 2: null, 3: null, 4: null, 5: null }
+  },
+
+  {
+    id: 'weapon_18',
+    name: '大刀',
+    category: '武器',
+    bonusDesc: '戰力 +1',
+    effect: { str: 1 },
+    desc: '大刀。',
+    defaultOwner: { 0: null, 1: null, 2: null, 3: null, 4: null, 5: null }
+  },
+
+  {
+    id: 'weapon_19',
+    name: '雙鐵戟',
+    category: '武器',
+    bonusDesc: '戰力 +1',
+    effect: { str: 1 },
+    desc: '一般的雙鐵戟。',
+    defaultOwner: { 0: null, 1: null, 2: null, 3: null, 4: null, 5: null }
+  },
+
+  {
+    id: 'weapon_20',
+    name: '金馬槊',
+    category: '武器',
+    bonusDesc: '戰力 +1',
+    effect: { str: 1 },
+    desc: '金馬槊。',
+    defaultOwner: { 0: null, 1: null, 2: null, 3: null, 4: null, 5: null }
+  },
+
+  {
+    id: 'weapon_21',
+    name: '棗木槊',
+    category: '武器',
+    bonusDesc: '戰力 +8',
+    effect: { str: 8 },
+    desc: '棗木槊。',
+    defaultOwner: { 0: null, 1: null, 2: null, 3: null, 4: null, 5: null }
+  },
+
+  {
+    id: 'weapon_22',
+    name: '三丈矛',
+    category: '武器',
+    bonusDesc: '戰力 +2',
+    effect: { str: 2 },
+    desc: '三丈矛。',
+    defaultOwner: { 0: null, 1: null, 2: null, 3: null, 4: null, 5: null }
+  },
+
+  {
+    id: 'weapon_23',
+    name: '手戟',
+    category: '武器',
+    bonusDesc: '戰力 +2',
+    effect: { str: 2 },
+    desc: '手戟，太史慈常用暗器。',
+    defaultOwner: { 0: '太史慈', 1: '太史慈', 2: '太史慈', 3: null, 4: null, 5: null }
+  },
+
+  {
+    id: 'weapon_24',
+    name: '梅花袖箭',
+    category: '武器',
+    bonusDesc: '戰力 +2',
+    effect: { str: 2 },
+    desc: '梅花袖箭。',
+    defaultOwner: { 0: null, 1: null, 2: null, 3: null, 4: null, 5: null }
+  },
+
+  {
+    id: 'weapon_25',
+    name: '袖箭',
+    category: '武器',
+    bonusDesc: '戰力 +2',
+    effect: { str: 2 },
+    desc: '袖箭。',
+    defaultOwner: { 0: null, 1: null, 2: null, 3: null, 4: null, 5: null }
+  },
+
+  {
+    id: 'weapon_26',
+    name: '鐵鞭',
+    category: '武器',
+    bonusDesc: '戰力 +3',
+    effect: { str: 3 },
+    desc: '鐵鞭，黃蓋慣用兵器。',
+    defaultOwner: { 0: '黃蓋', 1: '黃蓋', 2: '黃蓋', 3: null, 4: null, 5: null }
+  },
+
+  {
+    id: 'weapon_27',
+    name: '李廣弓',
+    category: '武器',
+    bonusDesc: '戰力 +3',
+    effect: { str: 3 },
+    desc: '飛將軍李廣所用之弓。',
+    defaultOwner: { 0: null, 1: null, 2: null, 3: null, 4: null, 5: null }
+  },
+
+  {
+    id: 'weapon_28',
+    name: '寶雕弓',
+    category: '武器',
+    bonusDesc: '戰力 +1',
+    effect: { str: 1 },
+    desc: '寶雕弓。',
+    defaultOwner: { 0: null, 1: null, 2: null, 3: null, 4: null, 5: null }
+  },
+
+  {
+    id: 'weapon_29',
+    name: '東胡飛弓',
+    category: '武器',
+    bonusDesc: '戰力 +1',
+    effect: { str: 1 },
+    desc: '東胡飛弓。',
+    defaultOwner: { 0: null, 1: null, 2: null, 3: null, 4: null, 5: null }
+  },
+
+  {
+    id: 'book_10',
+    name: '西蜀地形圖',
+    category: '兵書',
+    bonusDesc: '統帥 +3，謀略 +3',
+    effect: { hp: 3, int: 3 },
+    desc: '西蜀地形詳圖。',
+    defaultOwner: { 0: null, 1: null, 2: null, 3: null, 4: null, 5: null }
+  },
+
+  {
+    id: 'book_11',
+    name: '平蠻指掌圖',
+    category: '兵書',
+    bonusDesc: '統帥 +2，謀略 +2',
+    effect: { hp: 2, int: 2 },
+    desc: '南蠻地形詳圖。',
+    defaultOwner: { 0: null, 1: null, 2: null, 3: null, 4: null, 5: null }
+  },
 ];
 
 export interface GeneralItemBonus {
@@ -440,13 +671,35 @@ export function getGeneralItemBonus(generalName: string, scenarioIndex: number =
   let chaBonus = 0;
   let hpBonus = 0;
 
+  let maxWeaponStr = 0;
+  let maxWeaponInt = 0;
+  let maxWeaponPol = 0;
+  let maxWeaponCha = 0;
+  let maxWeaponHp = 0;
+
   heldItems.forEach(item => {
-    if (item.effect.str) strBonus += item.effect.str;
-    if (item.effect.int) intBonus += item.effect.int;
-    if (item.effect.pol) polBonus += item.effect.pol;
-    if (item.effect.cha) chaBonus += item.effect.cha;
-    if (item.effect.hp) hpBonus += item.effect.hp;
+    const isWeapon = item.category === '武器';
+    
+    if (isWeapon) {
+      if (item.effect.str && item.effect.str > maxWeaponStr) maxWeaponStr = item.effect.str;
+      if (item.effect.int && item.effect.int > maxWeaponInt) maxWeaponInt = item.effect.int;
+      if (item.effect.pol && item.effect.pol > maxWeaponPol) maxWeaponPol = item.effect.pol;
+      if (item.effect.cha && item.effect.cha > maxWeaponCha) maxWeaponCha = item.effect.cha;
+      if (item.effect.hp && item.effect.hp > maxWeaponHp) maxWeaponHp = item.effect.hp;
+    } else {
+      if (item.effect.str) strBonus += item.effect.str;
+      if (item.effect.int) intBonus += item.effect.int;
+      if (item.effect.pol) polBonus += item.effect.pol;
+      if (item.effect.cha) chaBonus += item.effect.cha;
+      if (item.effect.hp) hpBonus += item.effect.hp;
+    }
   });
+
+  strBonus += maxWeaponStr;
+  intBonus += maxWeaponInt;
+  polBonus += maxWeaponPol;
+  chaBonus += maxWeaponCha;
+  hpBonus += maxWeaponHp;
 
   return {
     strBonus,
