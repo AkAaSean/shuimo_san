@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { SCENARIOS } from '../data/scenarios';
 import { provinces } from '../data/provinces';
-const scenarioBg = '/assets/Open_page.jpg';
+const scenarioBg = './assets/Open_page.jpg';
 
 interface TitleScreenProps {
   onStartGame: (scenarioIndex: number, rulerName: string) => void;

@@ -1460,7 +1460,7 @@ export default function BattleView5v5({ gameState, onResolveBattle, onExit }: Ba
             {/* 上部：勝利/失敗全幅主題插畫 */}
             <div className="relative w-full h-44 sm:h-56 bg-black overflow-hidden select-none">
               <img 
-                src={battleOutcome.isWin ? '/assets/win.jpg' : '/assets/lost.jpg'} 
+                src={battleOutcome.isWin ? './assets/win.jpg' : './assets/lost.jpg'} 
                 alt={battleOutcome.title}
                 className="w-full h-full object-cover object-center brightness-95 filter"
               />
