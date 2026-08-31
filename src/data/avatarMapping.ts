@@ -230,6 +230,14 @@ export const GENERAL_AVATAR_MAP: Record<string, string> = {
   '張南': './assets/avatars/others_1_6.png',
   '呂曠': './assets/avatars/others_1_4.png',
   '呂翔': './assets/avatars/others_1_4.png',
+  '蔣義渠': './assets/avatars/others_1_4.png',
+  '荀諶': './assets/avatars/others_2_1.png',
+  '陳琳': './assets/avatars/others_2_1.png',
+  '崔琰': './assets/avatars/others_0_1.png',
+  '郭援': './assets/avatars/others_1_4.png',
+  '呂威璜': './assets/avatars/others_1_6.png',
+  '董昭': './assets/avatars/others_2_1.png',
+  '陰夔': './assets/avatars/others_2_1.png',
 
   // 袁術軍
   '袁術': './assets/avatars/others_1_6.png',
@@ -339,6 +347,31 @@ export const GENERAL_AVATAR_MAP: Record<string, string> = {
   '鮑韜': './assets/avatars/others_1_4.png',
   '衛茲': './assets/avatars/others_2_2.png',
   '張超': './assets/avatars/others_2_2.png',
+
+  // 新增西涼/河北/益州/荊州名將
+  '成公英': './assets/avatars/others_2_1.png',
+  '梁興': './assets/avatars/others_1_5.png',
+  '楊秋': './assets/avatars/others_1_4.png',
+  '高幹': './assets/avatars/others_1_2.png',
+  '韓猛': './assets/avatars/others_1_5.png',
+  '關靖': './assets/avatars/others_2_1.png',
+  '彭羕': './assets/avatars/shu_2_3.png',
+  '蒯祺': './assets/avatars/others_2_2.png',
+  '邢道榮': './assets/avatars/wei_0_4.png',
+  '閻芝': './assets/avatars/shu_2_1.png',
+
+  // 李傕勢力名將
+  '李蒙': './assets/avatars/others_1_5.png',
+  '王方': './assets/avatars/others_1_4.png',
+  '胡軫': './assets/avatars/others_1_2.png',
+  '楊定': './assets/avatars/others_2_1.png',
+
+  // 袁術勢力名將
+  '楊弘': './assets/avatars/others_2_1.png',
+  '樂就': './assets/avatars/others_1_5.png',
+  '李豐': './assets/avatars/others_1_4.png',
+  '梁綱': './assets/avatars/others_1_4.png',
+  '韓胤': './assets/avatars/others_2_2.png',
 };
 
 // 取得武將頭像，未特別登錄者依所屬陣營/字首產生合理的預設頭像

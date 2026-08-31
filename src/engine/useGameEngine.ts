@@ -2,6 +2,36 @@ import { useState, useCallback } from 'react';
 import { GameState, FormationTerrainType } from '../types';
 import { initGame, advanceTime, executeCommand } from './gameLogic';
 import { calculateFormationTerrainCombatModifier } from './formations';
+import { getGeneralItemBonus } from '../data/items';
+
+function getBestStrategistForBattle(
+  assignedStrategist: string | null | undefined,
+  generalsList: string[],
+  generalsData: Record<string, any>,
+  scenarioIndex: number
+): string | null {
+  if (assignedStrategist) {
+    const g = generalsData[assignedStrategist];
+    if (g) {
+      const itemBonus = getGeneralItemBonus(g.name, scenarioIndex);
+      if (g.int + itemBonus.intBonus >= 80) {
+        return assignedStrategist;
+      }
+    }
+  }
+  const candidates = generalsList
+    .map(name => {
+      const g = generalsData[name];
+      if (!g) return null;
+      const itemBonus = getGeneralItemBonus(g.name, scenarioIndex);
+      const totalInt = g.int + itemBonus.intBonus;
+      return { name: g.name, totalInt };
+    })
+    .filter((g): g is { name: string; totalInt: number } => g !== null && g.totalInt >= 80)
+    .sort((a, b) => b.totalInt - a.totalInt);
+
+  return candidates.length > 0 ? candidates[0].name : null;
+}
 
 export function battleCombatCalculator(
   formationName: string, 
@@ -27,15 +57,19 @@ export function useGameEngine(initialScenario: number, initialRuler: string) {
       if (list.length > 0) {
         const [firstBattle, ...remainingBattles] = list;
         
-        // Auto-assign defender strategist if possible (highest INT > 80)
-        let defStrategist = firstBattle.defenderStrategist;
-        if (!defStrategist && firstBattle.defendingGenerals.length > 0) {
-          const possibleStrategists = firstBattle.defendingGenerals
-            .map(g => prev.generalsData[g])
-            .filter(g => g && g.int >= 80)
-            .sort((a, b) => b.int - a.int);
-          if (possibleStrategists.length > 0) defStrategist = possibleStrategists[0].name;
-        }
+        // 自動判斷並指定智力 >= 80 最高將領為軍師 (攻守兩端)
+        const atkStrategist = getBestStrategistForBattle(
+          firstBattle.attackerStrategist,
+          firstBattle.attackingGenerals,
+          prev.generalsData,
+          prev.currentScenario
+        );
+        const defStrategist = getBestStrategistForBattle(
+          firstBattle.defenderStrategist,
+          firstBattle.defendingGenerals,
+          prev.generalsData,
+          prev.currentScenario
+        );
 
         return {
           ...prev,
@@ -45,7 +79,7 @@ export function useGameEngine(initialScenario: number, initialRuler: string) {
             attackerReinforceProvinceId: firstBattle.attackerReinforceProvinceId,
             attackingGenerals: firstBattle.attackingGenerals,
             defendingGenerals: firstBattle.defendingGenerals,
-            attackerStrategist: firstBattle.attackerStrategist,
+            attackerStrategist: atkStrategist,
             defenderStrategist: defStrategist,
             attackerGold: firstBattle.attackerGold,
             attackerFood: firstBattle.attackerFood,
@@ -62,7 +96,54 @@ export function useGameEngine(initialScenario: number, initialRuler: string) {
         };
       }
       // 2. 無戰役則正常推進時光進入下個月
-      return advanceTime(prev);
+      const nextMonthState = advanceTime(prev);
+      
+      // 3. 檢查是否有 AI 發起的攻擊 (玩家防守戰)
+      if (nextMonthState.pendingDefenses && nextMonthState.pendingDefenses.length > 0) {
+        const list = nextMonthState.pendingDefenses;
+        const [firstBattle, ...remainingBattles] = list;
+        
+        const atkStrategist = getBestStrategistForBattle(
+          firstBattle.attackerStrategist,
+          firstBattle.attackingGenerals,
+          nextMonthState.generalsData,
+          nextMonthState.currentScenario
+        );
+        const defStrategist = getBestStrategistForBattle(
+          firstBattle.defenderStrategist,
+          firstBattle.defendingGenerals,
+          nextMonthState.generalsData,
+          nextMonthState.currentScenario
+        );
+        
+        return {
+          ...nextMonthState,
+          activeBattle: {
+            isDefense: true,
+            attackerRuler: firstBattle.attackerRuler,
+            defenderRuler: firstBattle.defenderRuler,
+            targetProvinceId: firstBattle.targetProvinceId,
+            attackerProvinceId: firstBattle.attackerProvinceId,
+            attackerReinforceProvinceId: firstBattle.attackerReinforceProvinceId,
+            attackingGenerals: firstBattle.attackingGenerals,
+            defendingGenerals: firstBattle.defendingGenerals,
+            attackerStrategist: atkStrategist,
+            defenderStrategist: defStrategist,
+            attackerGold: firstBattle.attackerGold,
+            attackerFood: firstBattle.attackerFood,
+            resourcesDeducted: firstBattle.resourcesDeducted,
+            attackerGeneralOrigins: firstBattle.attackerGeneralOrigins,
+            defenderPrimaryProvinceId: firstBattle.defenderPrimaryProvinceId,
+            defenderReinforceProvinceId: firstBattle.defenderReinforceProvinceId,
+            defenderGeneralOrigins: firstBattle.defenderGeneralOrigins,
+            defenderResourcesDeducted: firstBattle.defenderResourcesDeducted
+          },
+          pendingDefenses: remainingBattles,
+          view: 'battle'
+        };
+      }
+      
+      return nextMonthState;
     });
   }, []);
 
@@ -80,10 +161,11 @@ export function useGameEngine(initialScenario: number, initialRuler: string) {
       const primaryAtkCityId = battle.attackerProvinceId;
       const reinforceAtkCityId = battle.attackerReinforceProvinceId;
       const defReinforceCityId = battle.defenderReinforceProvinceId;
+      const isDefense = battle.isDefense;
       
       if (winner === 'attacker') {
         // --- 攻擊方勝利 (點 8) ---
-        targetProv.rulerName = prev.rulerName;
+        targetProv.rulerName = isDefense ? battle.attackerRuler! : prev.rulerName;
         targetProv.loyalty = Math.max(0, targetProv.loyalty - 15);
         targetProv.isAutonomous = false;
 
@@ -133,10 +215,11 @@ export function useGameEngine(initialScenario: number, initialRuler: string) {
           if (gen) {
             const defOrigin = battle.defenderGeneralOrigins?.[gName] ?? battle.targetProvinceId;
             if (defOrigin === battle.targetProvinceId) {
-              // 守城本陣武將在野
+              // 守城本陣武將潰散在野，部隊解體
               baseState.generalsData[gName] = {
                 ...gen,
                 isWild: true,
+                soldiers: 0,
                 loyalty: Math.max(0, gen.loyalty - 30)
               };
             } else if (defReinforceCityId && defOrigin === defReinforceCityId) {
@@ -163,10 +246,12 @@ export function useGameEngine(initialScenario: number, initialRuler: string) {
         }
 
         baseState.lastActionResult = {
-          action: '攻城勝利',
-          title: '🔥 攻城大捷：破城奪地！',
-          message: `我軍英勇善戰，成功攻破【${targetProv.name}】！主攻部隊已進駐接管該城，援軍亦已班師回朝！`,
-          type: 'success'
+          action: isDefense ? '守城失敗' : '攻城勝利',
+          title: isDefense ? '💀 城池陷落' : '🔥 攻城大捷：破城奪地！',
+          message: isDefense 
+            ? `敵軍攻勢太猛，我軍無力回天，【${targetProv.name}】已落入敵方手中...` 
+            : `我軍英勇善戰，成功攻破【${targetProv.name}】！主攻部隊已進駐接管該城，援軍亦已班師回朝！`,
+          type: isDefense ? 'failure' : 'success'
         };
       } else {
         // --- 守方勝利 / 攻城失敗 (點 9) ---
@@ -223,38 +308,54 @@ export function useGameEngine(initialScenario: number, initialRuler: string) {
         }
 
         baseState.lastActionResult = {
-          action: '攻城失敗',
-          title: '❌ 攻城失利：鳴金收兵',
-          message: `敵軍防守嚴密，我軍久攻不下，各路兵馬只好撤回原城休整...【${targetProv.name}】攻城失敗。`,
-          type: 'failure'
+          action: isDefense ? '守城勝利' : '攻城失敗',
+          title: isDefense ? '🛡️ 防守成功：固若金湯' : '❌ 攻城失利：鳴金收兵',
+          message: isDefense 
+             ? `我軍將士用命，成功擊退了敵軍的進犯！【${targetProv.name}】安然無恙！` 
+             : `敵軍防守嚴密，我軍久攻不下，各路兵馬只好撤回原城休整...【${targetProv.name}】攻城失敗。`,
+          type: isDefense ? 'success' : 'failure'
         };
       }
 
       baseState.provincesData[targetProv.id] = targetProv;
       
       // 檢查是否還有後續排定之戰役
-      const remainingBattles = baseState.pendingBattles || [];
+      let remainingBattles = baseState.pendingBattles || [];
+      let isNextDefense = false;
+      
+      if (remainingBattles.length === 0 && baseState.pendingDefenses && baseState.pendingDefenses.length > 0) {
+          remainingBattles = baseState.pendingDefenses;
+          isNextDefense = true;
+      }
+      
       if (remainingBattles.length > 0) {
         const [nextBattle, ...rest] = remainingBattles;
         
-        let defStrategist = nextBattle.defenderStrategist;
-        if (!defStrategist && nextBattle.defendingGenerals.length > 0) {
-          const possibleStrategists = nextBattle.defendingGenerals
-            .map(g => baseState.generalsData[g])
-            .filter(g => g && g.int >= 80)
-            .sort((a, b) => b.int - a.int);
-          if (possibleStrategists.length > 0) defStrategist = possibleStrategists[0].name;
-        }
+        const atkStrategist = getBestStrategistForBattle(
+          nextBattle.attackerStrategist,
+          nextBattle.attackingGenerals,
+          baseState.generalsData,
+          baseState.currentScenario
+        );
+        const defStrategist = getBestStrategistForBattle(
+          nextBattle.defenderStrategist,
+          nextBattle.defendingGenerals,
+          baseState.generalsData,
+          baseState.currentScenario
+        );
 
         return {
           ...baseState,
           activeBattle: {
+            isDefense: isNextDefense,
+            attackerRuler: nextBattle.attackerRuler,
+            defenderRuler: nextBattle.defenderRuler,
             targetProvinceId: nextBattle.targetProvinceId,
             attackerProvinceId: nextBattle.attackerProvinceId,
             attackerReinforceProvinceId: nextBattle.attackerReinforceProvinceId,
             attackingGenerals: nextBattle.attackingGenerals,
             defendingGenerals: nextBattle.defendingGenerals,
-            attackerStrategist: nextBattle.attackerStrategist,
+            attackerStrategist: atkStrategist,
             defenderStrategist: defStrategist,
             attackerGold: nextBattle.attackerGold,
             attackerFood: nextBattle.attackerFood,
@@ -265,23 +366,34 @@ export function useGameEngine(initialScenario: number, initialRuler: string) {
             defenderGeneralOrigins: nextBattle.defenderGeneralOrigins,
             defenderResourcesDeducted: nextBattle.defenderResourcesDeducted
           },
-          pendingBattles: rest,
-          pendingBattle: rest[0] || null,
+          pendingBattles: isNextDefense ? [] : rest,
+          pendingDefenses: isNextDefense ? rest : baseState.pendingDefenses,
+          pendingBattle: isNextDefense ? null : (rest[0] || null),
           view: 'battle'
         };
       }
 
-      // 所有戰役皆已結算完成，推進時光至新月份，並恢復將領行動力
+      // 所有戰役皆已結算完成，恢復將領行動力 (如果這是防守戰，月份其實已經推進了)
       baseState.activeBattle = null;
       baseState.pendingBattles = [];
       baseState.pendingBattle = null;
+      baseState.pendingDefenses = [];
       
-      const nextMonthState = advanceTime(baseState);
-      return {
-        ...nextMonthState,
-        lastActionResult: baseState.lastActionResult, // 保留攻城戰報結果
-        view: 'map'
-      };
+      if (isDefense) {
+          return {
+              ...baseState,
+              lastActionResult: baseState.lastActionResult,
+              view: 'map'
+          };
+      } else {
+          // 如果是玩家自己發起攻擊結束，才推進月份
+          const nextMonthState = advanceTime(baseState);
+          return {
+            ...nextMonthState,
+            lastActionResult: baseState.lastActionResult,
+            view: 'map'
+          };
+      }
     });
   }, []);
 
@@ -337,12 +449,50 @@ export function useGameEngine(initialScenario: number, initialRuler: string) {
     }));
   }, []);
 
+  const updateActiveBattleDefense = useCallback((params: {
+    defendingGenerals: string[];
+    defenderReinforceProvinceId?: number | null;
+    defenderGeneralOrigins?: Record<string, number>;
+    defenderResourcesDeducted?: Record<number, { gold: number; food: number }>;
+  }) => {
+    setGameState(prev => {
+      if (!prev.activeBattle) return prev;
+
+      const updatedProvinces = { ...prev.provincesData };
+      if (params.defenderResourcesDeducted) {
+        Object.entries(params.defenderResourcesDeducted).forEach(([pIdStr, res]) => {
+          const pId = Number(pIdStr);
+          if (updatedProvinces[pId]) {
+            updatedProvinces[pId] = {
+              ...updatedProvinces[pId],
+              gold: Math.max(0, updatedProvinces[pId].gold - res.gold),
+              food: Math.max(0, updatedProvinces[pId].food - res.food),
+            };
+          }
+        });
+      }
+
+      return {
+        ...prev,
+        provincesData: updatedProvinces,
+        activeBattle: {
+          ...prev.activeBattle,
+          defendingGenerals: params.defendingGenerals,
+          defenderReinforceProvinceId: params.defenderReinforceProvinceId,
+          defenderGeneralOrigins: params.defenderGeneralOrigins,
+          defenderResourcesDeducted: params.defenderResourcesDeducted,
+        }
+      };
+    });
+  }, []);
+
   return {
     gameState,
     actions: {
       nextTurn: dispatchNextTurn,
       executeCommand: dispatchExecuteCommand,
       resolveBattle,
+      updateActiveBattleDefense,
       selectProvince,
       clearSelection,
       setActiveMenu,

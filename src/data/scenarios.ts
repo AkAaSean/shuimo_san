@@ -21,9 +21,9 @@ export const SCENARIOS: ScenarioConfig[] = [
       { name: '劉備', provinces: [8] },
       { name: '曹操', provinces: [11] },
       { name: '孫堅', provinces: [31] },
-      { name: '袁紹', provinces: [3, 4] },
+      { name: '袁紹', provinces: [4, 3] },
       { name: '袁術', provinces: [13, 27] },
-      { name: '董卓', provinces: [6, 14, 15] },
+      { name: '董卓', provinces: [15, 14, 6] },
       { name: '劉焉', provinces: [36, 37, 38, 43] },
       { name: '馬騰', provinces: [19] },
       { name: '劉表', provinces: [28, 29, 30] },
@@ -42,11 +42,11 @@ export const SCENARIOS: ScenarioConfig[] = [
     subtitle: '呂布弒董卓，李傕敗呂布',
     rulers: [
       { name: '劉備', provinces: [9, 10] },
-      { name: '曹操', provinces: [14, 15, 16] },
+      { name: '曹操', provinces: [12, 13] },
       { name: '孫策', provinces: [22] },
-      { name: '袁紹', provinces: [3, 4, 8] },
-      { name: '袁術', provinces: [13, 27] },
-      { name: '李傕', provinces: [17] },
+      { name: '袁紹', provinces: [4, 3, 8] },
+      { name: '袁術', provinces: [27] },
+      { name: '李傕', provinces: [16, 17] },
       { name: '劉璋', provinces: [36, 37, 38, 43] },
       { name: '馬騰', provinces: [19, 20] },
       { name: '劉表', provinces: [28, 29, 30] },
@@ -66,9 +66,9 @@ export const SCENARIOS: ScenarioConfig[] = [
     subtitle: '曹操敗袁紹，劉備投荊州',
     rulers: [
       { name: '劉備', provinces: [27] },
-      { name: '曹操', provinces: [11, 12, 13, 14, 15, 16] },
+      { name: '曹操', provinces: [13, 11, 12, 14, 15, 16] },
       { name: '孫權', provinces: [21, 22, 23, 24] },
-      { name: '袁紹', provinces: [1, 2, 3, 4, 5, 6, 7, 8] },
+      { name: '袁紹', provinces: [4, 1, 2, 3, 5, 6, 7, 8] },
       { name: '劉璋', provinces: [36, 37, 38, 43] },
       { name: '馬騰', provinces: [19, 20] },
       { name: '劉表', provinces: [28, 29, 30, 31, 32] },
@@ -82,12 +82,12 @@ export const SCENARIOS: ScenarioConfig[] = [
     subtitle: '赤壁之戰',
     rulers: [
       { name: '劉備', provinces: [27, 28, 29, 30] },
-      { name: '曹操', provinces: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16] },
+      { name: '曹操', provinces: [13, 4, 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 14, 15, 16] },
       { name: '孫權', provinces: [21, 22, 23, 24, 25] },
       { name: '金旋', provinces: [32] },
       { name: '韓玄', provinces: [31] },
       { name: '趙範', provinces: [33] },
-      { name: '劉璋', provinces: [35, 36, 37, 38, 43] },
+      { name: '劉璋', provinces: [36, 37, 38, 43] },
       { name: '馬騰', provinces: [19, 20] },
       { name: '劉度', provinces: [34] },
       { name: '張魯', provinces: [35] }
@@ -99,8 +99,8 @@ export const SCENARIOS: ScenarioConfig[] = [
     title: '建安二十年',
     subtitle: '劉備收蜀，張魯降曹操',
     rulers: [
-      { name: '劉備', provinces: [27, 28, 30, 32, 35, 36, 37, 38, 39, 43] },
-      { name: '曹操', provinces: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20] },
+      { name: '劉備', provinces: [36, 27, 28, 30, 32, 35, 37, 38, 39, 43] },
+      { name: '曹操', provinces: [13, 4, 15, 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 17, 18, 19, 20] },
       { name: '孫權', provinces: [21, 22, 23, 24, 25, 29, 31, 33, 34, 41] },
       { name: '孟獲', provinces: [40] }
     ]
@@ -111,8 +111,8 @@ export const SCENARIOS: ScenarioConfig[] = [
     title: '黃初元年',
     subtitle: '曹丕篡漢',
     rulers: [
-      { name: '劉備', provinces: [18, 30, 32, 35, 36, 37, 38, 39, 43] },
-      { name: '曹丕', provinces: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 19, 27, 28] },
+      { name: '劉備', provinces: [36, 18, 30, 32, 35, 37, 38, 39, 43] },
+      { name: '曹丕', provinces: [15, 13, 4, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 17, 19, 27, 28] },
       { name: '孫權', provinces: [21, 22, 23, 24, 25, 29, 31, 33, 34, 41] },
       { name: '孟獲', provinces: [40] }
     ]

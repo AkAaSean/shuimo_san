@@ -7,7 +7,7 @@ interface ManualModalProps {
 }
 
 export default function ManualModal({ isOpen, onClose }: ManualModalProps) {
-  const [activeTab, setActiveTab] = useState<'intro' | 'commands' | 'strategy' | 'battle' | 'tips' | 'combat' | 'update'>('intro');
+  const [activeTab, setActiveTab] = useState<'intro' | 'commands' | 'strategy' | 'battle' | 'tips' | 'combat'>('intro');
 
   if (!isOpen) return null;
 
@@ -30,7 +30,7 @@ export default function ManualModal({ isOpen, onClose }: ManualModalProps) {
                   水墨三國說明書
                 </h2>
                 <span className="text-[10px] sm:text-xs text-amber-200 opacity-90 tracking-wider">
-                  新手入門指南與軍略戰策手冊 v0.2
+                  新手入門指南與軍略戰策手冊 v0.3
                 </span>
               </div>
             </div>
@@ -83,7 +83,7 @@ export default function ManualModal({ isOpen, onClose }: ManualModalProps) {
                   : 'text-[#5d4a36] hover:bg-[#dfd5c0]'
               }`}
             >
-              四、水墨戰場 Hex
+              四、戰場與陣形
             </button>
             <button
               onClick={() => setActiveTab('tips')}
@@ -103,17 +103,7 @@ export default function ManualModal({ isOpen, onClose }: ManualModalProps) {
                   : 'text-[#5d4a36] hover:bg-[#dfd5c0]'
               }`}
             >
-              六、戰鬥系統
-            </button>
-            <button
-              onClick={() => setActiveTab('update')}
-              className={`flex-1 min-w-[86px] py-2 sm:py-2.5 text-center transition-colors cursor-pointer whitespace-nowrap px-2 ${
-                activeTab === 'update'
-                  ? 'bg-[#fbf8f0] text-[#8b261d] font-black border-b-2 border-[#8b261d] shadow-2xs'
-                  : 'text-[#5d4a36] hover:bg-[#dfd5c0]'
-              }`}
-            >
-              七、更新日誌(v0.2)
+              六、戰鬥與技能
             </button>
           </div>
 
@@ -318,6 +308,17 @@ export default function ManualModal({ isOpen, onClose }: ManualModalProps) {
                     大軍調度與征伐必須沿著<strong>郡縣連線道路</strong>行進（例如：漢中 ↔ 梓潼 ↔ 成都）。無法跨越未連通之深山老林進行調兵。
                   </p>
                 </div>
+
+                <div className="bg-[#f0e8d6] p-3 rounded border border-[#d6c7ac]">
+                  <h3 className="font-black text-sm text-[#8b261d] mb-1.5 flex items-center gap-1.5">
+                    <span>🌪️</span> 4. 季節天災與民心暴動
+                  </h3>
+                  <ul className="list-disc pl-4 space-y-1 text-xs">
+                    <li><strong>洪水與防災</strong>：夏季（尤其雨季）容易爆發洪水，若城池「治水」度偏低，將導致農業大幅倒退與士兵流失。平時請務必執行「洪水防治」。</li>
+                    <li><strong>蝗災與瘟疫</strong>：偶發性毀滅災害。蝗災會迅速吞噬當前城池的糧草；瘟疫則會導致人口、兵力銳減，武將也可能染病扣除體力。</li>
+                    <li><strong>流民與暴動</strong>：若民心過低（低於 50），極易引發民眾暴動，嚴重破壞農業與商業度。請善用「開倉賑民」來維持領地穩定。</li>
+                  </ul>
+                </div>
               </div>
             )}
 
@@ -392,34 +393,18 @@ export default function ManualModal({ isOpen, onClose }: ManualModalProps) {
               <div className="space-y-3">
                 <div className="bg-[#f0e8d6] p-3 rounded border border-[#d6c7ac]">
                   <h3 className="font-black text-sm text-[#8b261d] mb-1.5 flex items-center gap-1.5">
-                    <span>⚔️</span> 戰鬥系統與傷害機制
+                    <span>⚔️</span> 5v5 戰鬥系統與傷害機制
                   </h3>
                   <p className="mb-2">
-                    戰鬥中的部隊傷害不僅取決於兵力多寡，武將的<strong>屬性（武力、智力）</strong>與<strong>寶物加成</strong>也會帶來決定性影響。
+                    本作採用全新的 <strong>5v5 回合制對戰</strong>系統。雙方各派出最多 5 名將領同時上陣，結合武將屬性、戰法搭配與體力管控，進行高強度的戰術博弈。
                   </p>
                   <ul className="list-disc pl-4 space-y-1 text-xs">
-                    <li><strong>武力決定物理傷害</strong>：發動「攻擊」或「特殊攻擊」時，系統會計算雙方的武將武力差，高武力的一方將造成極高的壓制傷害。</li>
-                    <li><strong>智力影響計策成功與威力</strong>：軍師發動「計謀」時，自身的高智力不僅能提升計策成功率，更是法術攻擊（如火計、水攻）的核心倍率來源。</li>
-                    <li><strong>兵種相剋</strong>：步兵剋弓兵、弓兵剋騎兵、騎兵剋步兵。攻擊被剋制的兵種時將有巨幅傷害加成。</li>
-                    <li><strong>士氣系統</strong>：高士氣能讓部隊發揮 120% 的實力，而士氣崩潰的部隊不僅攻擊力大減，還容易直接潰散逃兵。</li>
-                    <li><strong>武將被動技能</strong>：名將皆擁有強大被動（如趙雲的「渾身是膽」、呂布的「飛將」），在戰鬥中會自動觸發並大幅改變戰局。</li>
-                  </ul>
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'update' && (
-              <div className="space-y-3">
-                <div className="bg-[#f0e8d6] p-3 rounded border border-[#d6c7ac]">
-                  <h3 className="font-black text-sm text-[#8b261d] mb-1.5 flex items-center gap-1.5">
-                    <span>📢</span> v0.2 版更新日誌 (與前次版本比較)
-                  </h3>
-                  <ul className="list-disc pl-4 space-y-1 text-xs">
-                    <li><strong>修復武器疊加問題</strong>：現在武將裝備多把武器（如長柄刀、戟、弓等）時，能力加成不再無限制累加，而是智慧取<strong>各項屬性的最高值</strong>。名馬、兵書、奇寶等非武器物品則保留疊加。</li>
-                    <li><strong>名馬效果調整</strong>：所有名馬（包含赤兔馬、的盧等）皆移除屬性加成，統一修改為僅提供<strong>「確實撤退」</strong>效果。</li>
-                    <li><strong>新增傳世名馬</strong>：追加「涼州馬」（未現世）與「四輪車」（分配予諸葛亮）。</li>
-                    <li><strong>擴充武器庫</strong>：大幅增加各種專屬武器，包含長柄刀（鳳嘴刀、眉尖刀、大桿刀、大刀）、戟（雙鐵戟、金馬槊、棗木槊、三丈矛）、暗器（手戟、袖箭系列）、鐵鞭與各類神弓，並自動正確歸類至「武器」分類中。</li>
-                    <li><strong>新增兵書與地圖</strong>：新增「太平要術書」、「西蜀地形圖」、「平蠻指掌圖」，進一步豐富智將的裝備搭配。</li>
+                    <li><strong>5v5 團戰機制</strong>：雙方一字排開展開廝殺。每回合武將可選擇「普通攻擊」或消耗體力發動專屬「戰法」。速度快或士氣高的部隊將優先行動。</li>
+                    <li><strong>武力與物理傷害</strong>：普通攻擊基礎傷害公式為 <code>攻方武力 × 4.0 - 守方武力 × 1.5</code>。「特殊攻擊」戰法（如連突、奮戰）的傷害皆以普攻為基準進行倍率放大。</li>
+                    <li><strong>地形與計謀加成</strong>：軍師發動「計謀」時，智力影響成功率與基礎傷害。特殊地形能大幅強化特定計謀，例如<strong>火計/業火</strong>在平地有 <code>+15%</code> 傷害加成，在密林中更高達 <code>+35%</code>；而<strong>水攻</strong>與<strong>落石</strong>則分別在水上與山嶽享有極大加成。</li>
+                    <li><strong>戰法附加效果與控場</strong>：各項戰法皆附帶獨特戰術價值。如「鐵壁衝撞」能造成物理傷害、扣除敵方 25 點體力，並有 50% 機率使目標陷入【混亂】；純控場技「疑兵」則沒有傷害，但能必定（100%）使目標【混亂】並扣除士氣。</li>
+                    <li><strong>全才與名將專屬天賦</strong>：歷史名將（單項屬性 ≥ 90）與文武全才（武力、智力皆 ≥ 75）擁有最高 8 個戰法欄位，且全才武將能同時精通高等計謀與強力物理戰法。一般武將則依據其定位最多掌握 6 種戰法。</li>
+                    <li><strong>AI 智能對手</strong>：敵方 AI 具備完整的 5v5 團戰戰略邏輯，懂得依據場上局勢施展全體計謀（如業火、水龍）、尋找殘血友軍施放治傷/解策，並受限於公平的體力（Stamina）消耗系統。</li>
                   </ul>
                 </div>
               </div>

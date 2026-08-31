@@ -67,7 +67,7 @@ export default function ActionModal({
     ? allPlayerGenerals.filter(g => !g.isRuler)
     : (action === '指定太守'
        ? generals.filter(g => !g.isRuler)
-       : (action === '賞賜金帛' || action === '賞賜物品' || action === '登用他國人才' ? allPlayerGenerals : availableGenerals));
+       : (action === '賞賜金帛' || action === '賞賜物品' || action === '登用他國人才' || action === '同盟締結' || action === '進貢金糧' || action === '請求援軍' || action === '撕毀同盟' ? allPlayerGenerals : availableGenerals));
 
   const [selectedGeneralName, setSelectedGeneralName] = useState<string | null>(null);
   
@@ -113,22 +113,29 @@ export default function ActionModal({
         setTargetGeneralName(unrewarded ? unrewarded.name : allPlayerGenerals[0].name);
       }
       setSelectedTreasureName('黃金錦囊');
-    } else if (action === '登用他國人才' || action === '流言煽動' || action === '驅虎吞狼' || action === '離間君臣' || action === '勸降逼降' || action === '同盟締結' || action === '進貢金糧') {
+    } else if (action === '登用他國人才' || action === '流言煽動' || action === '驅虎吞狼' || action === '離間君臣' || action === '勸降逼降' || action === '同盟締結' || action === '進貢金糧' || action === '撕毀同盟' || action === '請求援軍') {
       if (action === '進貢金糧') {
         setSelectedTreasureName('金');
         setSliderVal(1000);
       }
-      if (action === '登用他國人才' || action === '同盟締結' || action === '進貢金糧') {
+      if (action === '登用他國人才' || action === '同盟締結' || action === '進貢金糧' || action === '請求援軍') {
         const sortedEnvoy = [...allPlayerGenerals].sort((a, b) => (b.cha + b.pol) - (a.cha + a.pol));
         if (sortedEnvoy.length > 0) setSelectedGeneralName(sortedEnvoy[0].name);
+      } else if (action === '撕毀同盟') {
+        const rulerGen = Object.values(gameState.generalsData).find(g => g.name === gameState.rulerName);
+        if (rulerGen) setSelectedGeneralName(rulerGen.name);
+        else if (allPlayerGenerals.length > 0) setSelectedGeneralName(allPlayerGenerals[0].name);
       } else {
         const sortedEnvoy = [...availableGenerals].sort((a, b) => b.int - a.int);
         if (sortedEnvoy.length > 0) setSelectedGeneralName(sortedEnvoy[0].name);
       }
 
-      const validProvs = action === '離間君臣' || action === '登用他國人才' 
-        ? foreignProvincesWithGenerals 
-        : Object.values(gameState.provincesData).filter(p => p.rulerName !== gameState.rulerName && p.rulerName !== null);
+      let validProvs = Object.values(gameState.provincesData).filter(p => p.rulerName !== gameState.rulerName && p.rulerName !== null);
+      if (action === '離間君臣' || action === '登用他國人才') {
+        validProvs = foreignProvincesWithGenerals;
+      } else if (action === '撕毀同盟' || action === '請求援軍') {
+        validProvs = validProvs.filter(p => p.rulerName && gameState.alliances?.[gameState.rulerName]?.[p.rulerName]);
+      }
 
       if (validProvs.length > 0) {
         const defaultProvId = validProvs[0].id;
@@ -234,10 +241,14 @@ export default function ActionModal({
       primaryStatLabel = '政治';
       statColor = 'text-amber-700';
     }
-  } else if (action === '同盟締結' || action === '進貢金糧') {
+  } else if (action === '同盟締結' || action === '進貢金糧' || action === '請求援軍') {
     primaryStatKey = 'cha';
     primaryStatLabel = '政/魅';
     statColor = 'text-purple-700';
+  } else if (action === '撕毀同盟') {
+    primaryStatKey = 'cha';
+    primaryStatLabel = '君威';
+    statColor = 'text-rose-700';
   } else if (category === '人事' || category === '君主') {
     if (action === '指定軍師') {
       primaryStatKey = 'int';
@@ -300,6 +311,44 @@ export default function ActionModal({
     if (!targetProvinceId) {
       canExecute = false;
       errorMsg = '請選擇要設定自治的州郡';
+    }
+  } else if (action === '撕毀同盟') {
+    if (!targetProvinceId) {
+      canExecute = false;
+      errorMsg = '請選擇要撕毀同盟之盟國州郡';
+    } else {
+      const targetP = gameState.provincesData[targetProvinceId];
+      if (!targetP || !targetP.rulerName || !gameState.alliances?.[gameState.rulerName]?.[targetP.rulerName]) {
+        canExecute = false;
+        errorMsg = '該州郡非我國同盟國之領地';
+      }
+    }
+  } else if (action === '請求援軍') {
+    if (!selectedGen) {
+      canExecute = false;
+      errorMsg = '無可派遣之求援使者';
+    } else if (selectedGen.hasActed) {
+      canExecute = false;
+      errorMsg = `【${selectedGen.name}】本月已執行過任務`;
+    } else if (!targetProvinceId) {
+      canExecute = false;
+      errorMsg = '請選擇要請求援助之盟國州郡';
+    } else {
+      const targetP = gameState.provincesData[targetProvinceId];
+      const itemBonus = getGeneralItemBonus(selectedGen.name, gameState.currentScenario);
+      const totalPolCha = selectedGen.pol + selectedGen.cha + itemBonus.polBonus + itemBonus.chaBonus;
+      const rel = targetP?.rulerName ? (gameState.diplomacyData?.[gameState.rulerName]?.[targetP.rulerName] ?? 50) : 50;
+
+      if (!targetP || !targetP.rulerName || !gameState.alliances?.[gameState.rulerName]?.[targetP.rulerName]) {
+        canExecute = false;
+        errorMsg = '該州郡非同盟國領地，無法請求軍資援助';
+      } else if (rel < 70) {
+        canExecute = false;
+        errorMsg = `兩國友好度僅 ${rel}（需達 70 以上方肯撥款濟助）`;
+      } else if (totalPolCha < 140) {
+        canExecute = false;
+        errorMsg = `求援使者政治+魅力需達 140 以上（當前: ${totalPolCha}）`;
+      }
     }
   } else if (action === '登用他國人才' || action === '流言煽動' || action === '驅虎吞狼' || action === '離間君臣' || action === '勸降逼降' || action === '同盟締結' || action === '進貢金糧') {
     if (!selectedGen) {
@@ -408,7 +457,7 @@ export default function ActionModal({
       payload = { targetGeneralName, targetProvinceId };
     } else if (action === '進貢金糧') {
       payload = { targetProvinceId, resourceType: selectedTreasureName, amount: sliderVal };
-    } else if (action === '流言煽動' || action === '驅虎吞狼' || action === '勸降逼降' || action === '同盟締結' || category === '謀略') {
+    } else if (action === '流言煽動' || action === '驅虎吞狼' || action === '離間君臣' || action === '勸降逼降' || action === '同盟締結' || action === '撕毀同盟' || action === '請求援軍' || category === '謀略') {
       payload = { targetProvinceId };
     }
 
@@ -475,7 +524,7 @@ export default function ActionModal({
                 )}
                 {category === '謀略' && `物價: ${province.price}`}
                 {category === '人事' && `武將: ${generals.length}`}
-                {category === '軍事' && `士兵: ${province.soldiers}`}
+                {category === '軍事' && `士兵: ${generals.reduce((sum, g) => sum + (g.soldiers || 0), 0)}`}
               </div>
             </div>
 
@@ -485,7 +534,7 @@ export default function ActionModal({
                 <div className="flex justify-between items-center mb-2">
                   <span className="font-black text-sm">
                     {action === '指定軍師' ? '選擇指派軍師之賢士 (智力需 > 80)：' :
-                     action === '指定太守' ? '選擇冊封太守之武將 (帶兵上限 4000)：' :
+                     action === '指定太守' ? '選擇冊封太守之武將 (增加忠誠、允許自治)：' :
                      action === '賞賜金帛' ? '選擇代表主持賞賜武將：' : '選擇執行武將 (每人每月限一次)：'}
                   </span>
                   <span className="text-xs text-stone-500 font-bold">
@@ -582,7 +631,7 @@ export default function ActionModal({
                                 </div>
                               ) : action === '指定太守' ? (
                                 <div className="text-[11px] font-bold flex gap-2 mt-0.5 text-stone-700">
-                                  <span>統率兵額: <strong className="text-amber-800">4000</strong></span>
+                                  <span>官階上限: <strong className="text-amber-800">{g.maxTroops}</strong></span>
                                   <span>忠: {g.loyalty}</span>
                                 </div>
                               ) : action === '賞賜金帛' || action === '賞賜物品' ? (
@@ -676,13 +725,13 @@ export default function ActionModal({
                   冊封武將 <span className="font-black text-amber-800 text-sm">{selectedGen?.name || '---'}</span> 為【{currentProvinceInfo?.name || '本郡'}】太守。
                 </div>
                 <div className="text-[11px] text-stone-600 font-normal border-t border-amber-200 pt-1 mt-1">
-                  💡 提示：太守帶兵上限提升至 4000 兵馬，坐鎮郡縣統領大局！
+                  💡 提示：冊封太守可提升武將忠誠度，並賦予該郡實施「郡縣自治」之治理權限！
                 </div>
               </div>
             )}
 
-            {/* Strategist Advice Box for Talent Search / Hire / Foreign Hire / Alliance / Tribute */}
-            {(action === '尋訪人才' || action === '登用人才' || action === '登用他國人才' || action === '同盟締結' || action === '進貢金糧') && (
+            {/* Strategist Advice Box for Talent Search / Hire / Foreign Hire / Alliance / Tribute / Request Aid */}
+            {(action === '尋訪人才' || action === '登用人才' || action === '登用他國人才' || action === '同盟締結' || action === '進貢金糧' || action === '請求援軍') && (
               <div className="bg-amber-100/90 border-2 border-amber-800/80 p-3 shadow-sm rounded-sm">
                 <div className="flex items-center gap-1.5 font-black text-amber-950 text-xs mb-1.5 pb-1 border-b border-amber-300">
                   <span className="text-base">📜</span>
@@ -731,7 +780,7 @@ export default function ActionModal({
             )}
 
             {/* Parameter Controls (Sliders for Gold/Food / Personnel) */}
-            {(action === '買入米糧' || action === '賣出米糧' || action === '運送錢糧' || action === '賞賜金帛' || action === '賞賜物品' || action === '登用人才' || action === '登用他國人才' || action === '郡縣自治' || action === '流言煽動' || action === '驅虎吞狼' || action === '離間君臣' || action === '勸降逼降' || action === '同盟締結' || action === '進貢金糧') && (
+            {(action === '買入米糧' || action === '賣出米糧' || action === '運送錢糧' || action === '賞賜金帛' || action === '賞賜物品' || action === '登用人才' || action === '登用他國人才' || action === '郡縣自治' || action === '流言煽動' || action === '驅虎吞狼' || action === '離間君臣' || action === '勸降逼降' || action === '同盟締結' || action === '進貢金糧' || action === '撕毀同盟' || action === '請求援軍') && (
               <div className="bg-white/90 border border-stone-400 p-3 space-y-3">
                 {action === '郡縣自治' && (
                   <div className="space-y-3">
@@ -856,14 +905,20 @@ export default function ActionModal({
                   </div>
                 )}
 
-                {(action === '登用他國人才' || action === '流言煽動' || action === '驅虎吞狼' || action === '離間君臣' || action === '勸降逼降' || action === '同盟締結' || action === '進貢金糧') && (
+                {(action === '登用他國人才' || action === '流言煽動' || action === '驅虎吞狼' || action === '離間君臣' || action === '勸降逼降' || action === '同盟締結' || action === '進貢金糧' || action === '撕毀同盟' || action === '請求援軍') && (
                   <div className="space-y-3 border-t border-stone-300 pt-3">
                     {/* Step 1: Select Target Province */}
                     <div>
                       <div className="text-xs font-bold mb-1.5 flex justify-between items-center">
-                        <span className="text-stone-900 font-black">① 選擇目標敵國州郡：</span>
+                        <span className="text-stone-900 font-black">
+                          {action === '撕毀同盟' || action === '請求援軍' ? '① 選擇同盟國州郡：' : '① 選擇目標敵國州郡：'}
+                        </span>
                         <span className="text-[10px] text-stone-500 font-bold">
-                          {action === '登用他國人才' || action === '離間君臣' ? `有敵將州郡: ${foreignProvincesWithGenerals.length}` : `天下敵邦: ${Object.values(gameState.provincesData).filter(p => p.rulerName !== gameState.rulerName && p.rulerName !== null).length}`}
+                          {action === '登用他國人才' || action === '離間君臣' 
+                            ? `有敵將州郡: ${foreignProvincesWithGenerals.length}` 
+                            : action === '撕毀同盟' || action === '請求援軍'
+                            ? `盟友州郡: ${Object.values(gameState.provincesData).filter(p => p.rulerName && gameState.alliances?.[gameState.rulerName]?.[p.rulerName]).length}`
+                            : `天下敵邦: ${Object.values(gameState.provincesData).filter(p => p.rulerName !== gameState.rulerName && p.rulerName !== null).length}`}
                         </span>
                       </div>
 
@@ -871,13 +926,24 @@ export default function ActionModal({
                         <div className="text-xs text-stone-600 bg-stone-100 p-2.5 border border-dashed border-stone-400 text-center font-bold">
                           當前天下周邊無可策反或離間之敵國武將
                         </div>
+                      ) : (action === '撕毀同盟' || action === '請求援軍') && Object.values(gameState.provincesData).filter(p => p.rulerName && gameState.alliances?.[gameState.rulerName]?.[p.rulerName]).length === 0 ? (
+                        <div className="text-xs text-stone-600 bg-stone-100 p-2.5 border border-dashed border-stone-400 text-center font-bold">
+                          當前尚無任何同盟國（可透過「同盟締結」與他國建交）
+                        </div>
                       ) : (
                         <div className="grid grid-cols-2 gap-1.5 mb-2 max-h-40 overflow-y-auto pr-1">
-                          {(action === '登用他國人才' || action === '離間君臣' ? foreignProvincesWithGenerals : Object.values(gameState.provincesData).filter(p => p.rulerName !== gameState.rulerName && p.rulerName !== null)).map(p => {
+                          {(action === '登用他國人才' || action === '離間君臣' 
+                            ? foreignProvincesWithGenerals 
+                            : action === '撕毀同盟' || action === '請求援軍'
+                            ? Object.values(gameState.provincesData).filter(p => p.rulerName && gameState.alliances?.[gameState.rulerName]?.[p.rulerName])
+                            : Object.values(gameState.provincesData).filter(p => p.rulerName !== gameState.rulerName && p.rulerName !== null)).map(p => {
                             const pInfo = provinces.find(x => x.id === p.id);
                             const pGensCount = Object.values(gameState.generalsData).filter(g => g.provinceId === p.id && !g.isWild).length;
                             const isSelectedProv = targetProvinceId === p.id;
                             const rel = p.rulerName ? (gameState.diplomacyData?.[gameState.rulerName]?.[p.rulerName] ?? 50) : 50;
+                            const allianceRemaining = (p.rulerName && gameState.alliances?.[gameState.rulerName]?.[p.rulerName])
+                              ? Math.max(0, gameState.alliances[gameState.rulerName][p.rulerName] - (gameState.year * 12 + gameState.month))
+                              : 0;
 
                             return (
                               <button
@@ -900,11 +966,14 @@ export default function ActionModal({
                               >
                                 <div>
                                   <div className="font-black text-stone-900">{pInfo?.name}</div>
-                                  <div className="text-[10px] text-stone-500 font-normal">君主: {p.rulerName}</div>
+                                  <div className="text-[10px] text-stone-500 font-normal">
+                                    君主: {p.rulerName}
+                                    {allianceRemaining > 0 && <span className="ml-1 text-emerald-800 font-bold">({allianceRemaining}月盟)</span>}
+                                  </div>
                                 </div>
                                 <div className="text-right">
-                                  {action === '同盟締結' || action === '進貢金糧' ? (
-                                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${rel >= 90 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                                  {action === '同盟締結' || action === '進貢金糧' || action === '撕毀同盟' || action === '請求援軍' ? (
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${rel >= 80 ? 'bg-emerald-100 text-emerald-800' : rel >= 50 ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800'}`}>
                                       友好: {rel}
                                     </span>
                                   ) : (
@@ -1254,6 +1323,26 @@ export default function ActionModal({
               {action === '登用他國人才' && (
                 <div>
                   派遣使者 <span className="font-bold text-[#991b1b]">{selectedGen?.name || '---'}</span> 親赴敵國遊說 <span className="font-bold text-amber-900">{targetGeneralName || '---'}</span> 棄暗投明，招攬至我軍麾下。
+                </div>
+              )}
+              {action === '同盟締結' && (
+                <div>
+                  花費 <span className="font-bold text-amber-900">2000 金</span>，派遣外交使者 <span className="font-bold text-[#991b1b]">{selectedGen?.name || '---'}</span> (政/魅: {selectedGen ? selectedGen.pol + selectedGen.cha : 0}) 出使目標勢力，商議簽訂 <span className="font-bold text-emerald-900">24 個月</span> 互不侵犯與協防同盟條約。
+                </div>
+              )}
+              {action === '進貢金糧' && (
+                <div>
+                  派遣使者 <span className="font-bold text-[#991b1b]">{selectedGen?.name || '---'}</span> 攜帶物資出使周邊勢力，提升兩國外交友好度（友好度越高，越容易同盟或請求援助）。
+                </div>
+              )}
+              {action === '撕毀同盟' && (
+                <div>
+                  由君主親自下詔正式撕毀與 <span className="font-bold text-rose-900">{provinces.find(p => p.id === targetProvinceId)?.name}</span> 之同盟條約。背盟將導致雙方友好度驟降，且天下諸侯視為不義。
+                </div>
+              )}
+              {action === '請求援軍' && (
+                <div>
+                  派遣外交使臣 <span className="font-bold text-[#991b1b]">{selectedGen?.name || '---'}</span> 前往盟國求援。若同盟友好度高（&gt;= 70），盟國將依交情資助軍資黃金或糧草。
                 </div>
               )}
               {category === '謀略' && (

@@ -54,6 +54,6 @@ export const HIDDEN_TALENTS: HiddenTalent[] = [
   { name: '鍾會', provinceId: 10, role: '軍師', maxTroops: 3000, hp: 75, int: 94, str: 55, pol: 82, cha: 60, minYear: 235, scenarios: [4, 5], desc: '潁川長社人，字士季，精練策數，號稱張良。' },
 
   // 南蠻 / 交州
-  { name: '士燮', provinceId: 42, role: '太守', maxTroops: 4000, hp: 65, int: 82, str: 45, pol: 86, cha: 90, minYear: 189, scenarios: [0, 1, 2], desc: '交趾名望士族，為人寬厚謙虛，統領嶺南數十年。' },
+  { name: '士燮', provinceId: 42, role: '大將', maxTroops: 3000, hp: 65, int: 82, str: 45, pol: 86, cha: 90, minYear: 189, scenarios: [0, 1, 2], desc: '交趾名望士族，為人寬厚謙虛，統領嶺南數十年。' },
   { name: '薛綜', provinceId: 41, role: '主簿', maxTroops: 2000, hp: 60, int: 79, str: 35, pol: 83, cha: 75, minYear: 200, scenarios: [1, 2, 3], desc: '沛郡竹邑人，避難交州，才學宏博，善於詞令。' }
 ];

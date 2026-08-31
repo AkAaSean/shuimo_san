@@ -10,15 +10,15 @@ interface FormationSelectionViewProps {
 }
 
 export default function FormationSelectionView({ gameState, battleState, onComplete }: FormationSelectionViewProps) {
-  // Only for attacking units
-  const attackingUnits = useMemo(() => {
-    return battleState.units.filter(u => u.isAttacker);
-  }, [battleState.units]);
+  const isPlayerAttacker = gameState.activeBattle?.attackerRuler === gameState.rulerName;
+  const playerUnits = useMemo(() => {
+    return battleState.units.filter(u => u.isAttacker === isPlayerAttacker);
+  }, [battleState.units, isPlayerAttacker]);
 
   // Pre-calculate available formations for all participating units
   const unitFormationsMap = useMemo(() => {
     const map: Record<string, string[]> = {};
-    attackingUnits.forEach(u => {
+    playerUnits.forEach(u => {
       const gen = gameState.generalsData[u.generalName];
       const forms = gen?.formations && gen.formations.length > 0
         ? gen.formations
@@ -26,12 +26,12 @@ export default function FormationSelectionView({ gameState, battleState, onCompl
       map[u.id] = forms;
     });
     return map;
-  }, [attackingUnits, gameState.generalsData]);
+  }, [playerUnits, gameState.generalsData]);
 
   // Initial state: default each unit to its first available formation
   const [assignments, setAssignments] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {};
-    attackingUnits.forEach(u => {
+    playerUnits.forEach(u => {
       const gen = gameState.generalsData[u.generalName];
       const forms = gen?.formations && gen.formations.length > 0
         ? gen.formations
@@ -43,7 +43,7 @@ export default function FormationSelectionView({ gameState, battleState, onCompl
 
   const [selectedUnitIndex, setSelectedUnitIndex] = useState<number>(0);
 
-  const selectedUnit = attackingUnits[selectedUnitIndex] || attackingUnits[0];
+  const selectedUnit = playerUnits[selectedUnitIndex] || playerUnits[0];
   const selectedUnitId = selectedUnit?.id || '';
   const selectedGen = selectedUnit ? gameState.generalsData[selectedUnit.generalName] : null;
   const currentUnitLearnedFormations = selectedUnit ? (unitFormationsMap[selectedUnit.id] || ['魚鱗']) : ['魚鱗'];
@@ -56,7 +56,7 @@ export default function FormationSelectionView({ gameState, battleState, onCompl
   };
 
   const handleNextUnit = () => {
-    if (selectedUnitIndex < attackingUnits.length - 1) {
+    if (selectedUnitIndex < playerUnits.length - 1) {
       setSelectedUnitIndex(prev => prev + 1);
     }
   };
@@ -70,7 +70,7 @@ export default function FormationSelectionView({ gameState, battleState, onCompl
   const handleConfirm = () => {
     // Ensure all units have a valid learned formation
     const finalAssignments: Record<string, string> = {};
-    attackingUnits.forEach(u => {
+    playerUnits.forEach(u => {
       const learned = unitFormationsMap[u.id] || ['魚鱗'];
       const chosen = assignments[u.id];
       if (chosen && learned.includes(chosen)) {
@@ -95,7 +95,7 @@ export default function FormationSelectionView({ gameState, battleState, onCompl
         <div className="flex items-center gap-2">
           <span className="text-xl sm:text-2xl font-black text-[#991b1b]">戰前佈陣 ‧ 選擇陣形</span>
           <span className="text-xs bg-amber-100 border border-amber-300 text-amber-900 font-bold px-2 py-0.5 rounded">
-            共 {attackingUnits.length} 支部隊出征
+            共 {playerUnits.length} 支部隊出征
           </span>
         </div>
         <p className="text-xs text-stone-600 font-bold">
@@ -115,7 +115,7 @@ export default function FormationSelectionView({ gameState, battleState, onCompl
           </button>
 
           <div className="flex items-center gap-1.5 overflow-x-auto py-0.5">
-            {attackingUnits.map((unit, idx) => {
+            {playerUnits.map((unit, idx) => {
               const isCurrent = idx === selectedUnitIndex;
               const chosen = assignments[unit.id] || '魚鱗';
               return (
@@ -142,7 +142,7 @@ export default function FormationSelectionView({ gameState, battleState, onCompl
           </div>
 
           <button
-            disabled={selectedUnitIndex >= attackingUnits.length - 1}
+            disabled={selectedUnitIndex >= playerUnits.length - 1}
             onClick={handleNextUnit}
             className="px-2.5 py-1 text-xs font-black border border-[#1c1917] bg-stone-100 rounded hover:bg-stone-200 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer shrink-0"
           >
@@ -151,7 +151,7 @@ export default function FormationSelectionView({ gameState, battleState, onCompl
         </div>
 
         <div className="text-xs text-stone-500 font-black shrink-0 hidden md:block">
-          當前設定第 {selectedUnitIndex + 1} / {attackingUnits.length} 位
+          當前設定第 {selectedUnitIndex + 1} / {playerUnits.length} 位
         </div>
       </div>
 
@@ -160,12 +160,12 @@ export default function FormationSelectionView({ gameState, battleState, onCompl
         {/* Left Panel: Units List */}
         <div className="w-full md:w-5/12 lg:w-4/12 flex flex-col gap-2 overflow-y-auto pr-1">
           <div className="flex justify-between items-center border-b-2 border-[#1c1917] pb-1">
-            <h3 className="font-black text-sm text-stone-800">出征部隊名冊 ({attackingUnits.length}隊)</h3>
+            <h3 className="font-black text-sm text-stone-800">出征部隊名冊 ({playerUnits.length}隊)</h3>
             <span className="text-[11px] text-stone-500 font-bold">點選可切換設定</span>
           </div>
 
           <div className="flex flex-col gap-2">
-            {attackingUnits.map((unit, idx) => {
+            {playerUnits.map((unit, idx) => {
               const gen = gameState.generalsData[unit.generalName];
               const isSelected = idx === selectedUnitIndex;
               const currentFormation = assignments[unit.id] || '魚鱗';
@@ -269,7 +269,7 @@ export default function FormationSelectionView({ gameState, battleState, onCompl
                 <span className="text-xs text-stone-500 font-bold hidden sm:inline">
                   點選下方陣形即刻套用
                 </span>
-                {selectedUnitIndex < attackingUnits.length - 1 && (
+                {selectedUnitIndex < playerUnits.length - 1 && (
                   <button
                     onClick={handleNextUnit}
                     className="text-xs px-2.5 py-1 bg-stone-100 border border-stone-400 hover:bg-stone-200 rounded font-bold cursor-pointer"
@@ -347,7 +347,7 @@ export default function FormationSelectionView({ gameState, battleState, onCompl
                     }`}>
                       <div>近攻: <span className="font-bold text-sm">{form.atk}</span></div>
                       <div>近防: <span className="font-bold text-sm">{form.def}</span></div>
-                      <div>機動: <span className="font-bold text-sm">{form.mobility}</span></div>
+                      <div>先攻: <span className="font-bold text-sm">{form.initiativeMod > 0 ? `+${form.initiativeMod}` : form.initiativeMod}</span></div>
                       <div>弓攻: <span className="font-bold text-sm">{form.bowAtk}</span></div>
                       <div>弓防: <span className="font-bold text-sm">{form.bowDef}</span></div>
                       <div>射程: <span className="font-bold text-sm">{form.range}</span></div>
@@ -372,7 +372,7 @@ export default function FormationSelectionView({ gameState, battleState, onCompl
       {/* Action Footer */}
       <div className="mt-2.5 p-2.5 sm:p-3 border-t-2 border-[#1c1917] bg-[#f5f2eb] flex justify-between items-center rounded shadow-xs flex-wrap gap-2">
         <div className="text-xs text-stone-600 font-bold">
-          全軍 <strong className="text-[#991b1b]">{attackingUnits.length}</strong> 隊出征將領陣形均已就緒！
+          全軍 <strong className="text-[#991b1b]">{playerUnits.length}</strong> 隊出征將領陣形均已就緒！
         </div>
 
         <button

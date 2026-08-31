@@ -201,25 +201,40 @@ export default function BattleLaunchView({ gameState, onExit, onLaunchBattle }: 
     });
   }, [participatingCityIds, citySelectionStats, gameState.provincesData]);
 
-  // 自動推薦最高智力武將為軍師 (若尚未手動指定或指定武將已被取消)
+  // 自動推薦最高謀略(智力 >= 80)武將為軍師
   useEffect(() => {
     if (allSelectedGeneralNames.length > 0) {
       if (!strategist || !selectedGenerals[strategist]) {
         const candidates = allSelectedGeneralNames
-          .map(name => gameState.generalsData[name])
-          .filter(Boolean)
-          .sort((a, b) => (b.int || 0) - (a.int || 0));
+          .map(name => {
+            const gen = gameState.generalsData[name];
+            if (!gen) return null;
+            const itemBonus = getGeneralItemBonus(name, gameState.currentScenario);
+            const totalInt = gen.int + itemBonus.intBonus;
+            return { name, totalInt };
+          })
+          .filter((item): item is { name: string; totalInt: number } => item !== null && item.totalInt >= 80)
+          .sort((a, b) => b.totalInt - a.totalInt);
         
         if (candidates.length > 0) {
           setStrategist(candidates[0].name);
         } else {
           setStrategist(null);
         }
+      } else {
+        // 若已指派之軍師智力已不足 80，取消指派
+        const gen = gameState.generalsData[strategist];
+        if (gen) {
+          const itemBonus = getGeneralItemBonus(gen.name, gameState.currentScenario);
+          if (gen.int + itemBonus.intBonus < 80) {
+            setStrategist(null);
+          }
+        }
       }
     } else {
       setStrategist(null);
     }
-  }, [allSelectedGeneralNames, selectedGenerals, gameState.generalsData]);
+  }, [allSelectedGeneralNames, selectedGenerals, gameState.generalsData, gameState.currentScenario, strategist]);
 
   // 獨立武將點擊切換邏輯 (修復原本反轉 bug + 嚴格限制最多 2 城、每城最多 5 人)
   const toggleSelectGeneral = (name: string, provinceId: number, hasActed: boolean) => {
@@ -402,6 +417,8 @@ export default function BattleLaunchView({ gameState, onExit, onLaunchBattle }: 
                   const cpTerrain = (cp.info?.terrain as FormationTerrainType) || '平地';
                   const cpTerrainDetail = TERRAIN_DETAILS[cpTerrain];
 
+                  const cpGenerals = Object.values(gameState.generalsData).filter(g => g.provinceId === cp.id && !g.isWild);
+                  const cpTotalTroops = cpGenerals.reduce((sum, g) => sum + (g.soldiers || 0), 0);
                   return (
                     <button
                       key={cp.id}
@@ -434,7 +451,7 @@ export default function BattleLaunchView({ gameState, onExit, onLaunchBattle }: 
                         </span>
                       </div>
                       <div className="text-xs text-stone-500 mt-0.5">
-                        城防兵力: <strong className="text-stone-800">{cp.state?.soldiers || 0}</strong>
+                        守軍總兵力: <strong className="text-[#8b1818] font-black">{cpTotalTroops.toLocaleString()}</strong>
                       </div>
                     </button>
                   );
@@ -649,7 +666,7 @@ export default function BattleLaunchView({ gameState, onExit, onLaunchBattle }: 
               </div>
 
               <p className="text-xs text-stone-600 mb-3 leading-relaxed">
-                隨軍軍師可在戰鬥中即時<strong>號令全軍變換八大陣形</strong>，並提升計謀命中率與識破敵方奇襲！建議由智力較高之出征將領出任。
+                隨軍軍師只能由<strong>謀略（智力）≥ 80</strong> 之出征將領擔任。隨軍軍師可在戰鬥中即時<strong>號令全軍變換八大陣形</strong>，未指派軍師時戰場將無法變陣！
               </p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
@@ -676,16 +693,23 @@ export default function BattleLaunchView({ gameState, onExit, onLaunchBattle }: 
                   const isChosen = strategist === gName;
                   const itemBonus = getGeneralItemBonus(gen.name, gameState.currentScenario);
                   const totalInt = gen.int + itemBonus.intBonus;
-                  const isHighInt = totalInt >= 75;
+                  const canBeStrategist = totalInt >= 80;
 
                   return (
                     <button
                       key={gName}
-                      onClick={() => setStrategist(gName)}
-                      className={`p-2.5 border-2 rounded-lg text-left transition-all cursor-pointer flex items-center justify-between ${
-                        isChosen
-                          ? 'border-[#8b1818] bg-amber-50 text-stone-900 font-black ring-2 ring-[#8b1818] shadow-sm'
-                          : 'border-stone-300 bg-white hover:border-stone-500 hover:bg-stone-50 text-stone-800'
+                      disabled={!canBeStrategist}
+                      onClick={() => {
+                        if (canBeStrategist) {
+                          setStrategist(gName);
+                        }
+                      }}
+                      className={`p-2.5 border-2 rounded-lg text-left transition-all flex items-center justify-between ${
+                        !canBeStrategist
+                          ? 'border-stone-200 bg-stone-100 text-stone-400 opacity-60 cursor-not-allowed'
+                          : isChosen
+                          ? 'border-[#8b1818] bg-amber-50 text-stone-900 font-black ring-2 ring-[#8b1818] shadow-sm cursor-pointer'
+                          : 'border-stone-300 bg-white hover:border-stone-500 hover:bg-stone-50 text-stone-800 cursor-pointer'
                       }`}
                     >
                       <div className="flex items-center gap-2.5">
@@ -693,17 +717,18 @@ export default function BattleLaunchView({ gameState, onExit, onLaunchBattle }: 
                         <div>
                           <div className="flex items-center gap-1.5">
                             <span className="font-black text-sm">{gName}</span>
-                            {isHighInt && (
+                            {totalInt >= 90 ? (
                               <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1 py-0.2 rounded font-bold border border-emerald-300">
                                 推薦
                               </span>
-                            )}
-                            <span className="text-[10px] text-stone-500">
-                              ({provinces.find(p => p.id === gen.provinceId)?.name})
-                            </span>
+                            ) : !canBeStrategist ? (
+                              <span className="text-[10px] bg-red-100 text-red-700 px-1 py-0.2 rounded font-bold border border-red-300">
+                                智力不足80
+                              </span>
+                            ) : null}
                           </div>
                           <div className="text-xs text-stone-600 mt-0.5">
-                            智力: <strong className={totalInt >= 80 ? 'text-[#8b1818]' : 'text-stone-800'}>{totalInt}</strong> ‧ 
+                            智力: <strong className={canBeStrategist ? 'text-[#8b1818]' : 'text-stone-400'}>{totalInt}</strong> ‧ 
                             武力: {gen.str + itemBonus.strBonus}
                           </div>
                         </div>

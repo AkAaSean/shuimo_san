@@ -32,7 +32,7 @@ export default function StatusView({ gameState, initialAction, onExit }: StatusV
   const provinceData = provinces.find(p => p.id === currentProvinceId);
   const generals = Object.values(gameState.generalsData).filter(g => g.provinceId === currentProvinceId && !g.isWild);
   const totalGeneralsSoldiers = generals.reduce((sum, g) => sum + g.soldiers, 0);
-  const totalSoldiers = (provinceState?.soldiers || 0) + totalGeneralsSoldiers;
+  const totalSoldiers = totalGeneralsSoldiers;
 
   if (!provinceState || !provinceData) {
     return (
@@ -446,24 +446,40 @@ export default function StatusView({ gameState, initialAction, onExit }: StatusV
                     }
 
                     return (
-                      <div key={otherRuler} className="flex justify-between items-center p-2 bg-stone-100 border border-stone-300">
-                        <div className="font-bold text-stone-800">
-                          {otherRuler}勢力
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {allianceText && (
-                            <span className="text-xs bg-sky-100 text-sky-800 px-2 py-0.5 rounded font-bold border border-sky-300">
-                              {allianceText}
+                      <div key={otherRuler} className="flex flex-col gap-2 p-3 bg-stone-100 border border-stone-300">
+                        <div className="flex justify-between items-center">
+                          <div className="font-bold text-stone-800">
+                            {otherRuler}勢力
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {allianceText && (
+                              <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded-sm font-black border border-emerald-300">
+                                {allianceText}
+                              </span>
+                            )}
+                            <span className={`font-black text-sm ${
+                              relation >= 90 ? 'text-emerald-700' :
+                              relation >= 70 ? 'text-emerald-600' :
+                              relation >= 40 ? 'text-stone-700' :
+                              relation >= 20 ? 'text-orange-600' :
+                              'text-rose-700'
+                            }`}>
+                              友好: {relation}
                             </span>
-                          )}
-                          <span className={`font-black ${
-                            relation >= 90 ? 'text-emerald-700' :
-                            relation >= 60 ? 'text-emerald-600' :
-                            relation >= 40 ? 'text-stone-700' :
-                            'text-[#991b1b]'
-                          }`}>
-                            友好: {relation}
-                          </span>
+                          </div>
+                        </div>
+                        {/* 友好度進度條 */}
+                        <div className="w-full bg-stone-300 h-2.5 rounded-full overflow-hidden flex border border-stone-400">
+                          <div 
+                            className={`h-full ${
+                              relation >= 90 ? 'bg-emerald-500' :
+                              relation >= 70 ? 'bg-emerald-400' :
+                              relation >= 40 ? 'bg-stone-500' :
+                              relation >= 20 ? 'bg-orange-500' :
+                              'bg-rose-500'
+                            }`}
+                            style={{ width: `${Math.max(0, Math.min(100, relation))}%` }}
+                          />
                         </div>
                       </div>
                     );
@@ -518,7 +534,7 @@ export default function StatusView({ gameState, initialAction, onExit }: StatusV
                   </button>
                 </div>
 
-                <div className="grid grid-cols-4 gap-2 text-center text-xs">
+                <div className="grid grid-cols-3 gap-2 text-center text-xs">
                   <div className="bg-stone-100 p-2 rounded border border-stone-300">
                     <div className="text-[10px] text-stone-500 font-bold">物理攻擊</div>
                     <div className={`font-black text-sm ${formation.atkMod > 0 ? 'text-red-700' : formation.atkMod < 0 ? 'text-blue-700' : 'text-stone-700'}`}>
@@ -529,12 +545,6 @@ export default function StatusView({ gameState, initialAction, onExit }: StatusV
                     <div className="text-[10px] text-stone-500 font-bold">物理防禦</div>
                     <div className={`font-black text-sm ${formation.defMod > 0 ? 'text-emerald-700' : formation.defMod < 0 ? 'text-rose-700' : 'text-stone-700'}`}>
                       {formation.defMod > 0 ? `+${Math.round(formation.defMod * 100)}%` : formation.defMod < 0 ? `${Math.round(formation.defMod * 100)}%` : '±0%'}
-                    </div>
-                  </div>
-                  <div className="bg-stone-100 p-2 rounded border border-stone-300">
-                    <div className="text-[10px] text-stone-500 font-bold">行軍機動</div>
-                    <div className="font-black text-sm text-amber-900">
-                      {formation.mobility || 5} 格
                     </div>
                   </div>
                   <div className="bg-stone-100 p-2 rounded border border-stone-300">

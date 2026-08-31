@@ -1,8 +1,9 @@
-import { BattleUnit, GeneralState, TerrainType, GridCell, PassiveSkillDef, PassiveSkillId } from '../types';
+import { BattleUnit, GeneralState, TerrainType, GridCell, PassiveSkillDef, PassiveSkillId, FormationTerrainType } from '../types';
 import { 
   FORMATIONS, 
   getTerrainEffectiveness, 
   getTerrainMobilityCost,
+  getFormationTerrainEffect,
   calculateFormationTerrainCombatModifier,
   calculateBatchFormationCombatModifiers,
   getBestFormationForProvince,
@@ -19,6 +20,33 @@ export type {
   FormationTerrainCombatPowerResult,
   TerrainCombatModifierBreakdown
 };
+
+/**
+ * 計算部隊在當前戰場地形上的最終先攻值 (Initiative)
+ * 算式：陣形先攻 (initiativeMod) + 地形先攻 (initBonus) + (統帥 leadership * 0.2) + (士氣 morale * 0.05) + 狀態修正
+ */
+export function calculateUnitInitiative(
+  unit: BattleUnit,
+  general: GeneralState,
+  terrain: TerrainType = '平地'
+): number {
+  const fStats = getUnitFormationStats(unit.formation);
+  const terrainEffect = getFormationTerrainEffect(unit.formation || '平地', terrain as FormationTerrainType);
+  
+  const formationInit = fStats.initiativeMod || 0;
+  const terrainInit = terrainEffect.initBonus || 0;
+  
+  // 統帥率 (Leadership) 採用武將數值 g.hp（歷史相容設計），若未設預設 60
+  const leadership = general.hp || 60;
+  const leadershipInit = Math.round(leadership * 0.2);
+  
+  const morale = general.morale ?? 70;
+  const moraleInit = Math.round(morale * 0.05);
+
+  const statusPenalty = unit.status === 'confused' ? -20 : (unit.status === 'disarray' ? -10 : 0);
+
+  return formationInit + terrainInit + leadershipInit + moraleInit + statusPenalty;
+}
 
 /**
  * 光榮《三國志V》被動特技定義庫
@@ -119,7 +147,7 @@ export function getHexNeighbors(col: number, row: number, maxCols: number, maxRo
     { dc: 0, dr: -1 },  // 上
     { dc: 0, dr: 1 },   // 下
     { dc: -1, dr: 0 },  // 左上
-    { dc: -1, dr: 1 },  // 左下
+    { dc: -1, dr: 1 },   // 左下
     { dc: 1, dr: 0 },   // 右上
     { dc: 1, dr: 1 },   // 右下
   ] : [
@@ -282,6 +310,12 @@ export interface MeleeCombatResult {
 
 /**
  * 1. 近戰肉搏戰鬥計算（包含【奮發】、【無雙】、【藤甲】）
+ * 完全套用最新的：
+ * BaseAtk = (武力 0.6 + 統帥 0.4) * (訓練/100) * (士氣/100) * 裝備
+ * BaseDef = (統帥 0.7 + 武力 0.3) * (訓練/100) * (士氣/100) * 裝備
+ * 陣形與地形加成採百分比乘算：
+ * P_atk = BaseAtk * (1 + 陣形攻修正) * (1 + 地形攻加成)
+ * D_def = BaseDef * (1 + 陣形防修正) * (1 + 地形防加成)
  */
 export function calculateMeleeCombat(
   attacker: BattleUnit,
@@ -298,53 +332,107 @@ export function calculateMeleeCombat(
   const aForm = getUnitFormationStats(attacker.formation);
   const dForm = getUnitFormationStats(defender.formation);
 
-  // 基礎武力與戰術攻防係數
+  // 武將基礎屬性 (hp 欄位代表統帥 Leadership)
   const aStr = attackerGen.str || 60;
+  const aLeadership = attackerGen.hp || 60;
   const dStr = defenderGen.str || 60;
-  const aHp = attackerGen.hp || 60;
-  const dHp = defenderGen.hp || 60;
+  const dLeadership = defenderGen.hp || 60;
+
   const aTraining = attackerGen.training ?? 70;
   const dTraining = defenderGen.training ?? 70;
+  const aMorale = attackerGen.morale ?? 70;
+  const dMorale = defenderGen.morale ?? 70;
   const aWeapons = attackerGen.weapons ?? 60;
   const dWeapons = defenderGen.weapons ?? 60;
 
-  // 訓練度與裝備加成係數 (訓練 100 = 1.15x, 70 = 1.0x, 30 = 0.8x)
+  // 訓練度、士氣與裝備加成係數
   const aTrainMult = 0.65 + (aTraining / 100) * 0.5;
   const dTrainMult = 0.65 + (dTraining / 100) * 0.5;
-  const aWeapMult = 0.85 + (aWeapons / 100) * 0.25;
-  const dWeapMult = 0.85 + (dWeapons / 100) * 0.25;
+  const aMoraleMult = 0.65 + (aMorale / 100) * 0.5;
+  const dMoraleMult = 0.65 + (dMorale / 100) * 0.5;
+  const aWeapMult = 0.85 + (aWeapons / 100) * 0.30;
+  const dWeapMult = 0.85 + (dWeapons / 100) * 0.30;
 
-  // 1. 攻方基礎傷害計算 (武力 + 體力 + 陣形攻擊力) * 兵力乘數 * 訓練與裝備係數
-  let rawAtkPower = (aStr * 0.6 + aHp * 0.4 + aForm.atk * 4) * (attacker.troops / 1000 + 1.2) * aTrainMult * aWeapMult;
-  let rawDefArmor = (dStr * 0.3 + dHp * 0.7 + dForm.def * 4) * dTrainMult * dWeapMult;
+  // 1. 計算單位戰術基底素質 BaseAtk 與 BaseDef (不含兵力)
+  const aBaseAtk = (aStr * 0.6 + aLeadership * 0.4) * aTrainMult * aMoraleMult * aWeapMult;
+  const dBaseDef = (dLeadership * 0.7 + dStr * 0.3) * dTrainMult * dMoraleMult * dWeapMult;
 
-  // 地形效果加成 (Terrain Effectiveness)
-  const attackerTerrainBonus = getTerrainEffectiveness(aForm.type, terrain);
-  const defenderTerrainBonus = getTerrainEffectiveness(dForm.type, terrain);
-  
-  if (attackerTerrainBonus === 16) {
-    rawDefArmor += 11; // 城池防禦特殊加成
-  } else {
-    rawAtkPower *= (1 + attackerTerrainBonus * 0.05); // 每個效果點數增加 5% 傷害
+  // 取得陣形基礎修正與地形加成係數 (百分比)
+  let aFormAtkMod = aForm.atkMod; // 例如 錐行: 0.25, 方圓: -0.15
+  let dFormDefMod = dForm.defMod; // 例如 方圓: 0.35, 鋒矢: -0.20
+
+  const aTerrainEffect = getFormationTerrainEffect(aForm.name, terrain as FormationTerrainType);
+  const dTerrainEffect = getFormationTerrainEffect(dForm.name, terrain as FormationTerrainType);
+
+  let aTerrainAtkBonus = aTerrainEffect.atkBonus;
+  let dTerrainDefBonus = dTerrainEffect.defBonus;
+
+  // 混亂與無陣狀態對防禦陣形的破壞
+  if (defender.status === 'confused' || defender.status === 'disarray') {
+    dFormDefMod = 0;        // 陣形防禦加成失效
+    dTerrainDefBonus = 0;   // 地形防禦庇護失效
+    combatLogs.push(`🌀 ${defender.generalName} 處於${defender.status === 'confused' ? '混亂' : '無陣'}狀態，防禦陣形全面崩潰！`);
   }
 
-  if (defenderTerrainBonus === 16) {
-    rawDefArmor += 11;
-  } else {
-    rawDefArmor *= (1 + defenderTerrainBonus * 0.05);
+  // 2. 套用陣形與地形的百分比乘算：
+  // P_atk = BaseAtk * (1 + 陣形攻修正) * (1 + 地形攻加成)
+  // D_def = BaseDef * (1 + 陣形防修正) * (1 + 地形防加成)
+  let finalAtkPower = aBaseAtk * (1 + aFormAtkMod) * (1 + aTerrainAtkBonus);
+  let finalDefArmor = dBaseDef * (1 + dFormDefMod) * (1 + dTerrainDefBonus);
+
+  // 狀態異常防禦/攻擊懲罰
+  if (defender.status === 'confused') {
+    finalDefArmor *= 0.5;
+  } else if (defender.status === 'disarray') {
+    finalDefArmor *= 0.75;
   }
 
-  // 偃月陣特殊：武力越高越強
+  if (attacker.status === 'confused') {
+    finalAtkPower *= 0.5;
+    combatLogs.push(`🌀 ${attacker.generalName} 處於混亂狀態，攻擊力大減！`);
+  }
+
+  // 偃月陣特殊：武力越高發揮越強
   if (aForm.name === '偃月') {
-    rawAtkPower *= (1 + (aStr / 100) * 0.5); 
+    finalAtkPower *= (1 + (aStr / 100) * 0.3); 
   }
-  if (dForm.name === '偃月') {
-    rawDefArmor *= (1 + (dStr / 100) * 0.5);
+  if (dForm.name === '偃月' && defender.status === 'normal') {
+    finalDefArmor *= (1 + (dStr / 100) * 0.3);
   }
 
-  // 奮發 (Valiance) 被動判定：近戰傷害提升 +30%
+  // 3. 圍攻 (Flanking/Encirclement) 與【無雙】防禦判定
+  const surroundingEnemies = countAdjacentEnemies(defender, allUnits);
+  const isSurrounded = surroundingEnemies >= 2;
+  const defenderHasPeerless = hasPassiveSkill(defender, defenderGen, '無雙');
+
+  if (isSurrounded) {
+    if (defenderHasPeerless) {
+      passivesTriggered.push({
+        skillId: '無雙',
+        actor: 'defender',
+        message: `【無雙】觸發！${defender.generalName} 萬人莫敵，敵軍圍攻降防無效，戰意昂揚奮起反擊！`
+      });
+      combatLogs.push(`🛡️ ${defender.generalName} 觸發【無雙】！免疫圍攻削弱，敵軍圍包反而激發無雙昂揚戰意！`);
+      // 無雙：免疫夾擊降防
+    } else {
+      // 每多一支部隊相鄰圍攻，防禦額外下降 10%
+      const flankPenalty = (surroundingEnemies - 1) * 0.10;
+      finalDefArmor *= Math.max(0.5, 1 - flankPenalty);
+      combatLogs.push(`👥 敵軍多方包夾 ${defender.generalName}，防禦下降 ${Math.round(flankPenalty * 100)}%！`);
+    }
+  }
+
+  // 攻方若擁有【無雙】且陷入敵包圍，爆發額外戰役傷害
+  const attackerSurrounding = countAdjacentEnemies(attacker, allUnits);
+  if (hasPassiveSkill(attacker, attackerGen, '無雙') && attackerSurrounding >= 1) {
+    const peerlessBoost = attackerSurrounding * 0.10;
+    finalAtkPower *= (1 + peerlessBoost);
+    combatLogs.push(`⚔️ ${attacker.generalName} 【無雙】爆發！陷入敵包圍激起戰意 (+${Math.round(peerlessBoost * 100)}%)！`);
+  }
+
+  // 奮發 (Valiance) 被動：近戰傷害 +30%
   if (hasPassiveSkill(attacker, attackerGen, '奮發')) {
-    rawAtkPower *= 1.30;
+    finalAtkPower *= 1.30;
     passivesTriggered.push({
       skillId: '奮發',
       actor: 'attacker',
@@ -353,54 +441,21 @@ export function calculateMeleeCombat(
     combatLogs.push(`💥 ${attacker.generalName} 觸發【奮發】，刀槍凌厲猛攻！`);
   }
 
-  // 攻方若持有無雙且帶有戰意 Buff
+  // 攻方戰意 Buff
   if (attacker.attackBuff && attacker.attackBuff > 0) {
-    rawAtkPower *= (1 + attacker.attackBuff);
+    finalAtkPower *= (1 + attacker.attackBuff);
     combatLogs.push(`⚡ ${attacker.generalName} 帶著無雙戰意發起猛攻！`);
   }
 
   // 死戰加成
   if (isDeadlyAssault) {
-    rawAtkPower *= 1.45;
+    finalAtkPower *= 1.45;
     combatLogs.push(`⚔️ ${attacker.generalName} 展開【死戰】，全軍殊死搏殺！`);
-  }
-
-  // 混亂狀態削弱
-  if (attacker.status === 'confused') {
-    rawAtkPower *= 0.5;
-    combatLogs.push(`🌀 ${attacker.generalName} 處於混亂狀態，攻擊力大減！`);
-  }
-  if (defender.status === 'confused') {
-    rawDefArmor *= 0.5;
-    combatLogs.push(`🌀 ${defender.generalName} 部隊混亂，防禦崩潰！`);
-  }
-
-  // 2. 圍攻與【無雙】防禦判定
-  const surroundingEnemies = countAdjacentEnemies(defender, allUnits);
-  const isSurrounded = surroundingEnemies >= 2;
-  const defenderHasPeerless = hasPassiveSkill(defender, defenderGen, '無雙');
-
-  if (isSurrounded) {
-    if (defenderHasPeerless) {
-      // 無雙：使敵人的圍攻/聯合攻擊無效化，並激發自身攻擊力
-      passivesTriggered.push({
-        skillId: '無雙',
-        actor: 'defender',
-        message: `【無雙】觸發！${defender.generalName} 萬人莫敵，敵軍圍攻夾擊徹底失效，並激發無雙反擊戰意！`
-      });
-      combatLogs.push(`🛡️ ${defender.generalName} 觸發【無雙】！無視多方夾擊，戰意激昂！`);
-      rawDefArmor *= 1.2; // 防禦更穩固
-    } else {
-      // 一般部隊被包夾，受到額外 25%~40% 傷害
-      const surroundMultiplier = 1 + (surroundingEnemies - 1) * 0.15;
-      rawAtkPower *= surroundMultiplier;
-      combatLogs.push(`👥 敵軍多方包夾 ${defender.generalName}，形成夾攻！`);
-    }
   }
 
   // 藤甲防禦被動
   if (hasPassiveSkill(defender, defenderGen, '藤甲')) {
-    rawAtkPower *= 0.60; // 物理傷害減免 40%
+    finalAtkPower *= 0.60; // 物理近戰傷害減免 40%
     passivesTriggered.push({
       skillId: '藤甲',
       actor: 'defender',
@@ -409,11 +464,16 @@ export function calculateMeleeCombat(
     combatLogs.push(`🪵 ${defender.generalName} 身披【藤甲】，刀槍難入！`);
   }
 
-  // 計算最終守方損失
+  // 4. 兵力規模對單次殲敵數量的影響 (0.5 + (Troops/10000)*0.5)
+  const aTroopScale = 0.5 + (Math.min(10000, attacker.troops) / 10000) * 0.5;
+
+  // 計算最終守方兵力損失
   const randomFactor1 = 0.9 + Math.random() * 0.2;
-  let attackerDamage = Math.floor(Math.max(80, (rawAtkPower / Math.max(20, rawDefArmor)) * 120 * randomFactor1));
-  
-  // 城防地利減傷庇護 (Option A+C)
+  let attackerDamage = Math.floor(
+    Math.max(80, (finalAtkPower / Math.max(20, finalDefArmor)) * 75 * aTroopScale * randomFactor1)
+  );
+
+  // 城防地利減傷庇護
   if (terrain === '城池' || terrain === '關寨') {
     attackerDamage = Math.floor(attackerDamage * 0.60);
     combatLogs.push(`🛡️ 【城垣避護】${defender.generalName} 駐守城垛關口，掩體使受到的近戰傷害減免 40%！`);
@@ -424,33 +484,42 @@ export function calculateMeleeCombat(
 
   attackerDamage = Math.min(defender.troops, attackerDamage);
 
-  // 3. 守方反擊計算
+  // 5. 守方反擊計算
   let defenderCounterDamage = 0;
   const remainingDefenderTroops = defender.troops - attackerDamage;
 
   if (remainingDefenderTroops > 0) {
-    let rawCounterPower = (dStr * 0.5 + dHp * 0.4 + dForm.atk * 3) * (remainingDefenderTroops / 1000 + 1.0);
-    let rawAttackerArmor = (aStr * 0.3 + aHp * 0.7 + aForm.def * 4);
+    // 守方 BaseAtk & 攻方 BaseDef
+    const dBaseAtk = (dStr * 0.6 + dLeadership * 0.4) * dTrainMult * dMoraleMult * dWeapMult;
+    const aBaseDef = (aLeadership * 0.7 + aStr * 0.3) * aTrainMult * aMoraleMult * aWeapMult;
 
-    // 守方無雙被夾擊後反擊大幅增強
+    let finalCounterPower = dBaseAtk * (1 + dForm.atkMod) * (1 + dTerrainEffect.atkBonus);
+    let finalAttackerArmor = aBaseDef * (1 + aForm.defMod) * (1 + aTerrainEffect.defBonus);
+
+    // 守方兵力規模乘數
+    const dTroopScale = 0.5 + (Math.min(10000, remainingDefenderTroops) / 10000) * 0.5;
+
+    // 守方無雙被夾擊後反擊爆發
     if (defenderHasPeerless && isSurrounded) {
-      rawCounterPower *= 1.45;
+      finalCounterPower *= 1.45;
       combatLogs.push(`⚡ ${defender.generalName} 【無雙】之威爆發，奮起千鈞神力全力反撲！`);
     } else if (hasPassiveSkill(defender, defenderGen, '奮發')) {
-      rawCounterPower *= 1.25;
+      finalCounterPower *= 1.25;
     }
 
     if (isDeadlyAssault) {
-      rawCounterPower *= 1.35; // 死戰雙方都承受高反擊
+      finalCounterPower *= 1.35; // 死戰雙方均承擔高反擊
     }
 
     // 攻方藤甲減傷
     if (hasPassiveSkill(attacker, attackerGen, '藤甲')) {
-      rawCounterPower *= 0.60;
+      finalCounterPower *= 0.60;
     }
 
     const randomFactor2 = 0.85 + Math.random() * 0.3;
-    defenderCounterDamage = Math.floor(Math.max(40, (rawCounterPower / Math.max(20, rawAttackerArmor)) * 90 * randomFactor2));
+    defenderCounterDamage = Math.floor(
+      Math.max(40, (finalCounterPower / Math.max(20, finalAttackerArmor)) * 55 * dTroopScale * randomFactor2)
+    );
     defenderCounterDamage = Math.min(attacker.troops, defenderCounterDamage);
   }
 
@@ -485,6 +554,7 @@ export interface ArcheryCombatResult {
 
 /**
  * 2. 遠程弓箭攻擊計算（包含【騎射】、【回射】、【藤甲】）
+ * 使用統帥率與武力計算 BaseBowAtk 與 BaseBowDef
  */
 export function calculateArcheryCombat(
   attacker: BattleUnit,
@@ -503,37 +573,36 @@ export function calculateArcheryCombat(
   const dForm = getUnitFormationStats(defender.formation);
 
   const aStr = attackerGen.str || 60;
-  const dHp = defenderGen.hp || 60;
+  const aLeadership = attackerGen.hp || 60;
   const dStr = defenderGen.str || 60;
+  const dLeadership = defenderGen.hp || 60;
+
   const aTraining = attackerGen.training ?? 70;
   const dTraining = defenderGen.training ?? 70;
+  const aMorale = attackerGen.morale ?? 70;
+  const dMorale = defenderGen.morale ?? 70;
   const aWeapons = attackerGen.weapons ?? 60;
   const dWeapons = defenderGen.weapons ?? 60;
 
-  // 訓練與裝備乘數
   const aTrainMult = 0.65 + (aTraining / 100) * 0.5;
   const dTrainMult = 0.65 + (dTraining / 100) * 0.5;
-  const aWeapMult = 0.85 + (aWeapons / 100) * 0.25;
-  const dWeapMult = 0.85 + (dWeapons / 100) * 0.25;
+  const aMoraleMult = 0.65 + (aMorale / 100) * 0.5;
+  const dMoraleMult = 0.65 + (dMorale / 100) * 0.5;
+  const aWeapMult = 0.85 + (aWeapons / 100) * 0.30;
+  const dWeapMult = 0.85 + (dWeapons / 100) * 0.30;
 
-  // 1. 弓箭攻擊力計算
-  let bowAtkPower = (aStr * 0.55 + aForm.bowAtk * 5) * (attacker.troops / 1000 + 1.0) * aTrainMult * aWeapMult;
-  let bowDefArmor = (dStr * 0.2 + dHp * 0.6 + dForm.bowDef * 4.5) * dTrainMult * dWeapMult;
+  // 1. 基礎弓箭攻防基底 (BaseBowAtk & BaseBowDef)
+  const aBaseBowAtk = (aStr * 0.50 + aLeadership * 0.35 + aForm.bowAtk * 4) * aTrainMult * aMoraleMult * aWeapMult;
+  const dBaseBowDef = (dLeadership * 0.60 + dStr * 0.25 + dForm.bowDef * 4.5) * dTrainMult * dMoraleMult * dWeapMult;
 
-  // 地形效果加成 (Terrain Effectiveness)
-  const attackerTerrainBonus = getTerrainEffectiveness(aForm.type, terrain);
-  const defenderTerrainBonus = getTerrainEffectiveness(dForm.type, terrain);
-  
-  if (attackerTerrainBonus === 16) {
-    bowAtkPower *= 1.1; // 城池/關寨內弓兵攻擊也有加成
-  } else {
-    bowAtkPower *= (1 + attackerTerrainBonus * 0.05);
-  }
+  const aTerrainEffect = getFormationTerrainEffect(aForm.name, terrain as FormationTerrainType);
+  const dTerrainEffect = getFormationTerrainEffect(dForm.name, terrain as FormationTerrainType);
 
-  if (defenderTerrainBonus === 16) {
-    bowDefArmor += 15; // 城池防禦弓箭效果強
-  } else {
-    bowDefArmor *= (1 + defenderTerrainBonus * 0.05);
+  let finalBowAtkPower = aBaseBowAtk * (1 + aTerrainEffect.atkBonus);
+  let finalBowDefArmor = dBaseBowDef * (1 + dForm.defMod * 0.5) * (1 + dTerrainEffect.defBonus);
+
+  if (defender.status === 'confused' || defender.status === 'disarray') {
+    finalBowDefArmor *= 0.6;
   }
 
   // 騎射 (Mounted Archery) 被動判定
@@ -541,7 +610,7 @@ export function calculateArcheryCombat(
   const isCavalryFormation = ['錐行', '鋒矢', '長蛇'].includes(attacker.formation || '');
 
   if (attackerHasMountedArchery) {
-    bowAtkPower *= 1.25; // 馳射威力和貫穿力 +25%
+    finalBowAtkPower *= 1.25; // 馳射威力和貫穿力 +25%
     passivesTriggered.push({
       skillId: '騎射',
       actor: 'attacker',
@@ -549,17 +618,16 @@ export function calculateArcheryCombat(
     });
     combatLogs.push(`🐎 ${attacker.generalName} 發動【騎射】，快馬疾馳矢如雨下！`);
   } else if (isCavalryFormation && aForm.bowAtk <= 4) {
-    // 沒有騎射被動的純騎兵陣形，弓箭威力較低
-    bowAtkPower *= 0.7;
+    finalBowAtkPower *= 0.7;
   }
 
   // 火箭加成
   if (isFireArrow) {
     if (weather === '雨天' || weather === '豪雨' || weather === '雪天') {
       combatLogs.push(`🌧️ 氣候不佳，火箭無法點燃！`);
-      bowAtkPower *= 0.9;
+      finalBowAtkPower *= 0.9;
     } else {
-      bowAtkPower *= 1.25;
+      finalBowAtkPower *= 1.25;
       combatLogs.push(`🔥 ${attacker.generalName} 發射【火箭】，烈焰破空！`);
     }
   }
@@ -568,8 +636,7 @@ export function calculateArcheryCombat(
   const defenderHasRattan = hasPassiveSkill(defender, defenderGen, '藤甲');
   if (defenderHasRattan) {
     if (isFireArrow) {
-      // 遇火傷害翻倍！
-      bowAtkPower *= 2.2;
+      finalBowAtkPower *= 2.5; // 遇火傷害翻倍暴擊！
       passivesTriggered.push({
         skillId: '藤甲',
         actor: 'defender',
@@ -577,8 +644,7 @@ export function calculateArcheryCombat(
       });
       combatLogs.push(`🔥 【藤甲大忌】${defender.generalName} 身著藤甲，遭火箭焚燒受創加倍！`);
     } else {
-      // 普通弓箭近乎無效！
-      bowAtkPower *= 0.1;
+      finalBowAtkPower *= 0.1; // 普通箭矢近乎無效！
       passivesTriggered.push({
         skillId: '藤甲',
         actor: 'defender',
@@ -588,10 +654,15 @@ export function calculateArcheryCombat(
     }
   }
 
+  // 兵力規模乘數
+  const aTroopScale = 0.5 + (Math.min(10000, attacker.troops) / 10000) * 0.5;
+
   const randomFactor = 0.9 + Math.random() * 0.2;
-  let archeryDamage = Math.floor(Math.max(50, (bowAtkPower / Math.max(20, bowDefArmor)) * 100 * randomFactor));
-  
-  // 城防防箭庇護 (Option A+C)
+  let archeryDamage = Math.floor(
+    Math.max(50, (finalBowAtkPower / Math.max(20, finalBowDefArmor)) * 60 * aTroopScale * randomFactor)
+  );
+
+  // 城防防箭庇護
   if (terrain === '城池' || terrain === '關寨') {
     archeryDamage = Math.floor(archeryDamage * 0.60);
     combatLogs.push(`🛡️ 【城垛遮蔽】${defender.generalName} 處於城池關口，掩體使受到的箭矢傷害大幅減免 40%！`);
@@ -601,7 +672,6 @@ export function calculateArcheryCombat(
   }
 
   archeryDamage = Math.min(defender.troops, archeryDamage);
-
   combatLogs.push(`🏹 ${attacker.generalName} 箭陣齊射，射傷 ${defender.generalName} 軍 ${archeryDamage} 人！`);
 
   // 2. 回射 (Return Fire) 被動判定
@@ -618,17 +688,21 @@ export function calculateArcheryCombat(
     });
     combatLogs.push(`🎯 ${defender.generalName} 觸發【回射】，挽弓如滿月反擊射向 ${attacker.generalName}！`);
 
-    // 計算回射傷害
-    let returnBowPower = (dStr * 0.55 + dForm.bowAtk * 4.5) * (remainingDefenderTroops / 1000 + 0.9);
-    let returnBowArmor = (aStr * 0.2 + (attackerGen.hp || 60) * 0.6 + aForm.bowDef * 4.5);
+    const dBaseBowAtk = (dStr * 0.50 + dLeadership * 0.35 + dForm.bowAtk * 4) * dTrainMult * dMoraleMult * dWeapMult;
+    const aBaseBowDef = (aLeadership * 0.60 + aStr * 0.25 + aForm.bowDef * 4.5) * aTrainMult * aMoraleMult * aWeapMult;
 
-    // 攻方藤甲防禦
+    let returnBowPower = dBaseBowAtk * (1 + dTerrainEffect.atkBonus);
+    let returnBowArmor = aBaseBowDef * (1 + aTerrainEffect.defBonus);
+
     if (hasPassiveSkill(attacker, attackerGen, '藤甲')) {
       returnBowPower *= 0.1;
     }
 
+    const dTroopScale = 0.5 + (Math.min(10000, remainingDefenderTroops) / 10000) * 0.5;
     const returnRandom = 0.9 + Math.random() * 0.2;
-    returnFireDamage = Math.floor(Math.max(40, (returnBowPower / Math.max(20, returnBowArmor)) * 90 * returnRandom));
+    returnFireDamage = Math.floor(
+      Math.max(40, (returnBowPower / Math.max(20, returnBowArmor)) * 50 * dTroopScale * returnRandom)
+    );
     returnFireDamage = Math.min(attacker.troops, returnFireDamage);
 
     combatLogs.push(`🏹 回射反擊！${defender.generalName} 射傷 ${attacker.generalName} 軍 ${returnFireDamage} 人！`);
@@ -663,6 +737,7 @@ export interface StrategyCombatResult {
 
 /**
  * 3. 計略施展計算（包含【沉著】、【反計】、【藤甲】）
+ * 抵抗計謀成功率與防禦：採用 智力(60%) + 統帥(40%)
  */
 export function calculateStrategyExecution(
   caster: BattleUnit,
@@ -676,14 +751,16 @@ export function calculateStrategyExecution(
   const combatLogs: string[] = [];
 
   const cInt = casterGen.int || 60;
+  const cMorale = casterGen.morale ?? 70;
+
   const tInt = targetGen.int || 60;
+  const tLeadership = targetGen.hp || 60; // 統帥率提供軍紀與心態防禦
 
   // 1. 【反計】判定（Counter-Strategy）
   const targetHasCounterStrategy = hasPassiveSkill(target, targetGen, '反計');
   const counterChance = Math.max(0.2, Math.min(0.85, 0.45 + (tInt - cInt) * 0.015));
 
   if (targetHasCounterStrategy && Math.random() < counterChance) {
-    // 反計成功！將計略直接彈回給施計者
     passivesTriggered.push({
       skillId: '反計',
       actor: 'target',
@@ -718,7 +795,6 @@ export function calculateStrategyExecution(
   // 2. 【沉著】判定（Composure / Calm）
   const targetHasCalm = hasPassiveSkill(target, targetGen, '沉著');
   if (targetHasCalm) {
-    // 對混亂100%免疫，對其他負面計略高抵抗
     if (strategyName === '混亂') {
       passivesTriggered.push({
         skillId: '沉著',
@@ -754,8 +830,11 @@ export function calculateStrategyExecution(
     }
   }
 
-  // 3. 正常計略成功率判定
-  const baseSuccessRate = 0.50 + (cInt - tInt) * 0.01;
+  // 3. 正常計略成功率判定：施計者 (智力70%+士氣30%) vs 受計者抵抗 (智力60%+統帥40%)
+  const casterSkill = cInt * 0.70 + cMorale * 0.30;
+  const targetResist = tInt * 0.60 + tLeadership * 0.40;
+
+  const baseSuccessRate = 0.50 + (casterSkill - targetResist) * 0.012;
   const rollSuccess = Math.random() < Math.max(0.15, Math.min(0.95, baseSuccessRate));
 
   if (!rollSuccess) {
@@ -836,7 +915,7 @@ export function calculateStrategyExecution(
 }
 
 /**
- * 4. 回合/日初維護：處理【沉著】自動解除負面狀態
+ * 4. 回合/日初維護：處理【沉著】自動解除負面狀態與防禦修復
  */
 export function processTurnStartPassives(
   units: BattleUnit[],
@@ -881,7 +960,7 @@ export function processTurnStartPassives(
       status,
       hasActed: false,
       hasMovedThisTurn: false,
-      attackBuff: 0 // Reset temporary buff
+      attackBuff: 0 // 重置臨時 Buff
     };
   });
 
@@ -890,3 +969,4 @@ export function processTurnStartPassives(
     notifications
   };
 }
+

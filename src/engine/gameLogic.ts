@@ -1,6 +1,6 @@
 import { getGeneralAvailableFormations } from './formations';
 import { getGeneralAvailableSkills, getGeneralPassives } from './skills';
-import { GameState, ProvinceState, GeneralState } from '../types';
+import { GameState, ProvinceState, GeneralState, PendingBattlePlan } from '../types';
 import { provinces } from '../data/provinces';
 import { generals } from '../data/generals';
 import { SCENARIOS } from '../data/scenarios';
@@ -37,15 +37,58 @@ function initializeDiplomacy(scenarioIndex: number, rulers: { name: string }[]):
       const r1 = rulerNames[i];
       const r2 = rulerNames[j];
       
-      // ROTK-like relation hints
-      if ((r1 === '劉備' && r2 === '孫權') || (r1 === '孫權' && r2 === '劉備')) relation = 65; // Sun-Liu alliance
-      if ((r1 === '劉備' && r2 === '曹操') || (r1 === '曹操' && r2 === '劉備')) relation = 25; // Cao-Liu friction
-      if ((r1 === '孫權' && r2 === '曹操') || (r1 === '曹操' && r2 === '孫權')) relation = 30; // Sun-Cao friction
-      if ((r1 === '袁紹' && r2 === '曹操') || (r1 === '曹操' && r2 === '袁紹')) relation = scenarioIndex <= 1 ? 60 : 15; // Early allies, later enemies
-      if ((r1 === '劉表' && r2 === '劉備') || (r1 === '劉備' && r2 === '劉表')) relation = 80;
-      if ((r1 === '劉璋' && r2 === '劉備') || (r1 === '劉備' && r2 === '劉璋')) relation = scenarioIndex < 3 ? 75 : 40;
-      if (r1 === '董卓' || r2 === '董卓') relation = 10; // Everyone hates Dong Zhuo
-      if (r1 === '袁術' || r2 === '袁術') relation -= 20; // Yuan Shu is generally disliked
+      const setRel = (a: string, b: string, val: number) => {
+        if ((r1 === a && r2 === b) || (r1 === b && r2 === a)) relation = val;
+      };
+      const isOneOf = (a: string) => r1 === a || r2 === a;
+
+      if (isOneOf('董卓')) relation = 10;
+      if (isOneOf('袁術')) relation = 25; // 袁術人緣不佳
+
+      switch (scenarioIndex) {
+        case 0: // 189 董卓專政
+          if (isOneOf('董卓')) relation = 10;
+          setRel('袁紹', '曹操', 70); // 關東聯軍
+          setRel('袁紹', '公孫瓚', 30); 
+          break;
+        case 1: // 195 董卓討伐後
+          setRel('孫策', '袁術', 85);
+          setRel('曹操', '劉備', 60);
+          setRel('曹操', '呂布', 15);
+          setRel('劉備', '呂布', 30);
+          setRel('袁紹', '公孫瓚', 15);
+          break;
+        case 2: // 201 官渡之戰
+          setRel('曹操', '袁紹', 10);
+          setRel('曹操', '劉備', 15);
+          setRel('劉備', '袁紹', 80); // 劉備投靠袁紹
+          setRel('劉備', '劉表', 75);
+          break;
+        case 3: // 208 赤壁之戰
+          setRel('劉備', '孫權', 90); // 孫劉聯盟
+          setRel('曹操', '孫權', 15);
+          setRel('曹操', '劉備', 10);
+          break;
+        case 4: // 215 劉備收蜀
+          setRel('劉備', '孫權', 70); // 湘水之盟
+          setRel('曹操', '孫權', 20);
+          setRel('曹操', '劉備', 10);
+          setRel('曹操', '張魯', 70);
+          break;
+        case 5: // 220 曹丕篡漢
+          setRel('劉備', '孫權', 10); // 關羽之死
+          setRel('曹丕', '劉備', 10);
+          setRel('曹丕', '孫權', 50); // 孫權短暫稱臣
+          break;
+      }
+      
+      // Some general historical relationships
+      if ((r1 === '劉表' && r2 === '劉備') || (r1 === '劉備' && r2 === '劉表')) {
+        relation = Math.max(relation, 80);
+      }
+      if ((r1 === '劉璋' && r2 === '劉備') || (r1 === '劉備' && r2 === '劉璋')) {
+        relation = scenarioIndex < 3 ? 75 : 40;
+      }
 
       // Slight random variation +/- 5
       relation += Math.floor(Math.random() * 11) - 5;
@@ -55,6 +98,18 @@ function initializeDiplomacy(scenarioIndex: number, rulers: { name: string }[]):
     }
   }
   return data;
+}
+
+export function adjustDiplomacyRelation(state: GameState, rulerA: string, rulerB: string, delta: number): void {
+  if (!rulerA || !rulerB || rulerA === rulerB) return;
+  if (!state.diplomacyData) state.diplomacyData = {};
+  if (!state.diplomacyData[rulerA]) state.diplomacyData[rulerA] = {};
+  if (!state.diplomacyData[rulerB]) state.diplomacyData[rulerB] = {};
+
+  const cur = state.diplomacyData[rulerA][rulerB] ?? 50;
+  const next = Math.max(0, Math.min(100, cur + delta));
+  state.diplomacyData[rulerA][rulerB] = next;
+  state.diplomacyData[rulerB][rulerA] = next;
 }
 
 export function initGame(scenarioIndex: number, playerRulerName: string): GameState {
@@ -181,7 +236,7 @@ export function initGame(scenarioIndex: number, playerRulerName: string): GameSt
           pState.rulerName = ruler.name;
           pState.gold = Math.round(baseConfig.baseGold * mult.goldMult);
           pState.food = Math.round(baseConfig.baseFood * mult.foodMult);
-          pState.soldiers = Math.round(baseConfig.baseReserveTroops * mult.reserveTroopMult);
+          pState.soldiers = 0;
           pState.loyalty = Math.min(95, mult.soldierLoyalty + (isCapital ? 10 : 5));
           pState.value = Math.min(tierRules.maxDev, Math.round(pState.value * (isCapital ? 1.2 : 1.0)));
           pState.commerce = Math.min(tierRules.maxCommerce, Math.round((pState.commerce || 20) * (isCapital ? 1.2 : 1.0)));
@@ -222,13 +277,11 @@ export function initGame(scenarioIndex: number, playerRulerName: string): GameSt
         ? PROVINCE_BASE_CONFIGS[provinceId].tier
         : 'MIDSIZED';
 
-      let effectiveRole = isRuler ? '君主' : g.role;
+      let effectiveRole = isRuler ? '君主' : (g.role === '君主' ? '大將' : g.role);
       let effectiveMaxTroops = g.maxTroops;
 
       if (isRuler) {
         effectiveMaxTroops = 5000;
-      } else if (effectiveRole === '太守') {
-        effectiveMaxTroops = 4000;
       } else if (effectiveRole === '大將' || effectiveRole === '軍師') {
         effectiveMaxTroops = 3000;
       } else if (effectiveRole === '副將' || effectiveRole === '參軍') {
@@ -288,10 +341,9 @@ export function initGame(scenarioIndex: number, playerRulerName: string): GameSt
       const sorted = [...provGens].sort((a, b) => (b.pol + b.cha + b.str) - (a.pol + a.cha + a.str));
       const topGen = sorted[0];
       topGen.role = '太守';
-      topGen.maxTroops = 4000;
       topGen.soldiers = calculateStartingGeneralTroops(
         '太守',
-        4000,
+        topGen.maxTroops,
         false,
         topGen.str,
         topGen.int,
@@ -391,61 +443,6 @@ export function initGame(scenarioIndex: number, playerRulerName: string): GameSt
               movedGen.provinceId = minProvId;
               changed = true;
             }
-          } else {
-            // 若該勢力總武將不足，則將該城市的在野人才直接錄用
-            const wildGen = Object.values(generalsData).find(g => g.provinceId === minProvId && g.isWild);
-            if (wildGen) {
-              wildGen.isWild = false;
-              wildGen.loyalty = 80;
-              wildGen.soldiers = calculateStartingGeneralTroops(
-                wildGen.role,
-                wildGen.maxTroops,
-                false,
-                wildGen.str,
-                wildGen.int,
-                PROVINCE_BASE_CONFIGS[minProvId]?.tier || 'MIDSIZED',
-                scenarioIndex,
-                ruler.name
-              );
-              changed = true;
-            } else {
-              // 自動為小勢力補足基層偏將，確保守備力量 (符合 PRD 第2條規範：前線>=4, 後方>=2)
-              const provName = provinces.find(x => x.id === minProvId)?.name || '城';
-              const countExisting = Object.values(generalsData).filter(g => g.provinceId === minProvId && !g.isWild).length;
-              const newGenName = `${ruler.name}_${provName}_衛將${countExisting + 1}`;
-              if (!generalsData[newGenName]) {
-                const newGenTroops = calculateStartingGeneralTroops(
-                  '裨將',
-                  2000,
-                  false,
-                  65,
-                  55,
-                  PROVINCE_BASE_CONFIGS[minProvId]?.tier || 'MIDSIZED',
-                  scenarioIndex,
-                  ruler.name
-                );
-                generalsData[newGenName] = {
-                  name: newGenName,
-                  role: '裨將',
-                  maxTroops: 2000,
-                  hp: 68 + Math.floor(Math.random() * 8),
-                  int: 55 + Math.floor(Math.random() * 10),
-                  str: 65 + Math.floor(Math.random() * 10),
-                  pol: 50 + Math.floor(Math.random() * 10),
-                  cha: 60 + Math.floor(Math.random() * 10),
-                  ambition: 40,
-                  loyalty: 85,
-                  provinceId: minProvId,
-                  isRuler: false,
-                  soldiers: newGenTroops,
-                  training: 60,
-                  hasActed: false,
-                  formations: getGeneralAvailableFormations({ name: newGenName, str: 65, int: 55, hp: 70, provinceId: minProvId }),
-                  skills: getGeneralAvailableSkills({ name: newGenName, str: 65, int: 55, hp: 70, provinceId: minProvId })
-                };
-                changed = true;
-              }
-            }
           }
         }
       }
@@ -524,6 +521,49 @@ export function initGame(scenarioIndex: number, playerRulerName: string): GameSt
     });
   }
 
+  // 4.7 最終太守冊封：確保每個有兵將駐守的城池皆有太守（君主親任大本營太守，其餘城市任命最合適之將領為太守）
+  Object.values(provincesData).forEach(p => {
+    if (!p.rulerName) return;
+    const provGens = Object.values(generalsData).filter(g => g.provinceId === p.id && !g.isWild);
+    const hasRulerInProv = provGens.some(g => g.isRuler);
+
+    if (provGens.length > 0) {
+      if (hasRulerInProv) {
+        // 有君主親自坐鎮之城市，其餘非君主將領若有原本誤封為太守者重置為大將或副將
+        provGens.forEach(g => {
+          if (!g.isRuler && g.role === '太守') {
+            g.role = '大將';
+          }
+        });
+      } else {
+        // 無君主坐鎮之城市，必須確保有且僅有一位太守
+        const taishouGens = provGens.filter(g => g.role === '太守');
+        if (taishouGens.length === 0) {
+          // 選出政治、智力、魅力與武力綜合最高的將領冊封為太守
+          const sorted = [...provGens].sort((a, b) => (b.pol * 1.5 + b.cha + b.int + b.str) - (a.pol * 1.5 + a.cha + a.int + a.str));
+          const topGen = sorted[0];
+          topGen.role = '太守';
+          topGen.soldiers = Math.max(topGen.soldiers, calculateStartingGeneralTroops(
+            '太守',
+            topGen.maxTroops,
+            false,
+            topGen.str,
+            topGen.int,
+            PROVINCE_BASE_CONFIGS[p.id]?.tier || 'MIDSIZED',
+            scenarioIndex,
+            p.rulerName || ''
+          ));
+        } else if (taishouGens.length > 1) {
+          // 若因轉移多出太守，保留最高者，其餘降為大將
+          taishouGens.sort((a, b) => (b.pol * 1.5 + b.cha + b.int + b.str) - (a.pol * 1.5 + a.cha + a.int + a.str));
+          for (let i = 1; i < taishouGens.length; i++) {
+            taishouGens[i].role = '大將';
+          }
+        }
+      }
+    }
+  });
+
   // 4.8 確保所有城池糧食足以供應 18~24 個月消耗 (每 10 人/月 消耗 1 糧)
   Object.values(provincesData).forEach(pState => {
     if (pState.rulerName !== null) {
@@ -542,6 +582,46 @@ export function initGame(scenarioIndex: number, playerRulerName: string): GameSt
     ? playerRulerConfig.provinces[0]
     : (Object.values(provincesData).find(p => p.rulerName === playerRulerName)?.id ?? 1);
 
+  // 5. 初始化歷史同盟
+  const initialAlliances: Record<string, Record<string, number>> = {};
+  if (scenario) {
+    const addAlliance = (r1: string, r2: string, durationMonths: number) => {
+      const hasR1 = scenario.rulers.some(r => r.name === r1);
+      const hasR2 = scenario.rulers.some(r => r.name === r2);
+      if (!hasR1 || !hasR2) return;
+      
+      const expiryAbsoluteMonth = (scenario.year * 12 + 1) + durationMonths;
+      if (!initialAlliances[r1]) initialAlliances[r1] = {};
+      if (!initialAlliances[r2]) initialAlliances[r2] = {};
+      initialAlliances[r1][r2] = expiryAbsoluteMonth;
+      initialAlliances[r2][r1] = expiryAbsoluteMonth;
+    };
+
+    switch (scenarioIndex) {
+      case 0: // 189 反董卓聯盟
+        addAlliance('曹操', '袁紹', 24);
+        addAlliance('曹操', '劉備', 24);
+        addAlliance('袁紹', '劉備', 24);
+        addAlliance('孫堅', '袁術', 24); // 孫堅依附袁術
+        break;
+      case 1: // 195
+        addAlliance('孫策', '袁術', 24);
+        break;
+      case 2: // 201 官渡
+        addAlliance('袁紹', '劉備', 12);
+        break;
+      case 3: // 208 赤壁之戰 (蜀吳抗曹)
+        addAlliance('劉備', '孫權', 60); // 孫劉同盟，設定較長5年
+        break;
+      case 4: // 215 湘水之盟 (勉強同盟)
+        addAlliance('劉備', '孫權', 36); 
+        break;
+      case 5: // 220 吳魏短暫修好
+        addAlliance('孫權', '曹丕', 24);
+        break;
+    }
+  }
+
   return {
     currentScenario: scenarioIndex,
     year: scenario ? scenario.year : 189,
@@ -557,7 +637,7 @@ export function initGame(scenarioIndex: number, playerRulerName: string): GameSt
     provincesData,
     generalsData,
     diplomacyData: scenario ? initializeDiplomacy(scenarioIndex, scenario.rulers) : {},
-    alliances: {},
+    alliances: initialAlliances,
     wildGenerals: []
   };
 }
@@ -716,6 +796,7 @@ export function executeCommand(state: GameState, provinceId: number, category: s
 
           const rookieTraining = 35; // 新兵基礎訓練度 35
           const resultLines: string[] = [];
+          let totalAddedToGenerals = 0;
 
           // 若有詳細 allocations 字典則逐一分配，否則指派給單一 targetGeneral
           if (allocations && typeof allocations === 'object' && Object.keys(allocations).length > 0) {
@@ -727,6 +808,7 @@ export function executeCommand(state: GameState, provinceId: number, category: s
                 const oldTraining = targetGen.training || 50;
                 const newSoldiers = Math.min(targetGen.maxTroops, oldSoldiers + count);
                 const actualAdded = newSoldiers - oldSoldiers;
+                totalAddedToGenerals += actualAdded;
 
                 if (newSoldiers > 0) {
                   targetGen.training = Math.round((oldSoldiers * oldTraining + actualAdded * rookieTraining) / newSoldiers);
@@ -743,6 +825,7 @@ export function executeCommand(state: GameState, provinceId: number, category: s
               const oldTraining = targetGen.training || 50;
               const newSoldiers = Math.min(targetGen.maxTroops, oldSoldiers + amount);
               const actualAdded = newSoldiers - oldSoldiers;
+              totalAddedToGenerals += actualAdded;
 
               if (newSoldiers > 0) {
                 targetGen.training = Math.round((oldSoldiers * oldTraining + actualAdded * rookieTraining) / newSoldiers);
@@ -808,6 +891,10 @@ export function executeCommand(state: GameState, provinceId: number, category: s
             gen.soldiers = newAmount;
           }
         }
+
+        const provGens = Object.values(newState.generalsData).filter(g => g.provinceId === provinceId && !g.isWild);
+        const totalCityTroops = provGens.reduce((sum, g) => sum + (g.soldiers || 0), 0);
+
         actingGen.hasActed = true;
         newState.generalsData[actingGen.name] = actingGen;
 
@@ -815,7 +902,7 @@ export function executeCommand(state: GameState, provinceId: number, category: s
           action: '編制兵力',
           type: 'success',
           title: '📋 軍隊編制調整報告',
-          message: `【${actingGen.name}】主持全郡兵力重新編制完成！\n各將領部隊兵額已按軍令重新調配就位。`,
+          message: `【${actingGen.name}】主持全郡兵力重新編制完成！\n城池將領總兵力：${totalCityTroops.toLocaleString()} 人。`,
           actorGeneral: actingGen.name,
         };
       }
@@ -1010,6 +1097,37 @@ export function executeCommand(state: GameState, provinceId: number, category: s
         const updatedList = [...currentList, newBattlePlan];
         newState.pendingBattles = updatedList;
         newState.pendingBattle = updatedList[0] || null;
+
+        // 外交關係衝擊：向他國宣戰
+        if (targetRuler && targetRuler !== state.rulerName) {
+          const isAllied = newState.alliances?.[state.rulerName]?.[targetRuler];
+          if (isAllied) {
+            // 背盟出征
+            if (newState.alliances?.[state.rulerName]) delete newState.alliances[state.rulerName][targetRuler];
+            if (newState.alliances?.[targetRuler]) delete newState.alliances[targetRuler][state.rulerName];
+            if (!newState.diplomacyData) newState.diplomacyData = {};
+            if (!newState.diplomacyData[state.rulerName]) newState.diplomacyData[state.rulerName] = {};
+            if (!newState.diplomacyData[targetRuler]) newState.diplomacyData[targetRuler] = {};
+            newState.diplomacyData[state.rulerName][targetRuler] = 0;
+            newState.diplomacyData[targetRuler][state.rulerName] = 0;
+            
+            // 背盟背信，全境民心 -3
+            Object.values(newState.provincesData).forEach(p => {
+              if (p.rulerName === state.rulerName) {
+                p.loyalty = Math.max(0, p.loyalty - 3);
+              }
+            });
+            newState.lastActionResult = {
+              action: '發動戰役',
+              title: '⚔️ 破盟出征：天下震駭！',
+              message: `我軍悍然向同盟國【${targetRuler}】發起戰端！同盟條約徹底瓦解，雙方友好度驟降至 0！百姓感念失信，我方各郡民心微降 3 點！`,
+              type: 'info'
+            };
+          } else {
+            // 普通開戰：友好度大幅扣減 35~45 點
+            adjustDiplomacyRelation(newState, state.rulerName, targetRuler, -(35 + Math.floor(Math.random() * 11)));
+          }
+        }
       }
     } else if (action === '撤銷出征' || action === '取消戰役') {
       const currentList = newState.pendingBattles || (newState.pendingBattle ? [newState.pendingBattle] : []);
@@ -1104,21 +1222,26 @@ export function executeCommand(state: GameState, provinceId: number, category: s
       let successRate = Math.floor(50 + (atkInt - maxDefInt) * 1.2);
       successRate = Math.max(10, Math.min(90, successRate));
       
+      const rulerName = targetProv.rulerName;
       if (Math.random() * 100 < successRate) {
         const dropPopLoyalty = Math.floor(Math.random() * 11) + 15; // 15~25
         targetProv.loyalty = Math.max(0, targetProv.loyalty - dropPopLoyalty);
 
+        if (rulerName) adjustDiplomacyRelation(newState, state.rulerName, rulerName, -10);
+
         newState.lastActionResult = {
           action: '流言煽動',
           title: '🗣️ 流言煽動：風聲鶴唳！',
-          message: `【${actingGen.name}】潛入【${targetProvName}】散布謠言成功！敵軍陣腳大亂，該郡民心下降 ${dropPopLoyalty} 點！`,
+          message: `【${actingGen.name}】潛入【${targetProvName}】散布謠言成功！敵軍陣腳大亂，該郡民心下降 ${dropPopLoyalty} 點！（兩國友好度 -10）`,
           type: 'success'
         };
       } else {
+        if (rulerName) adjustDiplomacyRelation(newState, state.rulerName, rulerName, -5);
+
         newState.lastActionResult = {
           action: '流言煽動',
           title: '❌ 計策失敗：流言平息',
-          message: `【${actingGen.name}】於【${targetProvName}】散布謠言，被敵軍智將識破並迅速平息，未能造成影響。`,
+          message: `【${actingGen.name}】於【${targetProvName}】散布謠言，被敵軍智將識破並迅速平息，未能造成影響。（因走漏風聲，兩國友好度 -5）`,
           type: 'failure'
         };
       }
@@ -1147,23 +1270,28 @@ export function executeCommand(state: GameState, provinceId: number, category: s
         targetProv.gold = Math.floor(targetProv.gold * (0.7 + Math.random() * 0.1));
         targetProv.food = Math.floor(targetProv.food * (0.7 + Math.random() * 0.1));
 
+        if (rulerName) adjustDiplomacyRelation(newState, state.rulerName, rulerName, -25);
+
         newState.lastActionResult = {
           action: '驅虎吞狼',
           title: '📜 驅虎吞狼：兩虎相爭！',
-          message: `【${actingGen.name}】出使挑撥成功！【${rulerName}】受迫對外發起戰端，導致【${targetProvName}】兵力與錢糧皆有折損！`,
+          message: `【${actingGen.name}】出使挑撥成功！【${rulerName}】受迫對外發起戰端，導致【${targetProvName}】兵力與錢糧皆有折損！（兩國友好度 -25）`,
           type: 'success'
         };
       } else {
+        if (rulerName) adjustDiplomacyRelation(newState, state.rulerName, rulerName, -10);
+
         newState.lastActionResult = {
           action: '驅虎吞狼',
           title: '❌ 計策失敗：挑撥無效',
-          message: `【${actingGen.name}】試圖挑撥【${rulerName}】興兵，但被敵方識破其計，無功而返。`,
+          message: `【${actingGen.name}】試圖挑撥【${rulerName}】興兵，但被敵方識破其計，無功而返。（敵方君主極度不悅，友好度 -10）`,
           type: 'failure'
         };
       }
     } else if (action === '離間君臣' && targetProv && payload?.targetGeneralName && province.gold >= 400) {
       province.gold -= 400;
       const targetGen = newState.generalsData[payload.targetGeneralName];
+      const rulerName = targetProv.rulerName;
       if (targetGen) {
         const defInt = targetGen.int + getGeneralItemBonus(targetGen.name, state.currentScenario).intBonus;
         const targetAmbition = targetGen.ambition !== undefined ? targetGen.ambition : getGeneralAmbition(targetGen.name);
@@ -1181,19 +1309,22 @@ export function executeCommand(state: GameState, provinceId: number, category: s
           drop = Math.max(1, Math.min(20, drop)); // Clamp 1~20
           
           targetGen.loyalty = Math.max(0, targetGen.loyalty - drop);
+          if (rulerName) adjustDiplomacyRelation(newState, state.rulerName, rulerName, -15);
           
           newState.lastActionResult = {
             action: '離間君臣',
             title: '🎭 離間君臣：敵將生疑！',
-            message: `【${actingGen.name}】流言離間奏效！【${targetGen.name}】對其君主心生芥蒂，忠誠度下降 ${drop} 點（當前忠誠降至 ${targetGen.loyalty}）！`,
+            message: `【${actingGen.name}】流言離間奏效！【${targetGen.name}】對其君主心生芥蒂，忠誠度下降 ${drop} 點（當前忠誠降至 ${targetGen.loyalty}）！（兩國友好度 -15）`,
             type: 'success'
           };
           newState.generalsData[targetGen.name] = targetGen;
         } else {
+          if (rulerName) adjustDiplomacyRelation(newState, state.rulerName, rulerName, -8);
+
           newState.lastActionResult = {
             action: '離間君臣',
             title: '❌ 計策失敗：君臣同心',
-            message: `【${actingGen.name}】試圖離間【${targetGen.name}】，然其對君主忠心不二，計策未能生效。`,
+            message: `【${actingGen.name}】試圖離間【${targetGen.name}】，然其對君主忠心不二，計策未能生效。（兩國友好度 -8）`,
             type: 'failure'
           };
         }
@@ -1208,14 +1339,14 @@ export function executeCommand(state: GameState, provinceId: number, category: s
         tProvInfo.connections.forEach(cid => {
            const cp = newState.provincesData[cid];
            if (cp && cp.rulerName === state.rulerName) {
-              let troops = cp.soldiers || 0;
+              let troops = 0;
               Object.values(newState.generalsData).filter(g => g.provinceId === cid && !g.isWild).forEach(g => troops += g.soldiers);
               alliedSurroundingTroops += troops;
            }
         });
       }
       
-      let enemyTotalTroops = targetProv.soldiers || 0;
+      let enemyTotalTroops = 0;
       Object.values(newState.generalsData).filter(g => g.provinceId === targetProvId && !g.isWild).forEach(g => enemyTotalTroops += g.soldiers);
       
       const troopRatio = enemyTotalTroops > 0 ? alliedSurroundingTroops / enemyTotalTroops : 10;
@@ -1243,10 +1374,12 @@ export function executeCommand(state: GameState, provinceId: number, category: s
           type: 'success'
         };
       } else {
+        if (rulerName) adjustDiplomacyRelation(newState, state.rulerName, rulerName, -15);
+
         newState.lastActionResult = {
           action: '勸降逼降',
           title: '❌ 計策失敗：寧死不屈',
-          message: `【${actingGen.name}】入城勸降，然【${rulerName}】心存僥倖，寧死不屈，悍然將使者逐出城外！`,
+          message: `【${actingGen.name}】入城勸降，然【${rulerName}】心存僥倖，寧死不屈，悍然將使者逐出城外！（君主震怒，兩國友好度 -15）`,
           type: 'failure'
         };
       }
@@ -1298,10 +1431,11 @@ export function executeCommand(state: GameState, provinceId: number, category: s
         
         // Condition: Requires relationship >= 90
         if (currentRel < 90) {
+          adjustDiplomacyRelation(newState, state.rulerName, rulerName, -5);
           newState.lastActionResult = {
             action: '同盟締結',
             title: '❌ 同盟破裂：好感不足',
-            message: `【${actingGen.name}】雖奉上厚禮，但兩國當前友好度（${currentRel}）未達 90，【${rulerName}】斷然拒絕了同盟之議！`,
+            message: `【${actingGen.name}】雖奉上厚禮，但兩國當前友好度（${currentRel}）未達 90，【${rulerName}】斷然拒絕了同盟之議！（友好度 -5）`,
             type: 'failure'
           };
         } else {
@@ -1322,7 +1456,7 @@ export function executeCommand(state: GameState, provinceId: number, category: s
             if (!newState.alliances[rulerName]) newState.alliances[rulerName] = {};
             newState.alliances[rulerName][state.rulerName] = expiryAbsoluteMonth;
 
-            targetProv.gold += 2000; // Only give gold if they accepted, or kept either way? (Usually kept). Let's keep it here.
+            targetProv.gold += 2000;
             
             newState.lastActionResult = {
               action: '同盟締結',
@@ -1331,11 +1465,90 @@ export function executeCommand(state: GameState, provinceId: number, category: s
               type: 'success'
             };
           } else {
+            adjustDiplomacyRelation(newState, state.rulerName, rulerName, -5);
             newState.lastActionResult = {
               action: '同盟締結',
               title: '❌ 同盟破裂：嚴詞拒絕',
-              message: `【${actingGen.name}】奉上厚禮，但【${rulerName}】對我國仍抱持疑慮，拒絕了同盟之議！`,
+              message: `【${actingGen.name}】奉上厚禮，但【${rulerName}】對我國仍抱持疑慮，拒絕了同盟之議！（友好度 -5）`,
               type: 'failure'
+            };
+          }
+        }
+      }
+    } else if (action === '撕毀同盟' && targetProv) {
+      const rulerName = targetProv.rulerName;
+      if (rulerName && rulerName !== state.rulerName) {
+        const isAllied = newState.alliances?.[state.rulerName]?.[rulerName];
+        if (isAllied) {
+          if (newState.alliances?.[state.rulerName]) delete newState.alliances[state.rulerName][rulerName];
+          if (newState.alliances?.[rulerName]) delete newState.alliances[rulerName][state.rulerName];
+          
+          if (!newState.diplomacyData) newState.diplomacyData = {};
+          if (!newState.diplomacyData[state.rulerName]) newState.diplomacyData[state.rulerName] = {};
+          if (!newState.diplomacyData[rulerName]) newState.diplomacyData[rulerName] = {};
+          newState.diplomacyData[state.rulerName][rulerName] = 15;
+          newState.diplomacyData[rulerName][state.rulerName] = 15;
+          
+          newState.lastActionResult = {
+            action: '撕毀同盟',
+            title: '📜 廢棄盟約：宣告決裂',
+            message: `君主下詔：正式廢黜與【${rulerName}】之同盟條約！兩國互不侵犯盟約宣告終止，關係降至 15（摩擦戒備狀態），今後軍事調度不再受同盟限制。`,
+            type: 'info'
+          };
+        } else {
+          newState.lastActionResult = {
+            action: '撕毀同盟',
+            title: '❌ 無法撕毀：非同盟國',
+            message: `我國當前並未與【${rulerName}】締結同盟，毋須撕毀盟約。`,
+            type: 'failure'
+          };
+        }
+      }
+    } else if (action === '請求援軍' && targetProv) {
+      const rulerName = targetProv.rulerName;
+      if (rulerName && actingGen) {
+        const isAllied = newState.alliances?.[state.rulerName]?.[rulerName];
+        const currentRel = newState.diplomacyData?.[state.rulerName]?.[rulerName] ?? 50;
+        
+        if (!isAllied) {
+          newState.lastActionResult = {
+            action: '請求援軍',
+            title: '❌ 請求失敗：非同盟國',
+            message: `【${actingGen.name}】前往交涉，但【${rulerName}】以「兩國非互保同盟」為由，婉拒提供軍資援助！`,
+            type: 'failure'
+          };
+        } else if (currentRel < 70) {
+          newState.lastActionResult = {
+            action: '請求援軍',
+            title: '❌ 請求未果：情誼轉薄',
+            message: `【${actingGen.name}】前往求援，然【${rulerName}】認為當前兩國友好度（${currentRel}）尚不足以撥發軍資，拒絕了援助請求。`,
+            type: 'failure'
+          };
+        } else {
+          const envoyStats = actingGen.pol + actingGen.cha + getGeneralItemBonus(actingGen.name, state.currentScenario).polBonus + getGeneralItemBonus(actingGen.name, state.currentScenario).chaBonus;
+          if (envoyStats < 140) {
+            newState.lastActionResult = {
+              action: '請求援軍',
+              title: '❌ 請求受阻：使節才能不足',
+              message: `【${actingGen.name}】（政+魅: ${envoyStats}）才能未達 140 門檻，未能說服【${rulerName}】幕僚，求援無功而返。`,
+              type: 'failure'
+            };
+          } else {
+            const aidGold = Math.min(1500, Math.max(500, Math.floor(targetProv.gold * 0.3)));
+            const aidFood = Math.min(15000, Math.max(5000, Math.floor(targetProv.food * 0.3)));
+            targetProv.gold -= aidGold;
+            targetProv.food -= aidFood;
+            province.gold += aidGold;
+            province.food += aidFood;
+            
+            // Aid consumes some diplomatic relationship
+            adjustDiplomacyRelation(newState, state.rulerName, rulerName, -5);
+            
+            newState.lastActionResult = {
+              action: '請求援軍',
+              title: '🤝 盟邦來援：撥付錢糧物資！',
+              message: `【${actingGen.name}】憑藉過人口才成功說服盟友【${rulerName}】！【${rulerName}】下令自【${targetProvName}】緊急撥調【${aidGold} 金】與【${aidFood} 糧】馳援我軍！（兩國友好度 -5）`,
+              type: 'success'
             };
           }
         }
@@ -1378,29 +1591,29 @@ export function executeCommand(state: GameState, provinceId: number, category: s
       const hasRulerInProv = Object.values(newState.generalsData).some(g => g.provinceId === targetProvId && g.isRuler);
       if (hasRulerInProv) return state;
 
-      // 清除同郡其他武將的太守職稱
+      // 清除同郡其他武將的太守職稱，恢復為大將（不縮減兵力或兵力上限）
       Object.values(newState.generalsData).forEach(g => {
         if (g.provinceId === targetProvId && g.role === '太守' && g.name !== actingGen.name) {
           newState.generalsData[g.name] = { 
             ...g, 
-            role: '將領', 
-            maxTroops: 2500,
-            soldiers: Math.min(g.soldiers, 2500)
+            role: '大將'
           };
         }
       });
 
+      // 指定太守：增加忠誠度 +10（上限 100），允許城市自治，不修改武將兵力上限
+      const oldLoyalty = actingGen.loyalty || 80;
+      const newLoyalty = Math.min(100, oldLoyalty + 10);
+      const loyaltyGain = newLoyalty - oldLoyalty;
+
       actingGen.role = '太守';
-      actingGen.maxTroops = 4000;
-      if (actingGen.soldiers < 4000) {
-        actingGen.soldiers = 4000;
-      }
+      actingGen.loyalty = newLoyalty;
       newState.generalsData[actingGen.name] = actingGen;
 
       newState.lastActionResult = {
         action: '指定太守',
         title: '📜 授任冊封：任命太守',
-        message: `君主下詔：正式任用【${actingGen.name}】為【${provName}】太守！其帶兵上限提升至 4000 兵馬，坐鎮指揮郡縣軍政。`,
+        message: `君主下詔：正式冊封【${actingGen.name}】為【${provName}】太守！\n• 獲得太守殊榮，忠誠度提升至 ${newLoyalty} (+${loyaltyGain})\n• 該郡已具備太守坐鎮，君主可授權「郡縣自治」委託治理。`,
         type: 'success'
       };
       return newState;
@@ -1481,17 +1694,25 @@ export function executeCommand(state: GameState, provinceId: number, category: s
           targetGen.hasActed = true;
           newState.generalsData[targetGeneralName] = targetGen;
 
+          if (tRuler && tRuler !== '敵君') {
+            adjustDiplomacyRelation(newState, state.rulerName, tRuler, -12);
+          }
+
           newState.lastActionResult = {
             action: '登用他國人才',
             title: '🎉 策反登用成功：名將歸順！',
-            message: `【${actingGen.name}】親赴【${tProvName}】暗中密會，憑藉三寸不爛之舌與浩蕩皇威，說服敵將【${targetGeneralName}】棄暗投明！【${targetGeneralName}】正式歸順我軍麾下（初始忠誠：${targetGen.loyalty}）！`,
+            message: `【${actingGen.name}】親赴【${tProvName}】暗中密會，憑藉三寸不爛之舌與浩蕩皇威，說服敵將【${targetGeneralName}】棄暗投明！【${targetGeneralName}】正式歸順我軍麾下（初始忠誠：${targetGen.loyalty}）！（敵君震怒，友好度 -12）`,
             type: 'success'
           };
         } else {
+          if (tRuler && tRuler !== '敵君') {
+            adjustDiplomacyRelation(newState, state.rulerName, tRuler, -5);
+          }
+
           newState.lastActionResult = {
             action: '登用他國人才',
             title: '❌ 策反登用失敗：敵將未動',
-            message: `【${actingGen.name}】密赴【${tProvName}】試圖遊說【${targetGeneralName}】，然【${targetGeneralName}】感念現君主【${tRuler}】舊恩（忠誠度: ${targetGen.loyalty}），拒絕棄主投效。`,
+            message: `【${actingGen.name}】密赴【${tProvName}】試圖遊說【${targetGeneralName}】，然【${targetGeneralName}】感念現君主【${tRuler}】舊恩（忠誠度: ${targetGen.loyalty}），拒絕棄主投效。（兩國友好度 -5）`,
             type: 'failure'
           };
         }
@@ -1815,13 +2036,16 @@ function executeProvinceAI(
                  updatedP.gold -= goldCost;
                  updatedP.population -= amount;
                  
-                 const spaceInGen = (gen.maxTroops || 10000) - (gen.soldiers || 0);
-                 if (spaceInGen > 0) {
-                    const toGen = Math.min(spaceInGen, amount);
-                    gen.soldiers = (gen.soldiers || 0) + toGen;
-                    updatedP.soldiers = (updatedP.soldiers || 0) + (amount - toGen);
-                 } else {
-                    updatedP.soldiers = (updatedP.soldiers || 0) + amount;
+                 let remainingRecruits = amount;
+                 for (const targetG of aiGenerals) {
+                   if (remainingRecruits <= 0) break;
+                   const space = (targetG.maxTroops || 10000) - (targetG.soldiers || 0);
+                   if (space > 0) {
+                     const toAdd = Math.min(space, remainingRecruits);
+                     targetG.soldiers = (targetG.soldiers || 0) + toAdd;
+                     newState.generalsData[targetG.name] = targetG;
+                     remainingRecruits -= toAdd;
+                   }
                  }
 
                  updatedP.loyalty = Math.max(0, updatedP.loyalty - 3);
@@ -1837,9 +2061,6 @@ function executeProvinceAI(
           const increase = Math.min(7, Math.max(1, strFactor + Math.floor(Math.random() * 2) + 1));
           if ((gen.soldiers || 0) > 0 && (gen.training || 0) < 80) {
               gen.training = Math.min(100, (gen.training || 0) + increase);
-              return true;
-          } else if ((updatedP.soldiers || 0) > 0 && (updatedP.training || 0) < 80) {
-              updatedP.training = Math.min(100, (updatedP.training || 0) + increase);
               return true;
           }
           return false;
@@ -1906,6 +2127,358 @@ function executeProvinceAI(
   });
 }
 
+function executeRulerStrategicAI(newState: GameState, rulerName: string) {
+  const myProvinces = Object.values(newState.provincesData).filter(p => p.rulerName === rulerName);
+  if (myProvinces.length === 0) return;
+
+  const AGGRESSIVE_RULERS = ['曹操', '董卓', '袁紹', '孫堅', '孫策', '呂布', '公孫瓚', '馬騰', '袁術'];
+  const CAUTIOUS_RULERS = ['劉表', '劉璋', '陶謙', '孔融', '韓馥', '嚴白虎', '王朗', '劉繇'];
+
+  const isAggressive = AGGRESSIVE_RULERS.includes(rulerName);
+  const isCautious = CAUTIOUS_RULERS.includes(rulerName);
+
+  const targetMap = new Map<number, number[]>();
+  for (const p of myProvinces) {
+    const pBase = provinces.find(x => x.id === p.id);
+    if (!pBase) continue;
+    for (const connId of pBase.connections) {
+      if (newState.provincesData[connId]?.rulerName !== rulerName) {
+        if (!targetMap.has(connId)) targetMap.set(connId, []);
+        if (!targetMap.get(connId)!.includes(p.id)) {
+           targetMap.get(connId)!.push(p.id);
+        }
+      }
+    }
+  }
+
+  // 1. 空城進駐處理 (Empty Cities Expansion)
+  const emptyTargetIds = Array.from(targetMap.keys()).filter(tId => !newState.provincesData[tId]?.rulerName);
+  if (emptyTargetIds.length > 0) {
+    if (Math.random() < 0.6) {
+      for (const targetId of emptyTargetIds) {
+        const originIds = targetMap.get(targetId) || [];
+        const tState = newState.provincesData[targetId];
+        if (!tState) continue;
+
+        const validOrigins = originIds.map(oId => {
+          const pState = newState.provincesData[oId];
+          const gens = Object.values(newState.generalsData).filter(
+            g => g.provinceId === oId && !g.hasActed && !g.isWild && !g.activeTask
+          );
+          gens.sort((a, b) => (b.str + b.int) - (a.str + a.int));
+          return { pState, gens };
+        }).filter(f => f.gens.length >= 2 || (myProvinces.length === 1 && f.gens.length >= 2));
+
+        if (validOrigins.length === 0) continue;
+        validOrigins.sort((a, b) => b.gens.length - a.gens.length);
+        const bestOrigin = validOrigins[0];
+
+        const dispatchGens = bestOrigin.gens.slice(0, Math.min(2, bestOrigin.gens.length - 1));
+        if (dispatchGens.length === 0) continue;
+
+        const totalTroops = dispatchGens.reduce((s, g) => s + (g.soldiers || 0), 0);
+        const reqFood = Math.floor(totalTroops * 0.1);
+
+        if (bestOrigin.pState.food < reqFood + 100) continue;
+
+        bestOrigin.pState.food -= reqFood;
+        tState.rulerName = rulerName;
+        tState.food = (tState.food || 0) + reqFood;
+        dispatchGens.forEach(g => {
+          g.provinceId = targetId;
+          g.hasActed = true;
+          newState.generalsData[g.name] = g;
+        });
+
+        if (!newState.monthlyEvents) newState.monthlyEvents = [];
+        const tName = provinces.find(p => p.id === targetId)?.name || '城池';
+        newState.monthlyEvents.push("【擴張】" + rulerName + " 派遣部隊，兵不血刃進駐了空城 " + tName + "。");
+        break;
+      }
+    }
+  }
+
+  // 2. 軍事進攻判定 (Military Invasion)
+  const baseInvasionChance = isAggressive ? 0.75 : (isCautious ? 0.30 : 0.50);
+  if (Math.random() > baseInvasionChance) {
+    return;
+  }
+
+  const enemyTargets = Array.from(targetMap.entries())
+    .map(([targetId, originIds]) => {
+      const pData = newState.provincesData[targetId];
+      if (!pData || !pData.rulerName) return null;
+
+      const enemyRuler = pData.rulerName;
+      const relation = newState.diplomacyData?.[rulerName]?.[enemyRuler] ?? 50;
+      const isAllied = !!newState.alliances?.[rulerName]?.[enemyRuler];
+
+      if (isAllied || relation >= 70) return null;
+
+      const enemyGenerals = Object.values(newState.generalsData).filter(
+        g => g.provinceId === targetId && !g.isWild
+      );
+      const enemyTroops = (pData.soldiers || 0) + enemyGenerals.reduce((sum, g) => sum + (g.soldiers || 0), 0);
+
+      let score = 20000 - enemyTroops + (100 - relation) * 30;
+      if (enemyTroops < 1500) score += 8000;
+      if (pData.food < 1000) score += 3000;
+      if (isAggressive) score += 5000;
+
+      return { targetId, enemyRuler, originIds, score, enemyTroops, enemyGenerals, pData };
+    })
+    .filter(t => t !== null)
+    .sort((a, b) => b!.score - a!.score);
+
+  if (enemyTargets.length === 0) return;
+
+  for (const target of enemyTargets) {
+    if (!target) continue;
+    const tState = target.pData;
+    const enemyRuler = target.enemyRuler;
+    const enemyGenerals = target.enemyGenerals;
+    const enemyTroops = target.enemyTroops;
+
+    const originForces = target.originIds.map(oId => {
+      const pState = newState.provincesData[oId];
+      const gens = Object.values(newState.generalsData).filter(
+        g => g.provinceId === oId && !g.hasActed && !g.isWild && !g.activeTask
+      );
+      gens.sort((a, b) => (b.str + b.int) - (a.str + a.int));
+      return { pState, gens };
+    }).filter(f => f.gens.length >= 1 && (f.gens.length >= 2 || f.gens[0].soldiers >= 1000));
+
+    if (originForces.length === 0) continue;
+
+    let attackGenerals: GeneralState[] = [];
+    const attackOrigins = originForces.slice(0, 2);
+
+    for (const o of attackOrigins) {
+      if (o.gens.length >= 2) {
+        attackGenerals.push(...o.gens.slice(0, o.gens.length - 1));
+      } else if (o.gens.length === 1 && (o.gens[0].soldiers >= 1000 || attackOrigins.length > 1)) {
+        attackGenerals.push(o.gens[0]);
+      }
+    }
+
+    attackGenerals.sort((a, b) => (b.str + b.int) - (a.str + a.int));
+    attackGenerals = attackGenerals.slice(0, 10);
+    if (attackGenerals.length === 0) continue;
+
+    const attackTroops = attackGenerals.reduce((sum, g) => sum + (g.soldiers || 0), 0);
+    if (attackTroops < 600) continue;
+
+    const avgAtkStr = attackGenerals.reduce((sum, g) => sum + g.str, 0) / attackGenerals.length;
+    const attackPower = attackTroops * (avgAtkStr / 70) + (attackGenerals.length * 100);
+
+    const avgDefStr = enemyGenerals.length > 0
+      ? enemyGenerals.reduce((sum, g) => sum + g.str, 0) / enemyGenerals.length
+      : 50;
+    const enemyPower = enemyTroops * (avgDefStr / 70) + (enemyGenerals.length * 100);
+
+    let requiredRatio = isAggressive ? 1.05 : (isCautious ? 1.4 : 1.2);
+    if (enemyTroops < 1500) {
+      requiredRatio = Math.max(0.95, requiredRatio - 0.2);
+    }
+
+    if (attackPower < enemyPower * requiredRatio) {
+      continue;
+    }
+
+    const reqFood = Math.floor(attackTroops * 0.1);
+    let totalFoodAvail = attackOrigins.reduce((sum, o) => sum + Math.max(0, o.pState.food - 50), 0);
+    if (totalFoodAvail < reqFood) {
+      continue;
+    }
+
+    let remainingFoodToDeduct = reqFood;
+    let attackerResourcesDeducted: Record<number, { gold: number; food: number }> = {};
+    for (const o of attackOrigins) {
+      if (remainingFoodToDeduct <= 0) break;
+      const take = Math.min(Math.max(0, o.pState.food - 50), remainingFoodToDeduct);
+      if (take > 0) {
+        o.pState.food -= take;
+        remainingFoodToDeduct -= take;
+        attackerResourcesDeducted[o.pState.id] = { gold: 0, food: take };
+      }
+    }
+
+    const targetName = provinces.find(p => p.id === target.targetId)?.name || '未知';
+    if (!newState.monthlyEvents) newState.monthlyEvents = [];
+
+    // 若被進攻方為玩家主公，所有守城部署與援軍調度全權交由玩家在【緊急軍情】防禦面板中決定
+    if (enemyRuler === newState.rulerName) {
+      const attackerGeneralOrigins: Record<string, number> = {};
+      attackGenerals.forEach(g => attackerGeneralOrigins[g.name] = g.provinceId);
+
+      const defenderGeneralOrigins: Record<string, number> = {};
+      enemyGenerals.forEach(g => defenderGeneralOrigins[g.name] = target.targetId);
+
+      const defensePlan: PendingBattlePlan = {
+        id: "def_" + Date.now() + "_" + Math.random(),
+        isDefense: true,
+        attackerRuler: rulerName,
+        defenderRuler: enemyRuler,
+        targetProvinceId: target.targetId,
+        attackerProvinceId: attackOrigins[0].pState.id,
+        attackerReinforceProvinceId: attackOrigins.length > 1 ? attackOrigins[1].pState.id : null,
+        attackingGenerals: attackGenerals.map(g => g.name),
+        defendingGenerals: enemyGenerals.map(g => g.name), // 初始由主城駐將列入，玩家可在防守介面自由調派鄰近援軍
+        attackerGold: 0,
+        attackerFood: reqFood,
+        resourcesDeducted: attackerResourcesDeducted,
+        defenderResourcesDeducted: {},
+        attackerGeneralOrigins,
+        defenderGeneralOrigins
+      };
+
+      if (!newState.pendingDefenses) newState.pendingDefenses = [];
+      newState.pendingDefenses.push(defensePlan);
+      newState.monthlyEvents.push("🚨【緊急軍情】" + rulerName + "軍 向我方 " + targetName + " 發起了猛烈攻勢！請主公定奪！");
+      break;
+    }
+
+    // 若被進攻方為電腦 AI 勢力，則由 AI 演算判斷是否調動鄰近城池或同盟援軍
+    let finalEnemyPower = enemyPower;
+    const reinforcementEventMessages: string[] = [];
+    const defenderReinforcementGenerals: GeneralState[] = [];
+    let defenderResourcesDeducted: Record<number, { gold: number; food: number }> = {};
+
+    const targetProvinceBase = provinces.find(x => x.id === target.targetId);
+    if (targetProvinceBase) {
+      for (const connId of targetProvinceBase.connections) {
+        const neighborState = newState.provincesData[connId];
+        if (!neighborState || !neighborState.rulerName) continue;
+
+        const neighborRuler = neighborState.rulerName;
+        if (neighborRuler === rulerName) continue;
+
+        const isSelf = neighborRuler === enemyRuler;
+        const defRelation = newState.diplomacyData?.[enemyRuler]?.[neighborRuler] || 50;
+        const isDefAllied = newState.alliances?.[enemyRuler]?.[neighborRuler];
+
+        let willHelp = false;
+        if (isSelf) {
+          willHelp = true;
+        } else if (isDefAllied) {
+          willHelp = Math.random() < 0.8;
+        } else if (defRelation > 70) {
+          willHelp = Math.random() < 0.5;
+        }
+
+        if (willHelp) {
+          const neighborGens = Object.values(newState.generalsData).filter(
+            g => g.provinceId === connId && !g.hasActed && !g.isWild && !g.activeTask
+          );
+          neighborGens.sort((a, b) => (b.str + b.int) - (a.str + a.int));
+
+          if (neighborGens.length >= 2 || (isSelf && neighborGens.length >= 1)) {
+            const dispatchGens = neighborGens.slice(0, Math.min(2, Math.max(1, neighborGens.length - 1)));
+            const dispatchTroops = dispatchGens.reduce((s, g) => s + (g.soldiers || 0), 0);
+
+            if (dispatchTroops >= 800 || isSelf) {
+              const reqHelpFood = Math.floor(dispatchTroops * 0.1);
+              if (neighborState.food >= reqHelpFood + 50) {
+                neighborState.food -= reqHelpFood;
+                defenderResourcesDeducted[connId] = { gold: 0, food: reqHelpFood };
+                defenderReinforcementGenerals.push(...dispatchGens);
+
+                const avgReinforceStr = dispatchGens.reduce((sum, g) => sum + g.str, 0) / dispatchGens.length;
+                const addPower = dispatchTroops * (avgReinforceStr / 70) + (dispatchGens.length * 100);
+                finalEnemyPower += addPower;
+
+                dispatchGens.forEach(g => {
+                  g.hasActed = true;
+                  (g as any).originalProvinceId = g.provinceId;
+                  newState.generalsData[g.name] = g;
+                });
+
+                if (isSelf) {
+                  reinforcementEventMessages.push("【馳援】" + neighborRuler + " 從鄰近城池急調 " + dispatchGens.length + " 名將領趕赴戰場！");
+                } else {
+                  reinforcementEventMessages.push("【同盟出兵】" + neighborRuler + " 顧念情誼，派 " + dispatchGens[0].name + " 等 " + dispatchGens.length + " 名將領支援 " + enemyRuler + "！");
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    if (reinforcementEventMessages.length > 0) {
+      newState.monthlyEvents.push("【求援】" + enemyRuler + " 遭到攻擊，向鄰近城池發出求救信！");
+      newState.monthlyEvents.push(...reinforcementEventMessages);
+    }
+
+    if (attackPower > finalEnemyPower * 1.05) {
+      tState.rulerName = rulerName;
+      tState.food = Math.floor(tState.food * 0.5) + reqFood;
+      tState.gold = Math.floor(tState.gold * 0.5);
+      tState.soldiers = Math.floor((tState.soldiers || 0) * 0.2);
+      tState.loyalty = Math.max(0, tState.loyalty - 20);
+
+      attackGenerals.forEach(g => {
+        g.provinceId = target.targetId;
+        g.hasActed = true;
+        newState.generalsData[g.name] = g;
+      });
+
+      const enemyCapital = Object.values(newState.provincesData).find(p => p.rulerName === enemyRuler && p.id !== target.targetId);
+      const allDefendingGenerals = [...enemyGenerals, ...defenderReinforcementGenerals];
+
+      allDefendingGenerals.forEach(g => {
+        if (g.isRuler) {
+          if (enemyCapital) { g.provinceId = enemyCapital.id; }
+        } else if (Math.random() < 0.5 || (!enemyCapital && !(g as any).originalProvinceId)) {
+          g.loyalty = Math.max(10, g.loyalty - 30);
+          g.soldiers = 0;
+          g.provinceId = target.targetId;
+        } else {
+          g.provinceId = (g as any).originalProvinceId || enemyCapital!.id;
+          g.soldiers = 0;
+        }
+        delete (g as any).originalProvinceId;
+        newState.generalsData[g.name] = g;
+      });
+
+      newState.monthlyEvents.push("⚔️【戰報】" + rulerName + "軍 猛攻 " + enemyRuler + " 的 " + targetName + "！守軍不敵，城池易主！");
+    } else {
+      attackGenerals.forEach(g => {
+        g.soldiers = Math.floor((g.soldiers || 0) * 0.6);
+        g.hasActed = true;
+        newState.generalsData[g.name] = g;
+      });
+
+      const allDefendingGenerals = [...enemyGenerals, ...defenderReinforcementGenerals];
+      allDefendingGenerals.forEach(g => {
+        g.soldiers = Math.floor((g.soldiers || 0) * 0.7);
+        if ((g as any).originalProvinceId) {
+          g.provinceId = (g as any).originalProvinceId;
+          delete (g as any).originalProvinceId;
+        }
+        newState.generalsData[g.name] = g;
+      });
+
+      tState.soldiers = Math.floor((tState.soldiers || 0) * 0.7);
+
+      if (reinforcementEventMessages.length > 0) {
+        newState.monthlyEvents.push("🛡️【戰報】" + rulerName + "軍 進犯 " + targetName + "！因援軍及時抵達，" + rulerName + "軍 腹背受敵，鎩羽而歸！");
+      } else {
+        newState.monthlyEvents.push("🛡️【戰報】" + rulerName + "軍 進犯 " + targetName + "，遭到 " + enemyRuler + "軍 頑強抵抗，鎩羽而歸！");
+      }
+    }
+
+    if (newState.diplomacyData && newState.diplomacyData[rulerName]) {
+      newState.diplomacyData[rulerName][enemyRuler] = 0;
+    }
+    if (newState.diplomacyData && newState.diplomacyData[enemyRuler]) {
+      newState.diplomacyData[enemyRuler][rulerName] = 0;
+    }
+
+    break;
+  }
+}
+
 export function processAITurn(state: GameState): GameState {
   let newState = { 
      ...state, 
@@ -1913,6 +2486,14 @@ export function processAITurn(state: GameState): GameState {
      generalsData: { ...state.generalsData } 
   };
   
+  // 1. 戰略層面 (Expansion & Invasion)
+  const aiRulers = Array.from(new Set(Object.values(newState.provincesData).map(p => p.rulerName).filter(Boolean))) as string[];
+  for (const ruler of aiRulers) {
+    if (ruler !== state.rulerName) { // Exclude player
+       executeRulerStrategicAI(newState, ruler);
+    }
+  }
+
   Object.values(newState.provincesData).forEach(p => {
     const isEnemyAI = p.rulerName && p.rulerName !== state.rulerName;
     const isPlayerAutonomous = p.rulerName === state.rulerName && p.isAutonomous;
@@ -1951,8 +2532,11 @@ export function getEstimatedMonthlyFoodConsumption(province: ProvinceState, gene
 }
 
 export function advanceTime(state: GameState): GameState {
+  // Clear monthly events log AT THE START so processAITurn can add events
+  let newState: GameState = { ...state, monthlyEvents: [] };
+  
   // 1. Process AI turns for non-player provinces
-  let newState = processAITurn(state);
+  newState = processAITurn(newState);
   
   // 2. Advance time
   let newMonth = newState.month + 1;
@@ -1966,9 +2550,6 @@ export function advanceTime(state: GameState): GameState {
   const seasonIndex = Math.floor((newMonth - 1) / 3);
   const newSeason = SEASONS[seasonIndex];
   
-  // Clear monthly events log
-  newState.monthlyEvents = [];
-
   // 3. Process time-based events & seasonal tax/harvest
   Object.values(newState.provincesData).forEach(p => {
      const updatedP = { ...p };
@@ -2264,6 +2845,76 @@ export function advanceTime(state: GameState): GameState {
     });
   }
 
+  // 5.5 外交系統月度演進 (同盟期滿檢測、自然衰減漂移、鄰邦主動外交事件)
+  const currentAbsoluteMonth = newYear * 12 + newMonth;
+  const expiredAllianceMessages: string[] = [];
+  const diplomaticEventMessages: string[] = [];
+
+  // 1. 同盟期滿檢測
+  if (newState.alliances) {
+    Object.entries(newState.alliances).forEach(([r1, map]) => {
+      Object.entries(map).forEach(([r2, expiryMonth]) => {
+        if (expiryMonth <= currentAbsoluteMonth) {
+          delete newState.alliances![r1][r2];
+          if (r1 === state.rulerName) {
+            expiredAllianceMessages.push(`我國與【${r2}】簽署之互不侵犯同盟已正式屆滿！兩國恢復自由往來關係。`);
+          }
+        }
+      });
+    });
+  }
+
+  // 2. 外交關係自然漂移 (未結盟者緩步向 50 漂移)
+  if (newState.diplomacyData) {
+    const playerRel = newState.diplomacyData[state.rulerName] || {};
+    Object.keys(playerRel).forEach(otherRuler => {
+      const isAllied = newState.alliances?.[state.rulerName]?.[otherRuler];
+      const curRel = playerRel[otherRuler];
+      if (!isAllied) {
+        if (curRel > 50 && Math.random() < 0.25) {
+          adjustDiplomacyRelation(newState, state.rulerName, otherRuler, -1);
+        } else if (curRel < 50 && Math.random() < 0.20) {
+          adjustDiplomacyRelation(newState, state.rulerName, otherRuler, 1);
+        }
+      }
+    });
+  }
+
+  // 3. AI 主動外交事件 (高好感主動求盟 / 鄰邦進貢)
+  const playerCapitalProv = Object.values(newState.provincesData).find(p => p.rulerName === state.rulerName);
+  if (playerCapitalProv && newState.diplomacyData) {
+    const allRulers = Array.from(new Set(Object.values(newState.provincesData).map(p => p.rulerName).filter(Boolean))) as string[];
+    const otherRulers = allRulers.filter(r => r !== state.rulerName);
+
+    for (const aiRuler of otherRulers) {
+      const rel = newState.diplomacyData[state.rulerName]?.[aiRuler] ?? 50;
+      const isAllied = newState.alliances?.[state.rulerName]?.[aiRuler];
+
+      // A. 主動求盟 (友好 >= 90，且未同盟，12% 機率)
+      if (!isAllied && rel >= 90 && Math.random() < 0.12) {
+        const duration = Math.floor(Math.random() * 13) + 12; // 12~24 個月
+        const expiryAbsolute = currentAbsoluteMonth + duration;
+
+        if (!newState.alliances) newState.alliances = {};
+        if (!newState.alliances[state.rulerName]) newState.alliances[state.rulerName] = {};
+        if (!newState.alliances[aiRuler]) newState.alliances[aiRuler] = {};
+        newState.alliances[state.rulerName][aiRuler] = expiryAbsolute;
+        newState.alliances[aiRuler][state.rulerName] = expiryAbsolute;
+
+        diplomaticEventMessages.push(`🤝【鄰邦求盟】：【${aiRuler}】遣使持金帛盟書拜謁主公，感念兩邦世代敦睦，請求正式締結為期 ${duration} 個月之互保同盟！主公已欣然應允！`);
+        break; // 每月最多觸發一次
+      }
+
+      // B. 鄰邦進貢 (友好 >= 70，5% 機率)
+      if (rel >= 70 && Math.random() < 0.05) {
+        const giftGold = Math.floor(Math.random() * 301) + 300; // 300~600 金
+        playerCapitalProv.gold += giftGold;
+        diplomaticEventMessages.push(`🎁【鄰邦進貢】：【${aiRuler}】感念主公仁德，遣使送來睦鄰賀禮 ${giftGold} 金以修好兩邦之誼！`);
+        break;
+      }
+    }
+  }
+
   // 6. 生成月度軍師情報奏報 (軍師智力需 > 80)
   newState.generalsData = updatedGenerals;
   const strategist = getFactionStrategist(newState);
@@ -2352,6 +3003,21 @@ export function advanceTime(state: GameState): GameState {
   }
 
   let finalResult = monthlyResult;
+  if (diplomaticEventMessages.length > 0) {
+    finalResult = {
+      action: '外交要聞',
+      title: '🕊️ 邦交要聞：諸侯動向',
+      message: diplomaticEventMessages.join('\n\n') + (monthlyResult?.message ? `\n\n------------------------\n${monthlyResult.message}` : ''),
+      type: 'success' as const
+    };
+  } else if (expiredAllianceMessages.length > 0) {
+    finalResult = {
+      action: '同盟期滿',
+      title: '📜 外交通報：盟約期滿',
+      message: expiredAllianceMessages.join('\n\n') + (monthlyResult?.message ? `\n\n------------------------\n${monthlyResult.message}` : ''),
+      type: 'info' as const
+    };
+  }
   if (deathMessages.length > 0) {
     finalResult = {
       action: '武將逝世',

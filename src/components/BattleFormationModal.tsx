@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Shield, Swords, ArrowRight, Sparkles, Navigation, Crosshair } from 'lucide-react';
+import { X, Shield, Swords, ArrowRight, Sparkles, Zap, Crosshair } from 'lucide-react';
 import { FORMATIONS, getGeneralAvailableFormations } from '../engine/formations';
 import { GeneralState, BattleUnit } from '../types';
 import { GeneralAvatar } from './GeneralAvatar';
@@ -152,8 +152,8 @@ export default function BattleFormationModal({
                         <span className="font-bold text-stone-900">{f.def}</span>
                       </div>
                       <div className="bg-stone-50 border border-stone-200 p-1 rounded flex items-center justify-between">
-                        <span className="text-stone-500 text-[11px] flex items-center gap-0.5"><Navigation className="w-3 h-3 text-amber-600" />機動</span>
-                        <span className="font-bold text-stone-900">{f.mobility}</span>
+                        <span className="text-stone-500 text-[11px] flex items-center gap-0.5"><Zap className="w-3 h-3 text-amber-600" />先攻</span>
+                        <span className="font-bold text-stone-900">{f.initiativeMod > 0 ? `+${f.initiativeMod}` : f.initiativeMod}</span>
                       </div>
                       <div className="bg-stone-50 border border-stone-200 p-1 rounded flex items-center justify-between">
                         <span className="text-stone-500 text-[11px] flex items-center gap-0.5"><Crosshair className="w-3 h-3 text-purple-600" />弓攻</span>

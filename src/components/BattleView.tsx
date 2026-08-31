@@ -41,6 +41,8 @@ export default function BattleView({ gameState, onExitBattle, onResolveBattle }:
   const [inspectUnitModal, setInspectUnitModal] = useState<BattleUnit | null>(null);
   const [customPromptMessage, setCustomPromptMessage] = useState<string | null>(null);
 
+  const isPlayerAttacker = gameState.activeBattle?.attackerRuler === gameState.rulerName;
+
   // 初始化戰場環境與雙方部隊
   useEffect(() => {
     const battle = gameState.activeBattle;
@@ -210,6 +212,7 @@ export default function BattleView({ gameState, onExitBattle, onResolveBattle }:
           col: pos.col,
           row: pos.row,
           isCommander: idx === 0,
+          formation: gen.formations && gen.formations.length > 0 ? gen.formations[0] : '魚鱗',
           skills: gen.skills || getGeneralAvailableSkills(gen),
           passives: gen.passives || getGeneralPassives(gen),
           stamina: 100,
@@ -295,7 +298,7 @@ export default function BattleView({ gameState, onExitBattle, onResolveBattle }:
   // 取得當前行動中的部隊
   const activeUnit = useMemo(() => {
     if (!battleState) return null;
-    return battleState.units.find(u => u.id === battleState.activeUnitId && u.troops > 0) || battleState.units.find(u => u.isAttacker && u.troops > 0) || null;
+    return battleState.units.find(u => u.id === battleState.activeUnitId && u.troops > 0) || battleState.units.find(u => u.isAttacker === isPlayerAttacker && u.troops > 0) || null;
   }, [battleState]);
 
   // 計算有效目標格子 (針對不同戰術命令)
@@ -361,13 +364,13 @@ export default function BattleView({ gameState, onExitBattle, onResolveBattle }:
     const defendersAlive = units.filter(u => !u.isAttacker && u.troops > 0);
 
     if (defendersAlive.length === 0) {
-      addBattleLogs(['🎉 敵軍全線崩潰，我軍大獲全勝，奪取城池！'], 'critical');
+      addBattleLogs([isPlayerAttacker ? '🎉 敵軍全線崩潰，我軍大獲全勝，奪取城池！' : '💀 我方守軍全軍覆沒，城池失守！'], 'critical');
       setTimeout(() => onResolveBattle('attacker'), 1500);
       return true;
     }
 
     if (attackersAlive.length === 0) {
-      addBattleLogs(['❌ 我軍傷亡殆盡，全軍被迫退兵！'], 'retreat');
+      addBattleLogs([isPlayerAttacker ? '💀 我方攻城部隊全軍覆沒，無功而返！' : '🛡️ 敵軍傷亡慘重，我軍成功守住城池！'], 'critical');
       setTimeout(() => onResolveBattle('defender'), 1500);
       return true;
     }
@@ -742,7 +745,7 @@ export default function BattleView({ gameState, onExitBattle, onResolveBattle }:
     const units = battleState.units.map(u => u.id === activeUnit.id ? { ...u, hasActed: true } : u);
 
     // 尋找下一支尚未行動的己方部隊
-    const nextAttacker = units.find(u => u.isAttacker && u.troops > 0 && !u.hasActed);
+    const nextAttacker = units.find(u => u.isAttacker === isPlayerAttacker && u.troops > 0 && !u.hasActed);
 
     if (nextAttacker) {
       setBattleState(prev => prev ? {
@@ -763,7 +766,7 @@ export default function BattleView({ gameState, onExitBattle, onResolveBattle }:
       addBattleLogs([`🌅 第 ${newDay} 天來臨，全軍整備完畢，重啟戰端！`], 'info');
 
       // 選擇第一支存活的己方部隊
-      const firstUnit = updatedUnits.find(u => u.isAttacker && u.troops > 0);
+      const firstUnit = updatedUnits.find(u => u.isAttacker === isPlayerAttacker && u.troops > 0);
 
       setBattleState(prev => prev ? {
         ...prev,
@@ -1062,7 +1065,7 @@ export default function BattleView({ gameState, onExitBattle, onResolveBattle }:
     }
 
     // 正常切換己方選取部隊
-    if (unit.isAttacker) {
+    if (unit.isAttacker === isPlayerAttacker) {
       setBattleState(prev => prev ? { ...prev, activeUnitId: unitId } : null);
       setTargetingMode(null);
       setCustomPromptMessage(`已選取將領【${unit.generalName}】`);
@@ -1176,7 +1179,7 @@ export default function BattleView({ gameState, onExitBattle, onResolveBattle }:
             setBattleState(prev => {
               if (!prev) return prev;
               const newUnits = prev.units.map(u => {
-                if (u.isAttacker && assignments[u.id]) {
+                if (assignments[u.id]) {
                   return { ...u, formation: assignments[u.id] };
                 }
                 return u;

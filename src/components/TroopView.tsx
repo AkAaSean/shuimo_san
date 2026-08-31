@@ -40,10 +40,10 @@ export default function TroopView({ gameState, initialAction, onExit, onExecute 
   const generals = Object.values(gameState.generalsData).filter(g => g.provinceId === provinceId && !g.isWild);
   const availableGenerals = generals.filter(g => !g.hasActed);
 
-  // Total soldiers currently in this province
+  // Total soldiers currently in this province (reserve + stationed generals)
   const totalGarrison = useMemo(() => {
-    return generals.reduce((sum, g) => sum + (g.soldiers || 0), 0);
-  }, [generals]);
+    return (province?.soldiers || 0) + generals.reduce((sum, g) => sum + (g.soldiers || 0), 0);
+  }, [province?.soldiers, generals]);
 
   // Total capacity available among all generals in this province
   const totalGeneralsCapacity = useMemo(() => {

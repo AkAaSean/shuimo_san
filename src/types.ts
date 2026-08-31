@@ -11,19 +11,17 @@ export interface Formation {
   name: string;
   atkMod: number;
   defMod: number;
-  terrain: FormationTerrainType;
+  terrain: string;
   initiativeMod: number;
-  specialDesc: string;
-
-  // 暫時保留舊欄位以避免編譯錯誤
+  type?: string;
   atk?: number;
   def?: number;
+  mobility?: number;
   bowAtk?: number;
   bowDef?: number;
   range?: number;
-  mobility?: number;
-  type?: string;
   special?: string;
+  specialDesc?: string;
 }
 
 export interface Province {
@@ -41,11 +39,11 @@ export interface Province {
 
 export interface BattleSkill {
   name: string;
-  cost: number; // 體力消耗 (0 代表常駐被動)
-  category: '特殊攻擊' | '計謀' | '被動';
+  cost: number; // 體力消耗
+  category: '特殊攻擊' | '計謀';
   desc: string;
   condition?: string;
-  target?: '單體' | '相鄰' | '全體' | '自己' | '被動';
+  target?: '單體' | '相鄰' | '全體' | '自己';
 }
 
 export type PassiveSkillId = '沉著' | '反計' | '無雙' | '奮發' | '回射' | '騎射' | '藤甲';
@@ -110,6 +108,7 @@ export interface GeneralState {
   isRuler: boolean;
   soldiers: number;
   training: number;
+  morale?: number;
   weapons?: number;
   hasActed: boolean; // 本月是否已執行過任務
   rewardedThisMonth?: boolean; // 本月是否已接受過賞賜 (每人每月限一次)
@@ -124,6 +123,9 @@ export interface GeneralState {
 
 export interface PendingBattlePlan {
   id: string;
+  isDefense?: boolean;
+  attackerRuler?: string;
+  defenderRuler?: string;
   targetProvinceId: number;
   attackerProvinceId: number; // 主要發起進攻之城池
   attackerReinforceProvinceId?: number | null; // 攻擊方援軍城池 (最多1座)
@@ -160,6 +162,9 @@ export interface GameState {
   
   // Extra features
   activeBattle?: {
+    isDefense?: boolean;
+    attackerRuler?: string;
+    defenderRuler?: string;
     targetProvinceId: number;
     attackerProvinceId: number;
     attackerReinforceProvinceId?: number | null;
@@ -177,6 +182,7 @@ export interface GameState {
     defenderResourcesDeducted?: Record<number, { gold: number; food: number }>;
   } | null;
   pendingBattles?: PendingBattlePlan[];
+  pendingDefenses?: PendingBattlePlan[];
   pendingBattle?: PendingBattlePlan | null;
   diplomacyData?: Record<string, Record<string, number>>; // { rulerA: { rulerB: relationScore } }
   alliances?: Record<string, Record<string, number>>; // { rulerA: { rulerB: expiryAbsoluteMonth } }
@@ -207,7 +213,7 @@ export interface GridCell {
 export interface CombatLogEntry {
   id: string;
   text: string;
-  type: 'attack' | 'archery' | 'strategy' | 'passive' | 'info' | 'critical' | 'retreat';
+  type: 'attack' | 'archery' | 'strategy' | 'passive' | 'info' | 'critical' | 'retreat' | 'event';
   timestamp: number;
 }
 
@@ -219,11 +225,14 @@ export interface DamagePopup {
   color: 'red' | 'yellow' | 'blue' | 'purple' | 'green' | 'amber';
 }
 
+export type BattleUnitStatus = 'normal' | 'confused' | 'burning' | 'panicked' | 'moraled' | 'defending' | 'disarray';
+
 export interface BattleUnit {
   id: string;
   generalName: string;
   isAttacker: boolean;
   troops: number;
+  maxTroops?: number;
   col: number;
   row: number;
   isCommander: boolean;
@@ -231,7 +240,9 @@ export interface BattleUnit {
   skills?: string[];
   passives?: PassiveSkillId[]; // 武將被動特技
   stamina?: number;
-  status?: 'normal' | 'confused' | 'disarray'; // 狀態：正常 / 混亂 / 無陣
+  morale?: number; // 士氣 (0 ~ 100)
+  training?: number; // 訓練度 (0 ~ 100)
+  status?: BattleUnitStatus; // 狀態：正常 / 混亂 / 著火 / 恐慌 / 鼓舞 / 防禦
   hasActed?: boolean; // 本日是否已行動
   hasMovedThisTurn?: boolean; // 本回合是否已移動 (每回合限移動一次)
   attackBuff?: number; // 夾擊激發之攻擊力加成 (如無雙激發)

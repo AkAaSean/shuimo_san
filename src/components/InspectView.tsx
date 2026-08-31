@@ -914,22 +914,26 @@ export default function InspectView({
                   </div>
 
                   {/* Faction Metrics Grid */}
-                  <div className="grid grid-cols-4 gap-1.5 text-center text-xs bg-stone-50 p-2 border border-stone-200 rounded">
+                  <div className="grid grid-cols-5 gap-1 text-center text-xs bg-stone-50 p-2 border border-stone-200 rounded">
                     <div>
                       <div className="text-[10px] text-stone-500">領有州郡</div>
-                      <div className="font-black text-base text-[#991b1b]">{faction.provincesCount} 郡</div>
+                      <div className="font-black text-xs sm:text-base text-[#991b1b]">{faction.provincesCount} 郡</div>
                     </div>
                     <div>
                       <div className="text-[10px] text-stone-500">麾下武將</div>
-                      <div className="font-black text-base text-stone-800">{faction.generalsCount} 人</div>
+                      <div className="font-black text-xs sm:text-base text-stone-800">{faction.generalsCount} 人</div>
                     </div>
                     <div>
                       <div className="text-[10px] text-stone-500">全國總兵力</div>
-                      <div className="font-black text-base text-red-700">{faction.totalMilitary.toLocaleString()}</div>
+                      <div className="font-black text-xs sm:text-base text-red-700">{faction.totalMilitary.toLocaleString()}</div>
                     </div>
                     <div>
-                      <div className="text-[10px] text-stone-500">總儲備糧</div>
-                      <div className="font-black text-base text-emerald-800">{(faction.totalFood / 10000).toFixed(1)}萬石</div>
+                      <div className="text-[10px] text-stone-500">國庫總金錢</div>
+                      <div className="font-black text-xs sm:text-base text-amber-700">{faction.totalGold.toLocaleString()}</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-stone-500">總儲備軍糧</div>
+                      <div className="font-black text-xs sm:text-base text-emerald-800">{faction.totalFood.toLocaleString()}</div>
                     </div>
                   </div>
 
@@ -952,24 +956,6 @@ export default function InspectView({
                       ))}
                     </div>
                   </div>
-
-                  {/* Top Generals */}
-                  {faction.topGenerals.length > 0 && (
-                    <div className="flex items-center gap-2 border-t border-stone-200 pt-1.5 text-xs text-stone-600">
-                      <span className="font-bold text-[10px] text-stone-500 shrink-0">主要名將：</span>
-                      <div className="flex flex-wrap gap-1.5">
-                        {faction.topGenerals.map(g => (
-                          <span
-                            key={g.name}
-                            onClick={() => setSelectedGeneralDetail(g)}
-                            className="bg-stone-200 hover:bg-stone-300 px-1.5 py-0.5 rounded cursor-pointer font-bold text-[11px]"
-                          >
-                            {g.name} (武{g.str}/智{g.int})
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
               ))}
             </div>
@@ -1309,6 +1295,7 @@ export default function InspectView({
                         const badgeCls = 
                           terrainType === '水上' ? 'bg-sky-100 text-sky-900 border-sky-300' :
                           terrainType === '山嶽' ? 'bg-amber-100 text-amber-900 border-amber-300' :
+                          terrainType === '防禦' ? 'bg-blue-100 text-blue-900 border-blue-300' :
                           terrainType === '密林' ? 'bg-emerald-100 text-emerald-900 border-emerald-300' :
                           terrainType === '通用' ? 'bg-purple-100 text-purple-900 border-purple-300' :
                           'bg-lime-100 text-lime-900 border-lime-300';
@@ -1460,7 +1447,7 @@ export default function InspectView({
               </div>
 
               {/* Base Combat Attributes */}
-              <div className="grid grid-cols-4 gap-2 text-center text-xs">
+              <div className="grid grid-cols-3 gap-2 text-center text-xs">
                 <div className="bg-stone-100 p-2 rounded border border-stone-300">
                   <div className="text-[10px] text-stone-500 font-bold">物理攻擊</div>
                   <div className={`font-black text-sm ${formation.atkMod > 0 ? 'text-red-700' : formation.atkMod < 0 ? 'text-blue-700' : 'text-stone-700'}`}>
@@ -1471,12 +1458,6 @@ export default function InspectView({
                   <div className="text-[10px] text-stone-500 font-bold">物理防禦</div>
                   <div className={`font-black text-sm ${formation.defMod > 0 ? 'text-emerald-700' : formation.defMod < 0 ? 'text-rose-700' : 'text-stone-700'}`}>
                     {formation.defMod > 0 ? `+${Math.round(formation.defMod * 100)}%` : formation.defMod < 0 ? `${Math.round(formation.defMod * 100)}%` : '±0%'}
-                  </div>
-                </div>
-                <div className="bg-stone-100 p-2 rounded border border-stone-300">
-                  <div className="text-[10px] text-stone-500 font-bold">行軍機動</div>
-                  <div className="font-black text-sm text-amber-900">
-                    {formation.mobility || 5} 格
                   </div>
                 </div>
                 <div className="bg-stone-100 p-2 rounded border border-stone-300">

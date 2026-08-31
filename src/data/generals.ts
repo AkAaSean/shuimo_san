@@ -1,4 +1,4 @@
-import { General } from "../types";
+import { General } from '../types';
 
 export const generals: General[] = [
   {
@@ -185,7 +185,7 @@ export const generals: General[] = [
     "name": "馬騰",
     "role": "君主",
     "maxTroops": 5000,
-    "hp": 95,
+    "hp": 79,
     "int": 38,
     "str": 87,
     "pol": 42,
@@ -273,9 +273,9 @@ export const generals: General[] = [
   },
   {
     "name": "王朗",
-    "role": "主簿",
+    "role": "謀士",
     "maxTroops": 2000,
-    "hp": 38,
+    "hp": 50,
     "int": 78,
     "str": 35,
     "pol": 82,
@@ -587,8 +587,8 @@ export const generals: General[] = [
     "pol": 52,
     "cha": 75,
     "scenarios": [
-      "-",
-      "-",
+      29,
+      31,
       31,
       31,
       36,
@@ -624,9 +624,9 @@ export const generals: General[] = [
     "cha": 55,
     "scenarios": [
       "-",
-      "-",
-      "-",
-      "-",
+      36,
+      36,
+      36,
       36,
       36
     ]
@@ -642,8 +642,8 @@ export const generals: General[] = [
     "cha": 45,
     "scenarios": [
       "-",
-      "-",
-      31,
+      28,
+      28,
       31,
       35,
       35
@@ -905,7 +905,7 @@ export const generals: General[] = [
     "name": "周倉",
     "role": "副將",
     "maxTroops": 2500,
-    "hp": 63,
+    "hp": 66,
     "int": 42,
     "str": 84,
     "pol": 33,
@@ -1020,8 +1020,8 @@ export const generals: General[] = [
     "cha": 48,
     "scenarios": [
       "-",
-      "-",
-      "-",
+      37,
+      37,
       36,
       35,
       16
@@ -1236,7 +1236,7 @@ export const generals: General[] = [
     "cha": 81,
     "scenarios": [
       11,
-      14,
+      12,
       16,
       6,
       7,
@@ -1254,7 +1254,7 @@ export const generals: General[] = [
     "cha": 80,
     "scenarios": [
       11,
-      14,
+      12,
       12,
       16,
       16,
@@ -1272,7 +1272,7 @@ export const generals: General[] = [
     "cha": 76,
     "scenarios": [
       11,
-      14,
+      12,
       13,
       15,
       15,
@@ -1290,7 +1290,7 @@ export const generals: General[] = [
     "cha": 58,
     "scenarios": [
       11,
-      15,
+      12,
       13,
       13,
       15,
@@ -1355,14 +1355,14 @@ export const generals: General[] = [
     "name": "許褚",
     "role": "大將",
     "maxTroops": 3000,
-    "hp": 65,
+    "hp": 74,
     "int": 36,
     "str": 96,
     "pol": 20,
     "cha": 53,
     "scenarios": [
       "-",
-      "-",
+      13,
       13,
       13,
       15,
@@ -1373,14 +1373,14 @@ export const generals: General[] = [
     "name": "典韋",
     "role": "大將",
     "maxTroops": 3000,
-    "hp": 56,
+    "hp": 68,
     "int": 29,
     "str": 95,
     "pol": 29,
     "cha": 56,
     "scenarios": [
       "-",
-      15,
+      12,
       "Ｘ",
       "Ｘ",
       "Ｘ",
@@ -1416,7 +1416,7 @@ export const generals: General[] = [
     "cha": 55,
     "scenarios": [
       11,
-      15,
+      12,
       11,
       10,
       10,
@@ -1434,7 +1434,7 @@ export const generals: General[] = [
     "cha": 65,
     "scenarios": [
       11,
-      14,
+      12,
       15,
       12,
       12,
@@ -1452,7 +1452,7 @@ export const generals: General[] = [
     "cha": 72,
     "scenarios": [
       11,
-      15,
+      12,
       13,
       12,
       12,
@@ -1470,7 +1470,7 @@ export const generals: General[] = [
     "cha": 81,
     "scenarios": [
       "-",
-      15,
+      13,
       11,
       "Ｘ",
       "Ｘ",
@@ -1488,7 +1488,7 @@ export const generals: General[] = [
     "cha": 93,
     "scenarios": [
       "-",
-      15,
+      13,
       13,
       13,
       "Ｘ",
@@ -1506,7 +1506,7 @@ export const generals: General[] = [
     "cha": 80,
     "scenarios": [
       "-",
-      15,
+      13,
       11,
       14,
       "Ｘ",
@@ -1542,7 +1542,7 @@ export const generals: General[] = [
     "cha": 58,
     "scenarios": [
       "-",
-      14,
+      12,
       12,
       12,
       12,
@@ -1661,7 +1661,7 @@ export const generals: General[] = [
     "name": "王雙",
     "role": "牙將",
     "maxTroops": 1500,
-    "hp": 62,
+    "hp": 66,
     "int": 20,
     "str": 89,
     "pol": 15,
@@ -1812,7 +1812,7 @@ export const generals: General[] = [
     "cha": 76,
     "scenarios": [
       "-",
-      16,
+      13,
       14,
       12,
       15,
@@ -1830,7 +1830,7 @@ export const generals: General[] = [
     "cha": 75,
     "scenarios": [
       "-",
-      15,
+      12,
       13,
       15,
       22,
@@ -1866,7 +1866,7 @@ export const generals: General[] = [
     "cha": 72,
     "scenarios": [
       "-",
-      15,
+      13,
       13,
       16,
       13,
@@ -2126,24 +2126,6 @@ export const generals: General[] = [
     ]
   },
   {
-    "name": "王朗",
-    "role": "謀士",
-    "maxTroops": 1500,
-    "hp": 50,
-    "int": 78,
-    "str": 35,
-    "pol": 82,
-    "cha": 70,
-    "scenarios": [
-      "-",
-      "-",
-      "-",
-      "-",
-      "-",
-      15
-    ]
-  },
-  {
     "name": "司馬師",
     "role": "軍師",
     "maxTroops": 3000,
@@ -2208,7 +2190,7 @@ export const generals: General[] = [
     "cha": 80,
     "scenarios": [
       "-",
-      14,
+      12,
       14,
       14,
       14,
@@ -3570,7 +3552,7 @@ export const generals: General[] = [
     "role": "軍師",
     "maxTroops": 3000,
     "hp": 72,
-    "int": 89,
+    "int": 90,
     "str": 55,
     "pol": 83,
     "cha": 68,
@@ -3756,7 +3738,7 @@ export const generals: General[] = [
     "cha": 58,
     "scenarios": [
       13,
-      13,
+      27,
       "Ｘ",
       "Ｘ",
       "Ｘ",
@@ -3810,7 +3792,7 @@ export const generals: General[] = [
     "cha": 68,
     "scenarios": [
       13,
-      13,
+      27,
       "Ｘ",
       "Ｘ",
       "Ｘ",
@@ -3828,7 +3810,7 @@ export const generals: General[] = [
     "cha": 30,
     "scenarios": [
       13,
-      13,
+      27,
       "Ｘ",
       "Ｘ",
       "Ｘ",
@@ -4847,7 +4829,7 @@ export const generals: General[] = [
     "name": "刑道榮",
     "role": "副將",
     "maxTroops": 2500,
-    "hp": 64,
+    "hp": 65,
     "int": 38,
     "str": 80,
     "pol": 18,
@@ -5069,8 +5051,8 @@ export const generals: General[] = [
     "pol": 70,
     "cha": 62,
     "scenarios": [
-      "-",
-      "-",
+      1,
+      1,
       1,
       1,
       1,
@@ -5252,6 +5234,492 @@ export const generals: General[] = [
       12,
       "Ｘ",
       "Ｘ",
+      "Ｘ",
+      "Ｘ",
+      "Ｘ"
+    ]
+  },
+  {
+    "name": "成公英",
+    "role": "參軍",
+    "maxTroops": 2500,
+    "hp": 76,
+    "int": 81,
+    "str": 68,
+    "pol": 74,
+    "cha": 72,
+    "scenarios": [
+      20,
+      20,
+      20,
+      20,
+      16,
+      16
+    ]
+  },
+  {
+    "name": "梁興",
+    "role": "副將",
+    "maxTroops": 2500,
+    "hp": 76,
+    "int": 45,
+    "str": 72,
+    "pol": 32,
+    "cha": 46,
+    "scenarios": [
+      19,
+      19,
+      19,
+      19,
+      "Ｘ",
+      "Ｘ"
+    ]
+  },
+  {
+    "name": "楊秋",
+    "role": "副將",
+    "maxTroops": 2500,
+    "hp": 74,
+    "int": 56,
+    "str": 68,
+    "pol": 54,
+    "cha": 52,
+    "scenarios": [
+      "-",
+      20,
+      17,
+      17,
+      17,
+      17
+    ]
+  },
+  {
+    "name": "高幹",
+    "role": "太守",
+    "maxTroops": 2500,
+    "hp": 72,
+    "int": 67,
+    "str": 65,
+    "pol": 70,
+    "cha": 68,
+    "scenarios": [
+      3,
+      5,
+      5,
+      "Ｘ",
+      "Ｘ",
+      "Ｘ"
+    ]
+  },
+  {
+    "name": "韓猛",
+    "role": "副將",
+    "maxTroops": 2500,
+    "hp": 76,
+    "int": 35,
+    "str": 74,
+    "pol": 25,
+    "cha": 42,
+    "scenarios": [
+      3,
+      4,
+      8,
+      "Ｘ",
+      "Ｘ",
+      "Ｘ"
+    ]
+  },
+  {
+    "name": "關靖",
+    "role": "謀士",
+    "maxTroops": 1500,
+    "hp": 58,
+    "int": 66,
+    "str": 32,
+    "pol": 64,
+    "cha": 48,
+    "scenarios": [
+      2,
+      2,
+      "Ｘ",
+      "Ｘ",
+      "Ｘ",
+      "Ｘ"
+    ]
+  },
+  {
+    "name": "彭羕",
+    "role": "謀士",
+    "maxTroops": 1500,
+    "hp": 60,
+    "int": 73,
+    "str": 30,
+    "pol": 66,
+    "cha": 46,
+    "scenarios": [
+      "-",
+      36,
+      36,
+      36,
+      36,
+      "Ｘ"
+    ]
+  },
+  {
+    "name": "蒯祺",
+    "role": "主簿",
+    "maxTroops": 1500,
+    "hp": 56,
+    "int": 68,
+    "str": 24,
+    "pol": 71,
+    "cha": 65,
+    "scenarios": [
+      28,
+      28,
+      28,
+      28,
+      "Ｘ",
+      "Ｘ"
+    ]
+  },
+  {
+    "name": "邢道榮",
+    "role": "牙將",
+    "maxTroops": 2000,
+    "hp": 75,
+    "int": 32,
+    "str": 72,
+    "pol": 16,
+    "cha": 36,
+    "scenarios": [
+      32,
+      32,
+      32,
+      32,
+      "Ｘ",
+      "Ｘ"
+    ]
+  },
+  {
+    "name": "閻芝",
+    "role": "主簿",
+    "maxTroops": 2000,
+    "hp": 64,
+    "int": 69,
+    "str": 42,
+    "pol": 73,
+    "cha": 64,
+    "scenarios": [
+      35,
+      35,
+      35,
+      35,
+      36,
+      36
+    ]
+  },
+  {
+    "name": "李蒙",
+    "role": "副將",
+    "maxTroops": 2500,
+    "hp": 76,
+    "int": 40,
+    "str": 73,
+    "pol": 24,
+    "cha": 42,
+    "scenarios": [
+      15,
+      16,
+      "Ｘ",
+      "Ｘ",
+      "Ｘ",
+      "Ｘ"
+    ]
+  },
+  {
+    "name": "王方",
+    "role": "牙將",
+    "maxTroops": 2000,
+    "hp": 72,
+    "int": 35,
+    "str": 68,
+    "pol": 20,
+    "cha": 40,
+    "scenarios": [
+      15,
+      16,
+      "Ｘ",
+      "Ｘ",
+      "Ｘ",
+      "Ｘ"
+    ]
+  },
+  {
+    "name": "胡軫",
+    "role": "太守",
+    "maxTroops": 2500,
+    "hp": 74,
+    "int": 50,
+    "str": 71,
+    "pol": 56,
+    "cha": 44,
+    "scenarios": [
+      14,
+      17,
+      "Ｘ",
+      "Ｘ",
+      "Ｘ",
+      "Ｘ"
+    ]
+  },
+  {
+    "name": "楊定",
+    "role": "副將",
+    "maxTroops": 2500,
+    "hp": 70,
+    "int": 58,
+    "str": 62,
+    "pol": 54,
+    "cha": 50,
+    "scenarios": [
+      15,
+      16,
+      "Ｘ",
+      "Ｘ",
+      "Ｘ",
+      "Ｘ"
+    ]
+  },
+  {
+    "name": "楊弘",
+    "role": "參軍",
+    "maxTroops": 2000,
+    "hp": 58,
+    "int": 74,
+    "str": 26,
+    "pol": 73,
+    "cha": 56,
+    "scenarios": [
+      13,
+      27,
+      "Ｘ",
+      "Ｘ",
+      "Ｘ",
+      "Ｘ"
+    ]
+  },
+  {
+    "name": "樂就",
+    "role": "副將",
+    "maxTroops": 2500,
+    "hp": 74,
+    "int": 36,
+    "str": 70,
+    "pol": 24,
+    "cha": 40,
+    "scenarios": [
+      13,
+      27,
+      "Ｘ",
+      "Ｘ",
+      "Ｘ",
+      "Ｘ"
+    ]
+  },
+  {
+    "name": "李豐",
+    "role": "牙將",
+    "maxTroops": 2000,
+    "hp": 72,
+    "int": 38,
+    "str": 67,
+    "pol": 26,
+    "cha": 42,
+    "scenarios": [
+      13,
+      27,
+      "Ｘ",
+      "Ｘ",
+      "Ｘ",
+      "Ｘ"
+    ]
+  },
+  {
+    "name": "梁綱",
+    "role": "牙將",
+    "maxTroops": 2000,
+    "hp": 72,
+    "int": 36,
+    "str": 66,
+    "pol": 24,
+    "cha": 40,
+    "scenarios": [
+      13,
+      27,
+      "Ｘ",
+      "Ｘ",
+      "Ｘ",
+      "Ｘ"
+    ]
+  },
+  {
+    "name": "韓胤",
+    "role": "主簿",
+    "maxTroops": 1500,
+    "hp": 54,
+    "int": 63,
+    "str": 20,
+    "pol": 62,
+    "cha": 50,
+    "scenarios": [
+      13,
+      27,
+      "Ｘ",
+      "Ｘ",
+      "Ｘ",
+      "Ｘ"
+    ]
+  },
+  {
+    "name": "蔣義渠",
+    "role": "副將",
+    "maxTroops": 2500,
+    "hp": 76,
+    "int": 64,
+    "str": 73,
+    "pol": 62,
+    "cha": 70,
+    "scenarios": [
+      4,
+      4,
+      3,
+      "Ｘ",
+      "Ｘ",
+      "Ｘ"
+    ]
+  },
+  {
+    "name": "荀諶",
+    "role": "謀士",
+    "maxTroops": 1500,
+    "hp": 58,
+    "int": 83,
+    "str": 26,
+    "pol": 78,
+    "cha": 74,
+    "scenarios": [
+      "-",
+      3,
+      3,
+      "Ｘ",
+      "Ｘ",
+      "Ｘ"
+    ]
+  },
+  {
+    "name": "陳琳",
+    "role": "主簿",
+    "maxTroops": 1500,
+    "hp": 56,
+    "int": 77,
+    "str": 22,
+    "pol": 76,
+    "cha": 68,
+    "scenarios": [
+      "-",
+      3,
+      3,
+      13,
+      "Ｘ",
+      "Ｘ"
+    ]
+  },
+  {
+    "name": "崔琰",
+    "role": "主簿",
+    "maxTroops": 1500,
+    "hp": 62,
+    "int": 75,
+    "str": 38,
+    "pol": 80,
+    "cha": 82,
+    "scenarios": [
+      "-",
+      3,
+      3,
+      13,
+      "Ｘ",
+      "Ｘ"
+    ]
+  },
+  {
+    "name": "郭援",
+    "role": "副將",
+    "maxTroops": 2500,
+    "hp": 77,
+    "int": 62,
+    "str": 75,
+    "pol": 50,
+    "cha": 55,
+    "scenarios": [
+      "-",
+      5,
+      5,
+      "Ｘ",
+      "Ｘ",
+      "Ｘ"
+    ]
+  },
+  {
+    "name": "呂威璜",
+    "role": "牙將",
+    "maxTroops": 2000,
+    "hp": 72,
+    "int": 40,
+    "str": 70,
+    "pol": 30,
+    "cha": 45,
+    "scenarios": [
+      "-",
+      3,
+      8,
+      "Ｘ",
+      "Ｘ",
+      "Ｘ"
+    ]
+  },
+  {
+    "name": "董昭",
+    "role": "參軍",
+    "maxTroops": 2500,
+    "hp": 64,
+    "int": 82,
+    "str": 35,
+    "pol": 84,
+    "cha": 72,
+    "scenarios": [
+      3,
+      3,
+      13,
+      13,
+      15,
+      15
+    ]
+  },
+  {
+    "name": "陰夔",
+    "role": "主簿",
+    "maxTroops": 1500,
+    "hp": 58,
+    "int": 71,
+    "str": 25,
+    "pol": 75,
+    "cha": 66,
+    "scenarios": [
+      "-",
+      3,
+      3,
       "Ｘ",
       "Ｘ",
       "Ｘ"

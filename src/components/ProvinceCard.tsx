@@ -21,7 +21,7 @@ export default function ProvinceCard({ provinceId, gameState, onClose }: Provinc
   );
   const stationedGeneralsCount = stationedGenerals.length;
   const totalGeneralsSoldiers = stationedGenerals.reduce((sum, g) => sum + g.soldiers, 0);
-  const totalSoldiers = state.soldiers + totalGeneralsSoldiers;
+  const totalSoldiers = totalGeneralsSoldiers;
 
   const rulerInProvince = stationedGenerals.find(g => g.isRuler);
   const appointedPrefect = stationedGenerals.find(g => g.role === '太守');

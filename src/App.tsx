@@ -205,9 +205,9 @@ function GameApp({
 
   return (
     <div className="w-full max-w-[500px] sm:max-w-[600px] md:max-w-[720px] lg:max-w-[840px] landscape:max-w-none game-container h-full mx-auto bg-stone-200 relative flex flex-col shadow-2xl overflow-hidden transition-all duration-300">
-      {/* Action Outcome Result Modal (e.g., 尋訪人才、登用人才) */}
+      {/* Action Outcome Result Modal (e.g., 尋訪人才、登用人才、天災事件) */}
       <AnimatePresence>
-        {(gameState.monthlyEvents && gameState.monthlyEvents.length > 0) && (
+        {(gameState.monthlyEvents && gameState.monthlyEvents.length > 0 && !gameState.currentBattle) && (
           <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-stone-900/70 backdrop-blur-sm">
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
@@ -510,9 +510,11 @@ function GameApp({
         />
       ) : (
         <BattleView5v5 
+          key={gameState.activeBattle ? `${gameState.activeBattle.targetProvinceId}_${gameState.activeBattle.attackerProvinceId}_${gameState.pendingBattles?.length ?? 0}` : 'battle'}
           gameState={gameState} 
-          onExit={() => actions.setView('map')}
+          onExit={() => actions.resolveBattle('defender')}
           onResolveBattle={(winner) => actions.resolveBattle(winner)}
+          onUpdateDefenseDeployment={actions.updateActiveBattleDefense}
         />
       )}
 

@@ -97,6 +97,8 @@ export default function MilitaryMoveView({ gameState, onExit, onConfirmMove }: M
               <div className="grid grid-cols-2 gap-2">
                 {connectedProvinces.map(cp => {
                   const isSelected = targetProvinceId === cp.id;
+                  const cpGenerals = Object.values(gameState.generalsData).filter(g => g.provinceId === cp.id && !g.isWild);
+                  const cpTotalTroops = cpGenerals.reduce((sum, g) => sum + (g.soldiers || 0), 0);
                   return (
                     <button
                       key={cp.id}
@@ -114,7 +116,7 @@ export default function MilitaryMoveView({ gameState, onExit, onConfirmMove }: M
                         君主: <span className="font-bold">{cp.state?.rulerName || '無'}</span>
                       </div>
                       <div className="text-[11px] text-stone-500">
-                        士兵: {cp.state?.soldiers || 0}
+                        總兵力: <strong className="text-stone-800">{cpTotalTroops.toLocaleString()}</strong>
                       </div>
                     </button>
                   );

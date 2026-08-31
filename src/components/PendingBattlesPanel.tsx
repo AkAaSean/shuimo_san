@@ -90,6 +90,13 @@ export default function PendingBattlesPanel({ gameState, onCancelBattle }: Pendi
                   if (gen) totalTroops += gen.soldiers;
                 });
 
+                // Count target city total defending troops (defending generals)
+                let targetGenTroops = 0;
+                plan.defendingGenerals.forEach(gName => {
+                  const gen = gameState.generalsData[gName];
+                  if (gen) targetGenTroops += gen.soldiers;
+                });
+
                 return (
                   <div 
                     key={plan.id || idx}
@@ -145,7 +152,7 @@ export default function PendingBattlesPanel({ gameState, onCancelBattle }: Pendi
                     {/* Troops & Logistics */}
                     <div className="grid grid-cols-2 gap-1.5 text-[11px] text-stone-600 bg-stone-50 p-1.5 rounded border border-stone-200">
                       <div>總參戰兵力: <strong className="text-red-800 font-black">{totalTroops}</strong></div>
-                      <div>目標城池守軍: <strong className="text-stone-700 font-bold">{targetProvState?.soldiers || 0}</strong></div>
+                      <div>目標城池總守軍: <strong className="text-stone-800 font-black">{targetGenTroops.toLocaleString()}</strong></div>
                       <div>隨軍攜帶金: <strong className="text-amber-800 font-bold">{plan.attackerGold}</strong></div>
                       <div>隨軍攜帶糧: <strong className="text-emerald-800 font-bold">{plan.attackerFood}</strong></div>
                     </div>

@@ -73,15 +73,15 @@ export default function TitleScreen({ onStartGame }: TitleScreenProps) {
             水墨三國
           </h1>
           <span className="absolute -top-2 right-0 bg-[#991b1b] text-amber-100 text-xs font-bold font-mono px-2 py-0.5 rounded-full border border-amber-300 shadow-sm">
-            V0.1
+            V0.3
           </span>
         </div>
         <div className="text-[0.7rem] tracking-[0.3em] uppercase text-[#991b1b] font-extrabold border-y-2 border-[#991b1b] py-1 px-4 inline-block bg-[#f2efeb]/80 backdrop-blur-xs shadow-xs">
-          HTML5 MOBILE STRATEGY • V0.1
+          HTML5 MOBILE STRATEGY • V0.3
         </div>
         <div className="text-[0.75rem] font-black tracking-wider text-[#1c1917]/80 mt-2 bg-[#f2efeb]/70 px-3 py-0.5 rounded border border-[#1c1917]/20 flex items-center gap-1.5">
           <span>Design by Sean Chuang</span>
-          <span className="text-[#991b1b] font-mono font-bold">| V0.1 測試版</span>
+          <span className="text-[#991b1b] font-mono font-bold">| V0.3 測試版</span>
         </div>
       </motion.div>
 
