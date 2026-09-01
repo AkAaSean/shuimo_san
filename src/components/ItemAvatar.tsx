@@ -20,7 +20,8 @@ export const ItemAvatar: React.FC<ItemAvatarProps> = ({
 }) => {
   const [imageError, setImageError] = useState(false);
   const spriteInfo = ITEM_SPRITES_MAPPING[name];
-  const imageSrc = spriteInfo ? spriteInfo.imagePath : null;
+  const rawImageSrc = spriteInfo ? spriteInfo.imagePath : null;
+  const imageSrc = rawImageSrc && rawImageSrc.startsWith('/') ? '.' + rawImageSrc : rawImageSrc;
 
   if (imageError || !imageSrc) {
     // 降級純文字/印鑑風格

@@ -20,7 +20,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 2,
     "w": 200,
     "h": 182,
-    "imagePath": "/assets/items/item_1.png"
+    "imagePath": "./assets/items/item_1.png"
   },
   "青龍偃月刀": {
     "index": 2,
@@ -31,7 +31,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 2,
     "w": 201,
     "h": 182,
-    "imagePath": "/assets/items/item_2.png"
+    "imagePath": "./assets/items/item_2.png"
   },
   "丈八蛇矛": {
     "index": 3,
@@ -42,7 +42,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 2,
     "w": 201,
     "h": 182,
-    "imagePath": "/assets/items/item_3.png"
+    "imagePath": "./assets/items/item_3.png"
   },
   "倚天劍": {
     "index": 4,
@@ -53,7 +53,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 2,
     "w": 201,
     "h": 182,
-    "imagePath": "/assets/items/item_4.png"
+    "imagePath": "./assets/items/item_4.png"
   },
   "青釭劍": {
     "index": 5,
@@ -64,7 +64,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 2,
     "w": 201,
     "h": 182,
-    "imagePath": "/assets/items/item_5.png"
+    "imagePath": "./assets/items/item_5.png"
   },
   "棗木槊": {
     "index": 6,
@@ -75,7 +75,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 188,
     "w": 200,
     "h": 177,
-    "imagePath": "/assets/items/item_6.png"
+    "imagePath": "./assets/items/item_6.png"
   },
   "雌雄雙股劍": {
     "index": 7,
@@ -86,7 +86,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 188,
     "w": 201,
     "h": 177,
-    "imagePath": "/assets/items/item_7.png"
+    "imagePath": "./assets/items/item_7.png"
   },
   "古錠刀": {
     "index": 8,
@@ -97,7 +97,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 188,
     "w": 201,
     "h": 177,
-    "imagePath": "/assets/items/item_8.png"
+    "imagePath": "./assets/items/item_8.png"
   },
   "涯角槍": {
     "index": 9,
@@ -108,7 +108,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 188,
     "w": 201,
     "h": 177,
-    "imagePath": "/assets/items/item_9.png"
+    "imagePath": "./assets/items/item_9.png"
   },
   "雙鐵戟": {
     "index": 10,
@@ -119,7 +119,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 188,
     "w": 201,
     "h": 177,
-    "imagePath": "/assets/items/item_10.png"
+    "imagePath": "./assets/items/item_10.png"
   },
   "養由基弓": {
     "index": 11,
@@ -130,7 +130,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 369,
     "w": 200,
     "h": 165,
-    "imagePath": "/assets/items/item_11.png"
+    "imagePath": "./assets/items/item_11.png"
   },
   "七星寶刀": {
     "index": 12,
@@ -141,7 +141,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 369,
     "w": 201,
     "h": 165,
-    "imagePath": "/assets/items/item_12.png"
+    "imagePath": "./assets/items/item_12.png"
   },
   "大斧": {
     "index": 13,
@@ -152,7 +152,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 369,
     "w": 201,
     "h": 165,
-    "imagePath": "/assets/items/item_13.png"
+    "imagePath": "./assets/items/item_13.png"
   },
   "三尖刀": {
     "index": 14,
@@ -163,7 +163,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 369,
     "w": 201,
     "h": 165,
-    "imagePath": "/assets/items/item_14.png"
+    "imagePath": "./assets/items/item_14.png"
   },
   "鐵蒺藜骨朵": {
     "index": 15,
@@ -174,7 +174,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 369,
     "w": 201,
     "h": 165,
-    "imagePath": "/assets/items/item_15.png"
+    "imagePath": "./assets/items/item_15.png"
   },
   "鐵鞭": {
     "index": 16,
@@ -185,7 +185,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 538,
     "w": 200,
     "h": 153,
-    "imagePath": "/assets/items/item_16.png"
+    "imagePath": "./assets/items/item_16.png"
   },
   "李廣弓": {
     "index": 17,
@@ -196,7 +196,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 538,
     "w": 201,
     "h": 153,
-    "imagePath": "/assets/items/item_17.png"
+    "imagePath": "./assets/items/item_17.png"
   },
   "鳳嘴刀": {
     "index": 18,
@@ -207,7 +207,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 538,
     "w": 201,
     "h": 153,
-    "imagePath": "/assets/items/item_18.png"
+    "imagePath": "./assets/items/item_18.png"
   },
   "眉尖刀": {
     "index": 19,
@@ -218,7 +218,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 538,
     "w": 201,
     "h": 153,
-    "imagePath": "/assets/items/item_19.png"
+    "imagePath": "./assets/items/item_19.png"
   },
   "三丈矛": {
     "index": 20,
@@ -229,7 +229,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 538,
     "w": 201,
     "h": 153,
-    "imagePath": "/assets/items/item_20.png"
+    "imagePath": "./assets/items/item_20.png"
   },
   "手戟": {
     "index": 21,
@@ -240,7 +240,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 695,
     "w": 200,
     "h": 155,
-    "imagePath": "/assets/items/item_21.png"
+    "imagePath": "./assets/items/item_21.png"
   },
   "梅花袖箭": {
     "index": 22,
@@ -251,7 +251,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 695,
     "w": 201,
     "h": 155,
-    "imagePath": "/assets/items/item_22.png"
+    "imagePath": "./assets/items/item_22.png"
   },
   "袖箭": {
     "index": 23,
@@ -262,7 +262,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 695,
     "w": 201,
     "h": 155,
-    "imagePath": "/assets/items/item_23.png"
+    "imagePath": "./assets/items/item_23.png"
   },
   "大桿刀": {
     "index": 24,
@@ -273,7 +273,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 695,
     "w": 201,
     "h": 155,
-    "imagePath": "/assets/items/item_24.png"
+    "imagePath": "./assets/items/item_24.png"
   },
   "大刀": {
     "index": 25,
@@ -284,7 +284,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 695,
     "w": 201,
     "h": 155,
-    "imagePath": "/assets/items/item_25.png"
+    "imagePath": "./assets/items/item_25.png"
   },
   "金馬槊": {
     "index": 26,
@@ -295,7 +295,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 854,
     "w": 200,
     "h": 168,
-    "imagePath": "/assets/items/item_26.png"
+    "imagePath": "./assets/items/item_26.png"
   },
   "寶雕弓": {
     "index": 27,
@@ -306,7 +306,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 854,
     "w": 201,
     "h": 168,
-    "imagePath": "/assets/items/item_27.png"
+    "imagePath": "./assets/items/item_27.png"
   },
   "東胡飛弓": {
     "index": 28,
@@ -317,7 +317,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 854,
     "w": 201,
     "h": 168,
-    "imagePath": "/assets/items/item_28.png"
+    "imagePath": "./assets/items/item_28.png"
   },
   "赤兔馬": {
     "index": 29,
@@ -328,7 +328,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 854,
     "w": 201,
     "h": 168,
-    "imagePath": "/assets/items/item_29.png"
+    "imagePath": "./assets/items/item_29.png"
   },
   "的盧馬": {
     "index": 30,
@@ -339,7 +339,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 854,
     "w": 201,
     "h": 168,
-    "imagePath": "/assets/items/item_30.png"
+    "imagePath": "./assets/items/item_30.png"
   },
   "爪黃飛電": {
     "index": 31,
@@ -350,7 +350,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 2,
     "w": 200,
     "h": 182,
-    "imagePath": "/assets/items/item_31.png"
+    "imagePath": "./assets/items/item_31.png"
   },
   "絕影": {
     "index": 32,
@@ -361,7 +361,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 2,
     "w": 201,
     "h": 182,
-    "imagePath": "/assets/items/item_32.png"
+    "imagePath": "./assets/items/item_32.png"
   },
   "照夜玉獅子": {
     "index": 33,
@@ -372,7 +372,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 2,
     "w": 201,
     "h": 182,
-    "imagePath": "/assets/items/item_33.png"
+    "imagePath": "./assets/items/item_33.png"
   },
   "快航": {
     "index": 34,
@@ -383,7 +383,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 2,
     "w": 201,
     "h": 182,
-    "imagePath": "/assets/items/item_34.png"
+    "imagePath": "./assets/items/item_34.png"
   },
   "汗血馬": {
     "index": 35,
@@ -394,7 +394,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 2,
     "w": 201,
     "h": 182,
-    "imagePath": "/assets/items/item_35.png"
+    "imagePath": "./assets/items/item_35.png"
   },
   "涼州馬": {
     "index": 36,
@@ -405,7 +405,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 188,
     "w": 200,
     "h": 177,
-    "imagePath": "/assets/items/item_36.png"
+    "imagePath": "./assets/items/item_36.png"
   },
   "四輪車": {
     "index": 37,
@@ -416,7 +416,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 188,
     "w": 201,
     "h": 177,
-    "imagePath": "/assets/items/item_37.png"
+    "imagePath": "./assets/items/item_37.png"
   },
   "孫子兵法": {
     "index": 38,
@@ -427,7 +427,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 188,
     "w": 201,
     "h": 177,
-    "imagePath": "/assets/items/item_38.png"
+    "imagePath": "./assets/items/item_38.png"
   },
   "兵法二十四篇": {
     "index": 39,
@@ -438,7 +438,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 188,
     "w": 201,
     "h": 177,
-    "imagePath": "/assets/items/item_39.png"
+    "imagePath": "./assets/items/item_39.png"
   },
   "遁甲天書": {
     "index": 40,
@@ -449,7 +449,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 188,
     "w": 201,
     "h": 177,
-    "imagePath": "/assets/items/item_40.png"
+    "imagePath": "./assets/items/item_40.png"
   },
   "孟德新書": {
     "index": 41,
@@ -460,7 +460,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 369,
     "w": 200,
     "h": 165,
-    "imagePath": "/assets/items/item_41.png"
+    "imagePath": "./assets/items/item_41.png"
   },
   "六韜": {
     "index": 42,
@@ -471,7 +471,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 369,
     "w": 201,
     "h": 165,
-    "imagePath": "/assets/items/item_42.png"
+    "imagePath": "./assets/items/item_42.png"
   },
   "三略": {
     "index": 43,
@@ -482,7 +482,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 369,
     "w": 201,
     "h": 165,
-    "imagePath": "/assets/items/item_43.png"
+    "imagePath": "./assets/items/item_43.png"
   },
   "吳子兵法": {
     "index": 44,
@@ -493,7 +493,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 369,
     "w": 201,
     "h": 165,
-    "imagePath": "/assets/items/item_44.png"
+    "imagePath": "./assets/items/item_44.png"
   },
   "司馬法": {
     "index": 45,
@@ -504,7 +504,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 369,
     "w": 201,
     "h": 165,
-    "imagePath": "/assets/items/item_45.png"
+    "imagePath": "./assets/items/item_45.png"
   },
   "太公陰符經": {
     "index": 46,
@@ -515,7 +515,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 538,
     "w": 200,
     "h": 153,
-    "imagePath": "/assets/items/item_46.png"
+    "imagePath": "./assets/items/item_46.png"
   },
   "春秋左氏傳": {
     "index": 47,
@@ -526,7 +526,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 538,
     "w": 201,
     "h": 153,
-    "imagePath": "/assets/items/item_47.png"
+    "imagePath": "./assets/items/item_47.png"
   },
   "太平要術書": {
     "index": 48,
@@ -537,7 +537,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 538,
     "w": 201,
     "h": 153,
-    "imagePath": "/assets/items/item_48.png"
+    "imagePath": "./assets/items/item_48.png"
   },
   "西蜀地形圖": {
     "index": 49,
@@ -548,7 +548,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 538,
     "w": 201,
     "h": 153,
-    "imagePath": "/assets/items/item_49.png"
+    "imagePath": "./assets/items/item_49.png"
   },
   "平蠻指掌圖": {
     "index": 50,
@@ -559,7 +559,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 538,
     "w": 201,
     "h": 153,
-    "imagePath": "/assets/items/item_50.png"
+    "imagePath": "./assets/items/item_50.png"
   },
   "傳國玉璽": {
     "index": 51,
@@ -570,7 +570,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 695,
     "w": 200,
     "h": 155,
-    "imagePath": "/assets/items/item_51.png"
+    "imagePath": "./assets/items/item_51.png"
   },
   "和氏璧": {
     "index": 52,
@@ -581,7 +581,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 695,
     "w": 201,
     "h": 155,
-    "imagePath": "/assets/items/item_52.png"
+    "imagePath": "./assets/items/item_52.png"
   },
   "九錫": {
     "index": 53,
@@ -592,7 +592,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 695,
     "w": 201,
     "h": 155,
-    "imagePath": "/assets/items/item_53.png"
+    "imagePath": "./assets/items/item_53.png"
   },
   "銅雀": {
     "index": 54,
@@ -603,7 +603,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 695,
     "w": 201,
     "h": 155,
-    "imagePath": "/assets/items/item_54.png"
+    "imagePath": "./assets/items/item_54.png"
   },
   "夜光珠": {
     "index": 55,
@@ -614,7 +614,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 695,
     "w": 201,
     "h": 155,
-    "imagePath": "/assets/items/item_55.png"
+    "imagePath": "./assets/items/item_55.png"
   },
   "青囊書": {
     "index": 56,
@@ -625,7 +625,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 854,
     "w": 200,
     "h": 168,
-    "imagePath": "/assets/items/item_56.png"
+    "imagePath": "./assets/items/item_56.png"
   },
   "傷寒雜病論": {
     "index": 57,
@@ -636,7 +636,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 854,
     "w": 201,
     "h": 168,
-    "imagePath": "/assets/items/item_57.png"
+    "imagePath": "./assets/items/item_57.png"
   },
   "太平清領道": {
     "index": 58,
@@ -647,7 +647,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 854,
     "w": 201,
     "h": 168,
-    "imagePath": "/assets/items/item_58.png"
+    "imagePath": "./assets/items/item_58.png"
   },
   "神農本草經": {
     "index": 59,
@@ -658,7 +658,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 854,
     "w": 201,
     "h": 168,
-    "imagePath": "/assets/items/item_59.png"
+    "imagePath": "./assets/items/item_59.png"
   },
   "黃帝內經": {
     "index": 60,
@@ -669,7 +669,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 854,
     "w": 201,
     "h": 168,
-    "imagePath": "/assets/items/item_60.png"
+    "imagePath": "./assets/items/item_60.png"
   },
   "的盧": {
     "index": 30,
@@ -680,7 +680,7 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 854,
     "w": 201,
     "h": 168,
-    "imagePath": "/assets/items/item_30.png"
+    "imagePath": "./assets/items/item_30.png"
   },
   "太平要術": {
     "index": 48,
@@ -691,6 +691,6 @@ export const ITEM_SPRITES_MAPPING: Record<string, ItemSpriteInfo> = {
     "y": 538,
     "w": 201,
     "h": 153,
-    "imagePath": "/assets/items/item_48.png"
+    "imagePath": "./assets/items/item_48.png"
   }
 };
