@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>All Cards Detail Inspector</title>
+<style>
+body { background: #111; color: #eee; font-family: sans-serif; padding: 20px; }
+.row-header { color: #f59e0b; font-size: 20px; margin: 24px 0 12px; border-bottom: 1px solid #444; padding-bottom: 4px; }
+.card-grid { display: flex; flex-wrap: wrap; gap: 12px; }
+.card-item { background: #222; border: 1px solid #555; border-radius: 6px; padding: 8px; display: flex; flex-direction: column; align-items: center; width: 140px; }
+.card-item img { width: 120px; height: 120px; object-fit: contain; background: #fff; image-rendering: pixelated; border-radius: 4px; }
+.card-item .title { font-weight: bold; color: #fbbf24; margin-top: 6px; font-size: 13px; text-align: center; }
+.card-item .pos { font-size: 11px; color: #888; margin-top: 2px; }
+</style>
+</head>
+<body>
+<h1>全卡片詳細座標與名稱對照檢視器</h1>
+<div class="row-header">Row 0</div><div class="card-grid">
+      <div class="card-item">
+        <img src="/assets/card_texts/r0_c0.png">
+        <div class="pos">Row 0, Col 0</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r0_c1.png">
+        <div class="pos">Row 0, Col 1</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r0_c2.png">
+        <div class="pos">Row 0, Col 2</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r0_c3.png">
+        <div class="pos">Row 0, Col 3</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r0_c4.png">
+        <div class="pos">Row 0, Col 4</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r0_c5.png">
+        <div class="pos">Row 0, Col 5</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r0_c6.png">
+        <div class="pos">Row 0, Col 6</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r0_c7.png">
+        <div class="pos">Row 0, Col 7</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r0_c8.png">
+        <div class="pos">Row 0, Col 8</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r0_c9.png">
+        <div class="pos">Row 0, Col 9</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r0_c10.png">
+        <div class="pos">Row 0, Col 10</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r0_c11.png">
+        <div class="pos">Row 0, Col 11</div>
+      </div>
+    <div class="card-item" style="border-color: #f59e0b; width: 160px;">
+      <img src="/assets/card_texts/wide_r0.png" style="width: 140px;">
+      <div class="pos" style="color: #f59e0b;">Row 0 Wide (C5+6)</div>
+    </div></div><div class="row-header">Row 1</div><div class="card-grid">
+      <div class="card-item">
+        <img src="/assets/card_texts/r1_c0.png">
+        <div class="pos">Row 1, Col 0</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r1_c1.png">
+        <div class="pos">Row 1, Col 1</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r1_c2.png">
+        <div class="pos">Row 1, Col 2</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r1_c3.png">
+        <div class="pos">Row 1, Col 3</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r1_c4.png">
+        <div class="pos">Row 1, Col 4</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r1_c5.png">
+        <div class="pos">Row 1, Col 5</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r1_c6.png">
+        <div class="pos">Row 1, Col 6</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r1_c7.png">
+        <div class="pos">Row 1, Col 7</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r1_c8.png">
+        <div class="pos">Row 1, Col 8</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r1_c9.png">
+        <div class="pos">Row 1, Col 9</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r1_c10.png">
+        <div class="pos">Row 1, Col 10</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r1_c11.png">
+        <div class="pos">Row 1, Col 11</div>
+      </div>
+    <div class="card-item" style="border-color: #f59e0b; width: 160px;">
+      <img src="/assets/card_texts/wide_r1.png" style="width: 140px;">
+      <div class="pos" style="color: #f59e0b;">Row 1 Wide (C5+6)</div>
+    </div></div><div class="row-header">Row 2</div><div class="card-grid">
+      <div class="card-item">
+        <img src="/assets/card_texts/r2_c0.png">
+        <div class="pos">Row 2, Col 0</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r2_c1.png">
+        <div class="pos">Row 2, Col 1</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r2_c2.png">
+        <div class="pos">Row 2, Col 2</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r2_c3.png">
+        <div class="pos">Row 2, Col 3</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r2_c4.png">
+        <div class="pos">Row 2, Col 4</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r2_c5.png">
+        <div class="pos">Row 2, Col 5</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r2_c6.png">
+        <div class="pos">Row 2, Col 6</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r2_c7.png">
+        <div class="pos">Row 2, Col 7</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r2_c8.png">
+        <div class="pos">Row 2, Col 8</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r2_c9.png">
+        <div class="pos">Row 2, Col 9</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r2_c10.png">
+        <div class="pos">Row 2, Col 10</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r2_c11.png">
+        <div class="pos">Row 2, Col 11</div>
+      </div>
+    <div class="card-item" style="border-color: #f59e0b; width: 160px;">
+      <img src="/assets/card_texts/wide_r2.png" style="width: 140px;">
+      <div class="pos" style="color: #f59e0b;">Row 2 Wide (C5+6)</div>
+    </div></div><div class="row-header">Row 3</div><div class="card-grid">
+      <div class="card-item">
+        <img src="/assets/card_texts/r3_c0.png">
+        <div class="pos">Row 3, Col 0</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r3_c1.png">
+        <div class="pos">Row 3, Col 1</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r3_c2.png">
+        <div class="pos">Row 3, Col 2</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r3_c3.png">
+        <div class="pos">Row 3, Col 3</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r3_c4.png">
+        <div class="pos">Row 3, Col 4</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r3_c5.png">
+        <div class="pos">Row 3, Col 5</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r3_c6.png">
+        <div class="pos">Row 3, Col 6</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r3_c7.png">
+        <div class="pos">Row 3, Col 7</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r3_c8.png">
+        <div class="pos">Row 3, Col 8</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r3_c9.png">
+        <div class="pos">Row 3, Col 9</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r3_c10.png">
+        <div class="pos">Row 3, Col 10</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r3_c11.png">
+        <div class="pos">Row 3, Col 11</div>
+      </div>
+    <div class="card-item" style="border-color: #f59e0b; width: 160px;">
+      <img src="/assets/card_texts/wide_r3.png" style="width: 140px;">
+      <div class="pos" style="color: #f59e0b;">Row 3 Wide (C5+6)</div>
+    </div></div><div class="row-header">Row 4</div><div class="card-grid">
+      <div class="card-item">
+        <img src="/assets/card_texts/r4_c0.png">
+        <div class="pos">Row 4, Col 0</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r4_c1.png">
+        <div class="pos">Row 4, Col 1</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r4_c2.png">
+        <div class="pos">Row 4, Col 2</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r4_c3.png">
+        <div class="pos">Row 4, Col 3</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r4_c4.png">
+        <div class="pos">Row 4, Col 4</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r4_c5.png">
+        <div class="pos">Row 4, Col 5</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r4_c6.png">
+        <div class="pos">Row 4, Col 6</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r4_c7.png">
+        <div class="pos">Row 4, Col 7</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r4_c8.png">
+        <div class="pos">Row 4, Col 8</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r4_c9.png">
+        <div class="pos">Row 4, Col 9</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r4_c10.png">
+        <div class="pos">Row 4, Col 10</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r4_c11.png">
+        <div class="pos">Row 4, Col 11</div>
+      </div></div><div class="row-header">Row 5</div><div class="card-grid">
+      <div class="card-item">
+        <img src="/assets/card_texts/r5_c0.png">
+        <div class="pos">Row 5, Col 0</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r5_c1.png">
+        <div class="pos">Row 5, Col 1</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r5_c2.png">
+        <div class="pos">Row 5, Col 2</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r5_c3.png">
+        <div class="pos">Row 5, Col 3</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r5_c4.png">
+        <div class="pos">Row 5, Col 4</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r5_c5.png">
+        <div class="pos">Row 5, Col 5</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r5_c6.png">
+        <div class="pos">Row 5, Col 6</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r5_c7.png">
+        <div class="pos">Row 5, Col 7</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r5_c8.png">
+        <div class="pos">Row 5, Col 8</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r5_c9.png">
+        <div class="pos">Row 5, Col 9</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r5_c10.png">
+        <div class="pos">Row 5, Col 10</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r5_c11.png">
+        <div class="pos">Row 5, Col 11</div>
+      </div></div><div class="row-header">Row 6</div><div class="card-grid">
+      <div class="card-item">
+        <img src="/assets/card_texts/r6_c0.png">
+        <div class="pos">Row 6, Col 0</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r6_c1.png">
+        <div class="pos">Row 6, Col 1</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r6_c2.png">
+        <div class="pos">Row 6, Col 2</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r6_c3.png">
+        <div class="pos">Row 6, Col 3</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r6_c4.png">
+        <div class="pos">Row 6, Col 4</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r6_c5.png">
+        <div class="pos">Row 6, Col 5</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r6_c6.png">
+        <div class="pos">Row 6, Col 6</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r6_c7.png">
+        <div class="pos">Row 6, Col 7</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r6_c8.png">
+        <div class="pos">Row 6, Col 8</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r6_c9.png">
+        <div class="pos">Row 6, Col 9</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r6_c10.png">
+        <div class="pos">Row 6, Col 10</div>
+      </div>
+      <div class="card-item">
+        <img src="/assets/card_texts/r6_c11.png">
+        <div class="pos">Row 6, Col 11</div>
+      </div></div></body></html>

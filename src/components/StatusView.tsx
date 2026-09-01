@@ -6,6 +6,7 @@ import { getGeneralItemBonus } from '../data/items';
 import { getGeneralAvailableSkills, getBattleSkillInfo, isPassiveSkill } from '../engine/skills';
 import { getGeneralAvailableFormations, getFormationInfo, FORMATION_TERRAIN_MATRIX, TERRAIN_DETAILS } from '../engine/formations';
 import { GeneralAvatar } from './GeneralAvatar';
+import { ItemAvatar } from './ItemAvatar';
 
 interface StatusViewProps {
   gameState: GameState;
@@ -299,14 +300,16 @@ export default function StatusView({ gameState, initialAction, onExit }: StatusV
 
                   {/* Held Treasure Items Banner */}
                   {itemBonus.items.length > 0 && (
-                    <div className="mb-2.5 flex flex-wrap items-center gap-1.5 bg-amber-50/80 border border-amber-300/80 px-2 py-1 rounded text-xs">
+                    <div className="mb-2.5 flex flex-wrap items-center gap-1.5 bg-amber-50/80 border border-amber-300/80 px-2 py-1.5 rounded text-xs">
                       <span className="font-bold text-amber-900 text-[11px] shrink-0">佩戴寶物:</span>
                       {itemBonus.items.map(item => (
                         <span
                           key={item.id}
-                          className="bg-amber-200/90 text-amber-950 font-black px-1.5 py-0.5 rounded text-[10px] border border-amber-400/80 shadow-2xs"
+                          className="inline-flex items-center gap-1 bg-amber-200/90 text-amber-950 font-black px-1.5 py-0.5 rounded text-[10px] border border-amber-400/80 shadow-2xs"
                         >
-                          {item.name} ({item.bonusDesc.split('，')[0]})
+                          <ItemAvatar name={item.name} size={18} showBorder={false} />
+                          <span>{item.name}</span>
+                          <span className="text-amber-800 font-bold text-[9px]">({item.bonusDesc.split('，')[0]})</span>
                         </span>
                       ))}
                     </div>

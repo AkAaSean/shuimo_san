@@ -3,6 +3,7 @@ import { getGeneralAvailableSkills, getGeneralPassives } from './skills';
 import { GameState, ProvinceState, GeneralState, PendingBattlePlan } from '../types';
 import { provinces } from '../data/provinces';
 import { generals } from '../data/generals';
+import { calculateCaptiveRate, isCityIsolated, processAICaptiveDecision } from './postBattleLogic';
 import { SCENARIOS } from '../data/scenarios';
 import { HIDDEN_TALENTS } from '../data/talents';
 import { PROVINCE_BASE_CONFIGS } from '../data/provinceBaseConfig';
@@ -2127,6 +2128,43 @@ function executeProvinceAI(
   });
 }
 
+function calculateGeneralCombatPower(g: GeneralState, scenarioIndex: number = 0): number {
+  const itemBonus = getGeneralItemBonus(g.name, scenarioIndex);
+  const effectiveStr = g.str + itemBonus.strBonus;
+  const effectiveInt = g.int + itemBonus.intBonus;
+  const effectivePol = g.pol + itemBonus.polBonus;
+  
+  // 綜合能力權重：武力 40% + 智力 40% + (政治+魅力) 20%
+  const statRating = (effectiveStr * 0.4 + effectiveInt * 0.4 + (effectivePol + g.cha) * 0.1) / 70;
+  
+  // 訓練度權重 (0.5 ~ 1.25 倍)
+  const trainingFactor = 0.5 + ((g.training || 50) / 100) * 0.75;
+  
+  // 帶兵量
+  const troops = g.soldiers || 0;
+  
+  // 戰力總值 = 兵力 * 屬性權重 * 訓練權重 + 武智名將加成
+  return (troops * statRating * trainingFactor) + (effectiveStr + effectiveInt) * 15;
+}
+
+function calculateProvinceDefensePower(
+  pData: ProvinceState, 
+  enemyGenerals: GeneralState[], 
+  scenarioIndex: number = 0
+): number {
+  const totalGenPower = enemyGenerals.reduce(
+    (sum, g) => sum + calculateGeneralCombatPower(g, scenarioIndex), 
+    0
+  );
+  const reserveTroops = pData.soldiers || 0;
+  const reservePower = reserveTroops * 0.75;
+  
+  // 城池堅固度加成 (1.0 ~ 1.35 倍)
+  const cityDefenseMultiplier = 1.0 + Math.min(0.35, (pData.value || 50) / 800);
+
+  return (totalGenPower + reservePower) * cityDefenseMultiplier;
+}
+
 function executeRulerStrategicAI(newState: GameState, rulerName: string) {
   const myProvinces = Object.values(newState.provincesData).filter(p => p.rulerName === rulerName);
   if (myProvinces.length === 0) return;
@@ -2154,7 +2192,7 @@ function executeRulerStrategicAI(newState: GameState, rulerName: string) {
   // 1. 空城進駐處理 (Empty Cities Expansion)
   const emptyTargetIds = Array.from(targetMap.keys()).filter(tId => !newState.provincesData[tId]?.rulerName);
   if (emptyTargetIds.length > 0) {
-    if (Math.random() < 0.6) {
+    if (Math.random() < 0.5) {
       for (const targetId of emptyTargetIds) {
         const originIds = targetMap.get(targetId) || [];
         const tState = newState.provincesData[targetId];
@@ -2179,7 +2217,7 @@ function executeRulerStrategicAI(newState: GameState, rulerName: string) {
         const totalTroops = dispatchGens.reduce((s, g) => s + (g.soldiers || 0), 0);
         const reqFood = Math.floor(totalTroops * 0.1);
 
-        if (bestOrigin.pState.food < reqFood + 100) continue;
+        if (bestOrigin.pState.food < reqFood + 500) continue;
 
         bestOrigin.pState.food -= reqFood;
         tState.rulerName = rulerName;
@@ -2198,8 +2236,8 @@ function executeRulerStrategicAI(newState: GameState, rulerName: string) {
     }
   }
 
-  // 2. 軍事進攻判定 (Military Invasion)
-  const baseInvasionChance = isAggressive ? 0.75 : (isCautious ? 0.30 : 0.50);
+  // 2. 軍事進攻判定 (Military Invasion) - 大幅調降宣戰頻率
+  const baseInvasionChance = isAggressive ? 0.35 : (isCautious ? 0.12 : 0.22);
   if (Math.random() > baseInvasionChance) {
     return;
   }
@@ -2246,7 +2284,7 @@ function executeRulerStrategicAI(newState: GameState, rulerName: string) {
       );
       gens.sort((a, b) => (b.str + b.int) - (a.str + a.int));
       return { pState, gens };
-    }).filter(f => f.gens.length >= 1 && (f.gens.length >= 2 || f.gens[0].soldiers >= 1000));
+    }).filter(f => f.gens.length >= 2 && f.pState.food >= 1200);
 
     if (originForces.length === 0) continue;
 
@@ -2256,8 +2294,6 @@ function executeRulerStrategicAI(newState: GameState, rulerName: string) {
     for (const o of attackOrigins) {
       if (o.gens.length >= 2) {
         attackGenerals.push(...o.gens.slice(0, o.gens.length - 1));
-      } else if (o.gens.length === 1 && (o.gens[0].soldiers >= 1000 || attackOrigins.length > 1)) {
-        attackGenerals.push(o.gens[0]);
       }
     }
 
@@ -2266,19 +2302,35 @@ function executeRulerStrategicAI(newState: GameState, rulerName: string) {
     if (attackGenerals.length === 0) continue;
 
     const attackTroops = attackGenerals.reduce((sum, g) => sum + (g.soldiers || 0), 0);
-    if (attackTroops < 600) continue;
+    if (attackTroops < 1000) continue;
 
-    const avgAtkStr = attackGenerals.reduce((sum, g) => sum + g.str, 0) / attackGenerals.length;
-    const attackPower = attackTroops * (avgAtkStr / 70) + (attackGenerals.length * 100);
+    // 精確戰力評估演算法
+    const attackPower = attackGenerals.reduce(
+      (sum, g) => sum + calculateGeneralCombatPower(g, newState.currentScenario),
+      0
+    );
 
-    const avgDefStr = enemyGenerals.length > 0
-      ? enemyGenerals.reduce((sum, g) => sum + g.str, 0) / enemyGenerals.length
-      : 50;
-    const enemyPower = enemyTroops * (avgDefStr / 70) + (enemyGenerals.length * 100);
+    const enemyPower = calculateProvinceDefensePower(
+      tState,
+      enemyGenerals,
+      newState.currentScenario
+    );
 
-    let requiredRatio = isAggressive ? 1.05 : (isCautious ? 1.4 : 1.2);
-    if (enemyTroops < 1500) {
-      requiredRatio = Math.max(0.95, requiredRatio - 0.2);
+    const isTargetPlayer = (enemyRuler === newState.rulerName);
+
+    // 勝率門檻：打一般 AI 需 1.25~1.7 倍優勢；打玩家因玩家手控戰術優勢，需 1.8~2.46 倍強大優勢！
+    let requiredRatio = isAggressive ? 1.25 : (isCautious ? 1.70 : 1.45);
+    if (isTargetPlayer) {
+      requiredRatio *= 1.45; // 玩家防守加權倍率
+    }
+
+    const relation = newState.diplomacyData?.[rulerName]?.[enemyRuler] ?? 50;
+    if (relation >= 50) {
+      requiredRatio += (relation - 50) * 0.01;
+    }
+
+    if (enemyTroops < 1500 && !isTargetPlayer) {
+      requiredRatio = Math.max(1.0, requiredRatio - 0.2);
     }
 
     if (attackPower < enemyPower * requiredRatio) {
@@ -2286,7 +2338,7 @@ function executeRulerStrategicAI(newState: GameState, rulerName: string) {
     }
 
     const reqFood = Math.floor(attackTroops * 0.1);
-    let totalFoodAvail = attackOrigins.reduce((sum, o) => sum + Math.max(0, o.pState.food - 50), 0);
+    let totalFoodAvail = attackOrigins.reduce((sum, o) => sum + Math.max(0, o.pState.food - 500), 0);
     if (totalFoodAvail < reqFood) {
       continue;
     }
@@ -2383,8 +2435,10 @@ function executeRulerStrategicAI(newState: GameState, rulerName: string) {
                 defenderResourcesDeducted[connId] = { gold: 0, food: reqHelpFood };
                 defenderReinforcementGenerals.push(...dispatchGens);
 
-                const avgReinforceStr = dispatchGens.reduce((sum, g) => sum + g.str, 0) / dispatchGens.length;
-                const addPower = dispatchTroops * (avgReinforceStr / 70) + (dispatchGens.length * 100);
+                const addPower = dispatchGens.reduce(
+                  (sum, g) => sum + calculateGeneralCombatPower(g, newState.currentScenario), 
+                  0
+                );
                 finalEnemyPower += addPower;
 
                 dispatchGens.forEach(g => {
@@ -2412,8 +2466,9 @@ function executeRulerStrategicAI(newState: GameState, rulerName: string) {
 
     if (attackPower > finalEnemyPower * 1.05) {
       tState.rulerName = rulerName;
-      tState.food = Math.floor(tState.food * 0.5) + reqFood;
-      tState.gold = Math.floor(tState.gold * 0.5);
+      // 接管守方城池 60% 金糧，隨軍攜帶錢糧完全移入
+      tState.food = Math.floor(tState.food * 0.6) + reqFood;
+      tState.gold = Math.floor(tState.gold * 0.6);
       tState.soldiers = Math.floor((tState.soldiers || 0) * 0.2);
       tState.loyalty = Math.max(0, tState.loyalty - 20);
 
@@ -2423,25 +2478,45 @@ function executeRulerStrategicAI(newState: GameState, rulerName: string) {
         newState.generalsData[g.name] = g;
       });
 
-      const enemyCapital = Object.values(newState.provincesData).find(p => p.rulerName === enemyRuler && p.id !== target.targetId);
+      // 檢查敵方是否被滅國 (剩餘城池為0)
+      const remainingDefCities = (Object.values(newState.provincesData) as ProvinceState[]).filter(p => p.id !== target.targetId && p.rulerName === enemyRuler);
+      const isEliminated = remainingDefCities.length === 0;
+      const isIsolated = isCityIsolated(target.targetId, enemyRuler, newState.provincesData);
+      const winnerGen = (Object.values(newState.generalsData) as GeneralState[]).find(g => g.name === rulerName) || null;
+
       const allDefendingGenerals = [...enemyGenerals, ...defenderReinforcementGenerals];
 
       allDefendingGenerals.forEach(g => {
-        if (g.isRuler) {
-          if (enemyCapital) { g.provinceId = enemyCapital.id; }
-        } else if (Math.random() < 0.5 || (!enemyCapital && !(g as any).originalProvinceId)) {
-          g.loyalty = Math.max(10, g.loyalty - 30);
-          g.soldiers = 0;
-          g.provinceId = target.targetId;
+        const rate = calculateCaptiveRate(g, true, isIsolated, isEliminated);
+        const isCaptured = Math.random() < rate;
+
+        if (isCaptured) {
+          const decision = processAICaptiveDecision(g, rulerName, winnerGen, target.targetId, isEliminated && g.name === enemyRuler);
+          if (decision.action === 'recruit') {
+            g.isCaptive = false; g.captiveOfRuler = null; g.provinceId = target.targetId; g.loyalty = 70; g.isWild = false; g.soldiers = 0;
+          } else if (decision.action === 'execute') {
+            g.isCaptive = false; g.captiveOfRuler = null; g.provinceId = null; g.isWild = true; g.loyalty = 0; g.soldiers = 0;
+          } else if (decision.action === 'release') {
+            g.isCaptive = false; g.captiveOfRuler = null; g.provinceId = target.targetId; g.isWild = true; g.soldiers = 0;
+          } else {
+            g.isCaptive = true; g.captiveOfRuler = rulerName; g.capturedInProvinceId = target.targetId; g.soldiers = 0;
+          }
+          newState.monthlyEvents.push(decision.log);
         } else {
-          g.provinceId = (g as any).originalProvinceId || enemyCapital!.id;
+          g.isWild = isEliminated;
+          g.provinceId = isEliminated ? null : (remainingDefCities[0]?.id || target.targetId);
           g.soldiers = 0;
+          g.loyalty = Math.max(0, g.loyalty - 20);
         }
         delete (g as any).originalProvinceId;
         newState.generalsData[g.name] = g;
       });
 
-      newState.monthlyEvents.push("⚔️【戰報】" + rulerName + "軍 猛攻 " + enemyRuler + " 的 " + targetName + "！守軍不敵，城池易主！");
+      let msg = `⚔️【戰報】${rulerName}軍 猛攻 ${enemyRuler} 的 ${targetName}！守軍不敵，城池易主！`;
+      if (isEliminated) {
+        msg += ` 勢力【${enemyRuler}】慘遭滅國，城內將領悉數被俘！`;
+      }
+      newState.monthlyEvents.push(msg);
     } else {
       attackGenerals.forEach(g => {
         g.soldiers = Math.floor((g.soldiers || 0) * 0.6);

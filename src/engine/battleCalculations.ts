@@ -1,4 +1,5 @@
 import { BattleUnit, GeneralState, TerrainType, GridCell, PassiveSkillDef, PassiveSkillId, FormationTerrainType } from '../types';
+import { getGeneralItemBonus } from '../data/items';
 import { 
   FORMATIONS, 
   getTerrainEffectiveness, 
@@ -940,6 +941,15 @@ export function processTurnStartPassives(
     }
 
     let troops = unit.troops;
+    let stamina = unit.stamina ?? 100;
+
+    // 醫書自動恢復體力：戰鬥每回合自動恢復 10 點體力
+    const itemBonus = getGeneralItemBonus(unit.generalName, 0);
+    if (itemBonus.staminaRecoverBonus > 0 && stamina < 100) {
+      stamina = Math.min(100, stamina + itemBonus.staminaRecoverBonus);
+      notifications.push(`💚 【醫書調理】${unit.generalName} 佩戴醫書，氣血調和，自動恢復 ${itemBonus.staminaRecoverBonus} 點體力！（當前體力 ${stamina}）`);
+    }
+
     if (grid && troops > 0) {
       const cell = grid.find(c => c.col === unit.col && c.row === unit.row);
       if (cell) {
@@ -957,6 +967,7 @@ export function processTurnStartPassives(
     return {
       ...unit,
       troops,
+      stamina,
       status,
       hasActed: false,
       hasMovedThisTurn: false,

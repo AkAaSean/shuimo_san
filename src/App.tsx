@@ -24,6 +24,7 @@ import RulerTerritoryCard from './components/RulerTerritoryCard';
 import SystemModal from './components/SystemModal';
 import PendingBattlesPanel from './components/PendingBattlesPanel';
 import ManualModal from './components/ManualModal';
+import { PostBattleCaptiveModal } from './components/PostBattleCaptiveModal';
 import { useGameEngine } from './engine/useGameEngine';
 import { ProvinceState } from './types';
 import { provinces } from './data/provinces';
@@ -537,6 +538,19 @@ function GameApp({
         isOpen={isManualOpen}
         onClose={() => setIsManualOpen(false)}
       />
+
+      {/* Post-battle captive modal */}
+      {gameState.pendingCaptives && gameState.pendingCaptives.length > 0 && (
+        <PostBattleCaptiveModal
+          pendingCaptives={gameState.pendingCaptives}
+          generalsData={gameState.generalsData}
+          playerRulerName={gameState.rulerName}
+          onCaptiveAction={(genName, action) => actions.handleCaptiveAction(genName, action)}
+          onClose={() => {
+            // cleared automatically when all captives processed
+          }}
+        />
+      )}
     </div>
   );
 }

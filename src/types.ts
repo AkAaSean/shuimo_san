@@ -113,6 +113,10 @@ export interface GeneralState {
   hasActed: boolean; // 本月是否已執行過任務
   rewardedThisMonth?: boolean; // 本月是否已接受過賞賜 (每人每月限一次)
   isWild?: boolean; // 是否為在野武將 (尚未被任何勢力登用)
+  isCaptive?: boolean; // 是否為俘虜 (被關押在城池天牢)
+  captiveOfRuler?: string | null; // 扣押該俘虜之君主
+  capturedInProvinceId?: number | null; // 監禁之城池 ID
+  hasRedHare?: boolean; // 是否擁有名馬/退路特技
   bio?: string;
   activeTask?: { type: string; turnsLeft: number } | null;
   formations?: string[]; // 持續性任務 (如建築關塞)
@@ -189,6 +193,13 @@ export interface GameState {
 
   // Talent / Discovery logs or extra states
   wildGenerals?: string[]; // Names of discovered wild generals available for hiring
+  pendingCaptives?: {
+    generalName: string;
+    capturedInProvinceId: number;
+    winnerRuler: string;
+    defeatedRuler: string;
+    isEliminatedRuler?: boolean;
+  }[];
   lastActionResult?: ActionResult | null;
   monthlyEvents?: string[]; // Log of events like disasters happened at the start of the month
 }

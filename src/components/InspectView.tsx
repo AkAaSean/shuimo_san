@@ -1,6 +1,7 @@
 import { getGeneralAvailableFormations, getFormationInfo, FORMATION_TERRAIN_MATRIX, TERRAIN_DETAILS } from '../engine/formations';
 import { getGeneralAvailableSkills, getBattleSkillInfo, isPassiveSkill } from '../engine/skills';
 import { GeneralAvatar } from "./GeneralAvatar";
+import { ItemAvatar } from "./ItemAvatar";
 import React, { useState, useMemo } from 'react';
 import { GameState, GeneralState, FormationTerrainType } from '../types';
 import { provinces } from '../data/provinces';
@@ -57,6 +58,7 @@ export default function InspectView({
 
   // 5. 君主物品 Tab State
   const [treasureCategoryFilter, setTreasureCategoryFilter] = useState<string>('全部');
+  const [zoomedTreasure, setZoomedTreasure] = useState<TreasureItem | null>(null);
 
   // ─── 數據運算 (Memoized Computations) ───
 
@@ -114,15 +116,17 @@ export default function InspectView({
         list = list.filter(g => {
           if (!g.provinceId) return false;
           const p = gameState.provincesData[g.provinceId];
-          return p && p.rulerName === gameState.rulerName;
+          return p && p.rulerName === gameState.rulerName && !g.isCaptive;
         });
       } else if (generalRulerFilter === '在野') {
-        list = list.filter(g => g.isWild);
+        list = list.filter(g => g.isWild && !g.isCaptive);
+      } else if (generalRulerFilter === '天牢俘虜') {
+        list = list.filter(g => g.isCaptive);
       } else {
         list = list.filter(g => {
           if (!g.provinceId) return false;
           const p = gameState.provincesData[g.provinceId];
-          return p && p.rulerName === generalRulerFilter;
+          return p && p.rulerName === generalRulerFilter && !g.isCaptive;
         });
       }
     }
@@ -632,6 +636,7 @@ export default function InspectView({
                       <option key={r.name} value={r.name}>{r.name} 陣營</option>
                     ))}
                     <option value="在野">在野隱士</option>
+                    <option value="天牢俘虜">🔒 天牢俘虜</option>
                   </select>
                 </div>
 
@@ -1053,68 +1058,108 @@ export default function InspectView({
             TAB 5: 君主物品 (Treasures & Relics Almanac)
            ═══════════════════════════════════════════════════════════════ */}
         {activeTab === '君主物品' && (
-          <div className="flex flex-col gap-3 max-w-xl mx-auto">
+          <div className="flex flex-col gap-3 max-w-2xl mx-auto">
             {/* Category Filter Chips */}
             <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
               {['全部', '武器', '名馬', '兵書', '奇寶', '醫書'].map(cat => (
                 <button
                   key={cat}
                   onClick={() => setTreasureCategoryFilter(cat)}
-                  className={`px-3 py-1.5 rounded text-xs font-black border transition-colors whitespace-nowrap
+                  className={`px-3 py-1.5 rounded text-xs font-black border transition-colors whitespace-nowrap cursor-pointer
                     ${treasureCategoryFilter === cat
                       ? 'bg-[#7f1d1d] text-amber-100 border-[#991b1b] shadow'
                       : 'bg-white text-stone-700 border-stone-300 hover:bg-stone-100'}`}
                 >
-                  {cat}
+                  {cat} ({cat === '全部' ? TREASURE_ITEMS.length : TREASURE_ITEMS.filter(t => t.category === cat).length})
                 </button>
               ))}
             </div>
 
             {/* Treasures Cards */}
-            <div className="flex flex-col gap-2.5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {filteredTreasures.map(item => {
                 const currentOwner = item.defaultOwner[gameState.currentScenario];
                 const ownerGeneral = currentOwner ? gameState.generalsData[currentOwner] : null;
                 const ownerProvince = ownerGeneral?.provinceId ? provinces.find(p => p.id === ownerGeneral.provinceId) : null;
+                const originProvince = item.provinceOrigin ? provinces.find(p => p.id === item.provinceOrigin) : null;
 
                 return (
                   <div
                     key={item.id}
-                    className="bg-white border-2 border-stone-800 p-3 rounded shadow-sm flex flex-col gap-2"
+                    className="bg-white border-2 border-stone-800 p-3 rounded-lg shadow-sm flex flex-col justify-between gap-2.5 hover:border-amber-700 transition-all"
                   >
-                    <div className="flex justify-between items-start border-b border-stone-200 pb-2">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-base font-black text-[#1c1917]">{item.name}</span>
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold
-                            ${item.category === '武器' ? 'bg-red-100 text-red-900 border border-red-300' :
-                              item.category === '名馬' ? 'bg-amber-100 text-amber-900 border border-amber-300' :
-                              item.category === '兵書' ? 'bg-blue-100 text-blue-900 border border-blue-300' :
-                              item.category === '奇寶' ? 'bg-purple-100 text-purple-900 border border-purple-300' :
-                              'bg-emerald-100 text-emerald-900 border border-emerald-300'}`}
-                          >
-                            {item.category}
-                          </span>
-                        </div>
-                        <div className="text-xs font-black text-amber-800 mt-0.5">
-                          【效果】{item.bonusDesc}
+                    <div className="flex gap-3 items-start">
+                      {/* 寶物像素肖像 - 支援點擊放大檢視 */}
+                      <div 
+                        onClick={() => setZoomedTreasure(item)}
+                        className="relative group cursor-pointer shrink-0 rounded p-0.5 bg-gradient-to-br from-amber-600 via-stone-800 to-amber-900 shadow transition-all hover:scale-105 active:scale-95"
+                        title="點擊放大檢視寶物精繪圖"
+                      >
+                        <ItemAvatar 
+                          name={item.name} 
+                          size={54} 
+                          className="rounded border border-amber-400/80 shadow-inner" 
+                        />
+                        <div className="absolute -bottom-1 -right-1 bg-stone-900/90 text-amber-300 border border-amber-400/70 rounded-full px-1 py-0.2 text-[8px] font-black flex items-center gap-0.5 shadow-xs">
+                          <span>🔍</span>
                         </div>
                       </div>
 
-                      <div className="text-right text-xs">
-                        <div className="text-[10px] text-stone-500 font-bold">當前持有人</div>
-                        {currentOwner ? (
-                          <div className="font-black text-[#991b1b]">
-                            {currentOwner}
-                            {ownerProvince && (
-                              <span className="text-[10px] text-stone-500 block font-normal">
-                                ({ownerProvince.name})
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-start gap-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span 
+                              onClick={() => setZoomedTreasure(item)}
+                              className="text-base font-black text-[#1c1917] hover:text-amber-800 cursor-pointer underline decoration-dotted"
+                            >
+                              {item.name}
+                            </span>
+                            <span className={`text-[10px] px-1.5 py-0.2 rounded font-bold
+                              ${item.category === '武器' ? 'bg-red-100 text-red-900 border border-red-300' :
+                                item.category === '名馬' ? 'bg-amber-100 text-amber-900 border border-amber-300' :
+                                item.category === '兵書' ? 'bg-blue-100 text-blue-900 border border-blue-300' :
+                                item.category === '奇寶' ? 'bg-purple-100 text-purple-900 border border-purple-300' :
+                                'bg-emerald-100 text-emerald-900 border border-emerald-300'}`}
+                            >
+                              {item.category}
+                            </span>
+                          </div>
+
+                          <button
+                            onClick={() => setZoomedTreasure(item)}
+                            className="text-[10px] text-amber-800 hover:text-amber-950 font-bold bg-amber-100/90 hover:bg-amber-200 border border-amber-300 px-1.5 py-0.5 rounded flex items-center gap-0.5 cursor-pointer shrink-0"
+                          >
+                            <span>🔍 放大</span>
+                          </button>
+                        </div>
+
+                        <div className="text-xs font-black text-amber-800 mt-1">
+                          【效果】{item.bonusDesc}
+                        </div>
+
+                        <div className="flex items-center justify-between text-[11px] mt-1 pt-1 border-t border-stone-100">
+                          <div>
+                            <span className="text-stone-400 font-bold text-[10px]">持有人：</span>
+                            {currentOwner ? (
+                              <span className="font-black text-[#991b1b]">
+                                {currentOwner}
+                                {ownerProvince && (
+                                  <span className="text-[10px] text-stone-500 font-normal ml-1">
+                                    ({ownerProvince.name})
+                                  </span>
+                                )}
                               </span>
+                            ) : (
+                              <span className="text-stone-400 font-bold">尚在山林 / 未現世</span>
                             )}
                           </div>
-                        ) : (
-                          <div className="text-stone-400 font-bold">尚在山林 / 未現世</div>
-                        )}
+
+                          {originProvince && (
+                            <span className="text-[10px] text-stone-500 font-bold">
+                              出土：{originProvince.name}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -1168,7 +1213,7 @@ export default function InspectView({
                           onClick={() => setZoomedAvatarGeneral(selectedGeneralDetail)}
                           className="text-[10px] text-amber-800 hover:text-amber-950 font-bold bg-amber-100/90 hover:bg-amber-200 border border-amber-300 px-1.5 py-0.5 rounded flex items-center gap-0.5 cursor-pointer transition-colors"
                         >
-                          <span>🔍 放大圖像</span>
+                          <span>🔍 放大肖像</span>
                         </button>
                       </div>
                       <span className="text-xs text-stone-500 font-bold">
@@ -1193,11 +1238,21 @@ export default function InspectView({
                       <span>👑</span> 佩戴名物寶物 ({itemBonus.items.length} 件)
                     </span>
                   </div>
-                  <div className="flex flex-col gap-1">
+                  <div className="flex flex-col gap-1.5">
                     {itemBonus.items.map(it => (
-                      <div key={it.id} className="bg-white border border-amber-300 px-2 py-1 rounded flex justify-between items-center text-[11px]">
-                        <span className="font-black text-stone-900">{it.name}</span>
-                        <span className="font-bold text-amber-800">{it.bonusDesc}</span>
+                      <div 
+                        key={it.id} 
+                        onClick={() => setZoomedTreasure(it)}
+                        className="bg-white border border-amber-300 p-1.5 rounded flex items-center justify-between gap-2 hover:border-amber-600 hover:bg-amber-100/40 cursor-pointer transition-all"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <ItemAvatar name={it.name} size={32} className="rounded shrink-0" />
+                          <div className="min-w-0">
+                            <span className="font-black text-stone-900 text-xs block truncate">{it.name}</span>
+                            <span className="text-[10px] text-stone-500 block font-bold">{it.category}</span>
+                          </div>
+                        </div>
+                        <span className="font-bold text-amber-800 text-[11px] shrink-0 text-right">{it.bonusDesc}</span>
                       </div>
                     ))}
                   </div>
@@ -1717,6 +1772,113 @@ export default function InspectView({
                 className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-700 to-amber-600 hover:from-amber-600 hover:to-amber-500 text-stone-950 font-black text-sm border border-amber-400 shadow-md active:scale-98 transition-all cursor-pointer"
               >
                 返回武將履歷
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Modal: Zoomed Treasure Detail Popup ── */}
+      {zoomedTreasure && (() => {
+        const curOwner = zoomedTreasure.defaultOwner[gameState.currentScenario];
+        const ownerGen = curOwner ? gameState.generalsData[curOwner] : null;
+        const ownerProv = ownerGen?.provinceId ? provinces.find(p => p.id === ownerGen.provinceId) : null;
+        const origProv = zoomedTreasure.provinceOrigin ? provinces.find(p => p.id === zoomedTreasure.provinceOrigin) : null;
+
+        return (
+          <div 
+            onClick={() => setZoomedTreasure(null)}
+            className="absolute inset-0 bg-black/80 z-60 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in"
+          >
+            <div 
+              onClick={e => e.stopPropagation()}
+              className="relative bg-gradient-to-b from-[#241a13] via-[#1a130e] to-[#0f0b08] border-2 border-amber-500/80 rounded-2xl p-5 max-w-sm w-full shadow-[0_0_40px_rgba(0,0,0,0.9)] flex flex-col items-center gap-3.5 font-serif text-amber-100 animate-scale-up"
+            >
+              {/* 關閉按鈕 */}
+              <button
+                onClick={() => setZoomedTreasure(null)}
+                className="absolute top-3 right-3 text-stone-400 hover:text-amber-200 hover:bg-stone-800/60 w-8 h-8 rounded-full flex items-center justify-center text-lg font-black transition-colors cursor-pointer border border-transparent hover:border-amber-500/40"
+              >
+                ✕
+              </button>
+
+              {/* 頂部標籤與名稱 */}
+              <div className="flex flex-col items-center gap-1">
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs px-2.5 py-0.5 rounded-full font-black tracking-wider border
+                    ${zoomedTreasure.category === '武器' ? 'bg-red-950/80 text-red-300 border-red-500/50' :
+                      zoomedTreasure.category === '名馬' ? 'bg-amber-950/80 text-amber-300 border-amber-500/50' :
+                      zoomedTreasure.category === '兵書' ? 'bg-blue-950/80 text-blue-300 border-blue-500/50' :
+                      zoomedTreasure.category === '奇寶' ? 'bg-purple-950/80 text-purple-300 border-purple-500/50' :
+                      'bg-emerald-950/80 text-emerald-300 border-emerald-500/50'}`}
+                  >
+                    {zoomedTreasure.category}
+                  </span>
+                  {origProv && (
+                    <span className="text-xs bg-stone-800/90 text-stone-300 border border-stone-600 px-2 py-0.5 rounded-full font-bold">
+                      出土：{origProv.name}
+                    </span>
+                  )}
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-amber-100 via-amber-300 to-yellow-200 mt-1">
+                  {zoomedTreasure.name}
+                </h2>
+              </div>
+
+              {/* 核心大寶物展示框 */}
+              <div className="relative p-3 rounded-2xl bg-gradient-to-b from-[#3a2d20] to-[#120e0b] border-2 border-amber-500/60 shadow-[inset_0_0_20px_rgba(0,0,0,0.8)]">
+                <div className="rounded-xl overflow-hidden border-2 border-amber-400/90 shadow-2xl bg-[#1e1711] p-3 flex items-center justify-center">
+                  <ItemAvatar 
+                    name={zoomedTreasure.name} 
+                    size={140} 
+                    className="object-contain" 
+                    showBorder={false}
+                  />
+                </div>
+                {/* 四角古典裝飾圖紋 */}
+                <div className="absolute top-1 left-1 text-amber-400/70 text-xs font-serif select-none">◈</div>
+                <div className="absolute top-1 right-1 text-amber-400/70 text-xs font-serif select-none">◈</div>
+                <div className="absolute bottom-1 left-1 text-amber-400/70 text-xs font-serif select-none">◈</div>
+                <div className="absolute bottom-1 right-1 text-amber-400/70 text-xs font-serif select-none">◈</div>
+              </div>
+
+              {/* 寶物附帶能力加成 */}
+              <div className="w-full bg-[#2a2016] border border-amber-500/40 rounded-lg p-2.5 text-center shadow-inner">
+                <div className="text-[10px] text-amber-400 font-bold mb-0.5">【寶物附加威能】</div>
+                <div className="text-sm font-black text-amber-200">
+                  {zoomedTreasure.bonusDesc}
+                </div>
+              </div>
+
+              {/* 寶物歷史出處與典故 */}
+              <div className="w-full bg-[#16110d] rounded-lg border border-[#3b3128] p-2.5 text-xs text-stone-300 leading-relaxed max-h-28 overflow-y-auto">
+                <div className="text-[10px] text-stone-500 font-bold mb-1 flex items-center gap-1">
+                  <span>📜</span> 歷史考證典故：
+                </div>
+                {zoomedTreasure.desc}
+              </div>
+
+              {/* 當前持有情況 */}
+              <div className="flex justify-between items-center w-full px-3 py-2 bg-[#14100d] rounded-lg border border-[#3b3128] text-xs text-stone-400">
+                <div>
+                  <span>當前持有人：</span>
+                  {curOwner ? (
+                    <strong className="text-amber-300 font-black">
+                      {curOwner}
+                      {ownerProv && ` (${ownerProv.name})`}
+                    </strong>
+                  ) : (
+                    <span className="text-stone-500 font-bold">尚在山林 / 未現世</span>
+                  )}
+                </div>
+              </div>
+
+              {/* 點擊確認關閉按鈕 */}
+              <button
+                onClick={() => setZoomedTreasure(null)}
+                className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-700 to-amber-600 hover:from-amber-600 hover:to-amber-500 text-stone-950 font-black text-sm border border-amber-400 shadow-md active:scale-98 transition-all cursor-pointer"
+              >
+                返回名物寶典
               </button>
             </div>
           </div>
