@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { getGeneralAvatarUrl, GENERAL_AVATAR_MAP } from '../data/avatarMapping';
+import React, { useState, useEffect } from 'react';
+import { getGeneralAvatarUrl } from '../data/avatarMapping';
 
 interface GeneralAvatarProps {
   name: string;
@@ -20,6 +20,10 @@ export const GeneralAvatar: React.FC<GeneralAvatarProps> = ({
 }) => {
   const [imageError, setImageError] = useState(false);
   const avatarUrl = getGeneralAvatarUrl(name, forceFaction);
+
+  useEffect(() => {
+    setImageError(false);
+  }, [name, forceFaction, avatarUrl]);
 
   if (imageError) {
     // 圖片載入失敗時的優雅降級顯示 (古典水墨印記風格)
@@ -54,6 +58,7 @@ export const GeneralAvatar: React.FC<GeneralAvatarProps> = ({
         style={{ imageRendering: 'pixelated' }}
         onError={() => setImageError(true)} 
         loading="lazy"
+        referrerPolicy="no-referrer"
       />
     </div>
   );

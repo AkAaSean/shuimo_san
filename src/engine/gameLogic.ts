@@ -4,6 +4,7 @@ import { GameState, ProvinceState, GeneralState, PendingBattlePlan } from '../ty
 import { provinces } from '../data/provinces';
 import { generals } from '../data/generals';
 import { calculateCaptiveRate, isCityIsolated, processAICaptiveDecision } from './postBattleLogic';
+import { handleRulerDecapitation } from './rulerSuccessionLogic';
 import { SCENARIOS } from '../data/scenarios';
 import { HIDDEN_TALENTS } from '../data/talents';
 import { PROVINCE_BASE_CONFIGS } from '../data/provinceBaseConfig';
@@ -688,32 +689,6 @@ export function executeCommand(state: GameState, provinceId: number, category: s
         const decrease = calculateFloodGain(totalPol);
         province.flood = Math.max(0, province.flood - decrease);
         actingGen.hasActed = true;
-        newState.generalsData[actingGen.name] = actingGen;
-      }
-    } else if (action === '建築關寨' && payload) {
-      const cost = province.price * 100;
-      const totalPol = actingGen.pol + itemBonus.polBonus;
-      let turnsRequired = 0;
-      if (totalPol >= 91) turnsRequired = 1;
-      else if (totalPol >= 81) turnsRequired = 2;
-      else if (totalPol >= 71) turnsRequired = 3;
-      else if (totalPol >= 61) turnsRequired = 4;
-
-      if (
-        turnsRequired > 0 && 
-        province.gold >= cost && 
-        province.forts.length < tierRules.maxForts &&
-        !province.underConstructionFort
-      ) {
-        province.gold -= cost;
-        province.underConstructionFort = {
-          x: payload.x,
-          y: payload.y,
-          turnsLeft: turnsRequired,
-          builderName: actingGen.name
-        };
-        actingGen.hasActed = true;
-        actingGen.activeTask = { type: 'BUILD_FORT', turnsLeft: turnsRequired };
         newState.generalsData[actingGen.name] = actingGen;
       }
     }
@@ -1882,32 +1857,63 @@ export function executeCommand(state: GameState, provinceId: number, category: s
       } else if (action === '登用人才' && payload) {
         const { targetGeneralName } = payload;
         const targetGen = newState.generalsData[targetGeneralName];
-        if (targetGen && targetGen.isWild && targetGen.provinceId === provinceId) {
-          // 依據執行武將的魅力計算成功率
-          const successRate = Math.min(95, Math.max(15, actingGen.cha - 10));
-          const roll = Math.random() * 100;
-          if (roll < successRate) {
-            targetGen.isWild = false;
-            targetGen.loyalty = Math.min(100, 60 + Math.floor(actingGen.cha / 4));
-            targetGen.hasActed = true;
-            newState.generalsData[targetGeneralName] = targetGen;
+        if (targetGen) {
+          if (targetGen.isCaptive) {
+            // 天牢俘虜說服招降
+            const targetLoyalty = targetGen.loyalty || 50;
+            const successRate = Math.min(95, Math.max(15, (actingGen.cha / 110) * (1 - targetLoyalty / 180) * 100));
+            const roll = Math.random() * 100;
+            if (roll < successRate) {
+              targetGen.isCaptive = false;
+              targetGen.captiveOfRuler = null;
+              targetGen.provinceId = provinceId;
+              targetGen.loyalty = Math.min(100, 65 + Math.floor(actingGen.cha / 5));
+              targetGen.hasActed = true;
+              newState.generalsData[targetGeneralName] = targetGen;
 
-            newState.lastActionResult = {
-              action: '登用人才',
-              title: '🎉 登用人才結果：招募成功！',
-              message: `【${actingGen.name}】親赴拜訪遊說，真誠感佩，賢士【${targetGeneralName}】正式同意出山，加入我軍麾下！（初始忠誠度：${targetGen.loyalty}）`,
-              type: 'success'
-            };
-          } else {
-            newState.lastActionResult = {
-              action: '登用人才',
-              title: '❌ 登用人才結果：招募失敗',
-              message: `【${actingGen.name}】親赴遊說【${targetGeneralName}】，然對方婉言婉拒，未能成功招致麾下。`,
-              type: 'failure'
-            };
+              newState.lastActionResult = {
+                action: '登用人才',
+                title: '🎉 勸降天牢俘虜成功：名將歸順！',
+                message: `【${actingGen.name}】親赴天牢懇切說服，俘虜【${targetGeneralName}】感佩恩威，開懷應允棄暗投明，正式加入我軍！（初始忠誠度：${targetGen.loyalty}）`,
+                type: 'success'
+              };
+            } else {
+              newState.lastActionResult = {
+                action: '登用人才',
+                title: '❌ 勸降天牢俘虜失敗：寧死不屈',
+                message: `【${actingGen.name}】親赴天牢嘗試遊說【${targetGeneralName}】，然對方怒道：『忠臣不事二主，何必多言！』拒絕歸順。`,
+                type: 'failure'
+              };
+            }
+            actingGen.hasActed = true;
+            newState.generalsData[actingGen.name] = actingGen;
+          } else if (targetGen.isWild && targetGen.provinceId === provinceId) {
+            // 依據執行武將的魅力計算成功率
+            const successRate = Math.min(95, Math.max(15, actingGen.cha - 10));
+            const roll = Math.random() * 100;
+            if (roll < successRate) {
+              targetGen.isWild = false;
+              targetGen.loyalty = Math.min(100, 60 + Math.floor(actingGen.cha / 4));
+              targetGen.hasActed = true;
+              newState.generalsData[targetGeneralName] = targetGen;
+
+              newState.lastActionResult = {
+                action: '登用人才',
+                title: '🎉 登用人才結果：招募成功！',
+                message: `【${actingGen.name}】親赴拜訪遊說，真誠感佩，賢士【${targetGeneralName}】正式同意出山，加入我軍麾下！（初始忠誠度：${targetGen.loyalty}）`,
+                type: 'success'
+              };
+            } else {
+              newState.lastActionResult = {
+                action: '登用人才',
+                title: '❌ 登用人才結果：招募失敗',
+                message: `【${actingGen.name}】親赴遊說【${targetGeneralName}】，然對方婉言婉拒，未能成功招致麾下。`,
+                type: 'failure'
+              };
+            }
+            actingGen.hasActed = true;
+            newState.generalsData[actingGen.name] = actingGen;
           }
-          actingGen.hasActed = true;
-          newState.generalsData[actingGen.name] = actingGen;
         }
       } else {
         actingGen.hasActed = true;
@@ -2495,7 +2501,7 @@ function executeRulerStrategicAI(newState: GameState, rulerName: string) {
           if (decision.action === 'recruit') {
             g.isCaptive = false; g.captiveOfRuler = null; g.provinceId = target.targetId; g.loyalty = 70; g.isWild = false; g.soldiers = 0;
           } else if (decision.action === 'execute') {
-            g.isCaptive = false; g.captiveOfRuler = null; g.provinceId = null; g.isWild = true; g.loyalty = 0; g.soldiers = 0;
+            handleRulerDecapitation(newState, g.name, rulerName);
           } else if (decision.action === 'release') {
             g.isCaptive = false; g.captiveOfRuler = null; g.provinceId = target.targetId; g.isWild = true; g.soldiers = 0;
           } else {
@@ -2863,22 +2869,6 @@ export function advanceTime(state: GameState): GameState {
     };
   });
   newState.generalsData = updatedGenerals;
-
-  // 4.5 處理都市建築進度
-  Object.values(newState.provincesData).forEach(p => {
-    const updatedP = { ...p };
-    if (updatedP.underConstructionFort) {
-      updatedP.underConstructionFort = { 
-        ...updatedP.underConstructionFort, 
-        turnsLeft: updatedP.underConstructionFort.turnsLeft - 1 
-      };
-      if (updatedP.underConstructionFort.turnsLeft <= 0) {
-        updatedP.forts.push({ x: updatedP.underConstructionFort.x, y: updatedP.underConstructionFort.y });
-        updatedP.underConstructionFort = null;
-      }
-    }
-    newState.provincesData[p.id] = updatedP;
-  });
 
   // 5. 新年份在野武將出仕檢測及自然死亡檢測
   let deathMessages: string[] = [];

@@ -1,5 +1,5 @@
-import React, { useRef, useState, useEffect } from 'react';
-import { motion } from 'motion/react';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
+import { motion, useAnimation } from 'motion/react';
 import { provinces } from '../data/provinces';
 import { ProvinceState } from '../types';
 import chinaMapBg from '../assets/images/china_map_bg_1787578499258.jpg';
@@ -37,25 +37,93 @@ const getRulerText = (rulerName: string | null) => {
 
 export default function MapArea({ selectedProvinceId, onSelectProvince, onClearSelection, provincesData }: MapAreaProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const controls = useAnimation();
   const [scale, setScale] = useState(1);
-  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+  const [containerSize, setContainerSize] = useState({ width: 800, height: 600 });
 
+  // 精確監聽容器尺寸變更（適應各式螢幕比例與轉向）
   useEffect(() => {
-    const updateSize = () => {
+    if (!containerRef.current) return;
+    const updateContainer = () => {
       if (containerRef.current) {
         setContainerSize({
-          width: containerRef.current.clientWidth,
-          height: containerRef.current.clientHeight,
+          width: containerRef.current.clientWidth || window.innerWidth,
+          height: containerRef.current.clientHeight || (window.innerHeight - 120),
         });
       }
     };
-    updateSize();
-    window.addEventListener('resize', updateSize);
-    return () => window.removeEventListener('resize', updateSize);
+
+    updateContainer();
+
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.contentRect && entry.contentRect.width > 0) {
+          setContainerSize({
+            width: entry.contentRect.width,
+            height: entry.contentRect.height,
+          });
+        }
+      }
+    });
+
+    ro.observe(containerRef.current);
+    window.addEventListener('resize', updateContainer);
+
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', updateContainer);
+    };
   }, []);
 
-  // Compute boundaries to prevent dragging map out of view
   const MAP_BASE_SIZE = 1600;
+
+  // 確保選中城池時精確置中，並支援視區 offset 與動態縮放
+  useEffect(() => {
+    if (selectedProvinceId) {
+      const selectedP = provinces.find(p => p.id === selectedProvinceId);
+      if (selectedP) {
+        const targetScale = Math.max(scale < 1.2 ? 1.45 : scale, 1.45);
+        setScale(targetScale);
+
+        const isMobile = containerSize.width < 640;
+        // SVG 中心點為 (800, 800)
+        // 手機端視區扣除底部選單，微調 Y 軸偏移 -15px 讓城池居於最佳視覺中心
+        const targetX = (800 - selectedP.x) * targetScale;
+        const targetY = (800 - selectedP.y) * targetScale - (isMobile ? 15 : 0);
+
+        const w = containerSize.width || (typeof window !== 'undefined' ? window.innerWidth : 800);
+        const h = containerSize.height || (typeof window !== 'undefined' ? window.innerHeight - 120 : 600);
+
+        const mapRenderedW = MAP_BASE_SIZE * targetScale;
+        const mapRenderedH = MAP_BASE_SIZE * targetScale;
+
+        const maxDragX = Math.max(0, (mapRenderedW - w) / 2);
+        const maxDragY = Math.max(0, (mapRenderedH - h) / 2);
+
+        const clampedX = Math.min(maxDragX, Math.max(-maxDragX, targetX));
+        const clampedY = Math.min(maxDragY, Math.max(-maxDragY, targetY));
+
+        controls.start({
+          x: clampedX,
+          y: clampedY,
+          scale: targetScale,
+          transition: { type: 'spring', stiffness: 220, damping: 26 }
+        });
+      }
+    }
+  }, [selectedProvinceId, containerSize, controls]);
+
+  // 將選中的城池渲染順序排在最後，確保其光圈與文字永遠在最上層 (SVG Z-index 效果)
+  const sortedProvinces = useMemo(() => {
+    if (!selectedProvinceId) return provinces;
+    return [...provinces].sort((a, b) => {
+      if (a.id === selectedProvinceId) return 1;
+      if (b.id === selectedProvinceId) return -1;
+      return 0;
+    });
+  }, [selectedProvinceId]);
+
+  // Compute boundaries to prevent dragging map out of view
   const mapRenderedWidth = MAP_BASE_SIZE * scale;
   const mapRenderedHeight = MAP_BASE_SIZE * scale;
 
@@ -69,9 +137,49 @@ export default function MapArea({ selectedProvinceId, onSelectProvince, onClearS
     bottom: maxDragY,
   };
 
+  const handleZoomIn = () => {
+    const newScale = Math.min(scale + 0.35, 3.0);
+    setScale(newScale);
+    if (selectedProvinceId) {
+      const selectedP = provinces.find(p => p.id === selectedProvinceId);
+      if (selectedP) {
+        const isMobile = containerSize.width < 640;
+        const targetX = (800 - selectedP.x) * newScale;
+        const targetY = (800 - selectedP.y) * newScale - (isMobile ? 15 : 0);
+        const maxX = Math.max(0, (MAP_BASE_SIZE * newScale - containerSize.width) / 2);
+        const maxY = Math.max(0, (MAP_BASE_SIZE * newScale - containerSize.height) / 2);
+        const clampedX = Math.min(maxX, Math.max(-maxX, targetX));
+        const clampedY = Math.min(maxY, Math.max(-maxY, targetY));
+        controls.start({ x: clampedX, y: clampedY, scale: newScale, transition: { duration: 0.22 } });
+        return;
+      }
+    }
+    controls.start({ scale: newScale, transition: { duration: 0.22 } });
+  };
+
+  const handleZoomOut = () => {
+    const newScale = Math.max(scale - 0.35, 0.6);
+    setScale(newScale);
+    if (selectedProvinceId) {
+      const selectedP = provinces.find(p => p.id === selectedProvinceId);
+      if (selectedP) {
+        const isMobile = containerSize.width < 640;
+        const targetX = (800 - selectedP.x) * newScale;
+        const targetY = (800 - selectedP.y) * newScale - (isMobile ? 15 : 0);
+        const maxX = Math.max(0, (MAP_BASE_SIZE * newScale - containerSize.width) / 2);
+        const maxY = Math.max(0, (MAP_BASE_SIZE * newScale - containerSize.height) / 2);
+        const clampedX = Math.min(maxX, Math.max(-maxX, targetX));
+        const clampedY = Math.min(maxY, Math.max(-maxY, targetY));
+        controls.start({ x: clampedX, y: clampedY, scale: newScale, transition: { duration: 0.22 } });
+        return;
+      }
+    }
+    controls.start({ scale: newScale, transition: { duration: 0.22 } });
+  };
+
   return (
     <div 
-      className="relative w-full h-full overflow-hidden bg-[#e6e2db] flex items-center justify-center"
+      className="relative w-full h-full overflow-hidden bg-[#e6e2db] flex items-center justify-center select-none"
       ref={containerRef}
     >
       {/* Background Ink Wash Texture overlay */}
@@ -83,6 +191,7 @@ export default function MapArea({ selectedProvinceId, onSelectProvince, onClearS
         drag
         dragConstraints={dragConstraints}
         dragElastic={0}
+        animate={controls}
         className="absolute w-[1600px] h-[1600px] cursor-grab active:cursor-grabbing origin-center"
         style={{ scale }}
       >
@@ -160,8 +269,8 @@ export default function MapArea({ selectedProvinceId, onSelectProvince, onClearS
               })
             )}
             
-            {/* Draw city nodes */}
-            {provinces.map((p) => {
+            {/* Draw city nodes with selected city rendered last for Z-index overlay */}
+            {sortedProvinces.map((p) => {
               const isSelected = p.id === selectedProvinceId;
               const pData = provincesData ? provincesData[p.id] : null;
               const rulerName = pData ? pData.rulerName : null;
@@ -175,49 +284,74 @@ export default function MapArea({ selectedProvinceId, onSelectProvince, onClearS
                   onClick={() => onSelectProvince(p.id)}
                   className="cursor-pointer"
                 >
-                  {/* Outer White Halo Ring */}
+                  {/* Selected City Double Ping Wave Effect */}
+                  {isSelected && (
+                    <>
+                      <circle
+                        r={38}
+                        fill="none"
+                        stroke="#fbbf24"
+                        strokeWidth={2.5}
+                        className="animate-ping opacity-60 pointer-events-none"
+                      />
+                      <circle
+                        r={28}
+                        fill="none"
+                        stroke="#f59e0b"
+                        strokeWidth={3}
+                        className="animate-ping opacity-80 pointer-events-none"
+                        style={{ animationDelay: '0.15s' }}
+                      />
+                    </>
+                  )}
+
+                  {/* Outer White / Gold Halo Ring */}
                   <circle
-                    r={isSelected ? 22 : 17}
+                    r={isSelected ? 26 : 17}
                     fill="none"
-                    stroke="#ffffff"
-                    strokeWidth={isSelected ? 4 : 2.5}
+                    stroke={isSelected ? '#fbbf24' : '#ffffff'}
+                    strokeWidth={isSelected ? 5 : 2.5}
                     className="transition-all duration-300 drop-shadow-md"
                   />
+
                   {/* Inner Ruler Color Circle */}
                   <circle
-                    r={isSelected ? 18 : 14}
+                    r={isSelected ? 21 : 14}
                     fill={fill}
                     stroke="#1c1917"
-                    strokeWidth={1.5}
+                    strokeWidth={isSelected ? 2.5 : 1.5}
                     className="transition-all duration-300"
                   />
-                  {/* City Name Label: Bold White with Dark Shadow */}
+
+
+                  {/* City Name Label: Bold Yellow with Heavy Dark Shadow */}
                   <text
-                    y={-24}
+                    y={isSelected ? -16 : -24}
                     textAnchor="middle"
                     className={`font-serif transition-all duration-300 ${
-                      isSelected ? 'font-black fill-yellow-300 text-[20px]' : 'font-black fill-white text-[17px]'
+                      isSelected ? 'font-black fill-yellow-300 text-[23px]' : 'font-black fill-white text-[17px]'
                     }`}
-                    style={{ textShadow: '0 0 4px #000, 0 0 8px #000, 1px 1px 3px #000' }}
+                    style={{ textShadow: isSelected ? '0 0 6px #000, 0 0 10px #000, 2px 2px 4px #000' : '0 0 4px #000, 0 0 8px #000, 1px 1px 3px #000' }}
                   >
                     {p.name}
                   </text>
+
                   {/* Ruler Initial or Province ID */}
                   {textContent ? (
                     <text
-                      y={5}
+                      y={isSelected ? 7 : 5}
                       textAnchor="middle"
-                      className="font-serif text-[13px] fill-white font-black"
-                      style={{ textShadow: '0 0 2px #000' }}
+                      className={`font-serif fill-white font-black ${isSelected ? 'text-[16px]' : 'text-[13px]'}`}
+                      style={{ textShadow: '0 0 3px #000' }}
                     >
                       {textContent}
                     </text>
                   ) : (
                     <text
-                      y={4}
+                      y={isSelected ? 6 : 4}
                       textAnchor="middle"
-                      className="font-serif text-[11px] fill-white font-black"
-                      style={{ textShadow: '0 0 2px #000' }}
+                      className={`font-serif fill-white font-black ${isSelected ? 'text-[14px]' : 'text-[11px]'}`}
+                      style={{ textShadow: '0 0 3px #000' }}
                     >
                       {p.id}
                     </text>
@@ -230,15 +364,17 @@ export default function MapArea({ selectedProvinceId, onSelectProvince, onClearS
       </motion.div>
 
       {/* Zoom Controls */}
-      <div className="absolute right-4 bottom-4 flex flex-col gap-2">
+      <div className="absolute right-4 bottom-4 flex flex-col gap-2 z-10">
         <button 
-          onClick={() => setScale(s => Math.min(s + 0.3, 3))}
+          onClick={handleZoomIn}
+          title="放大地圖"
           className="w-12 h-12 bg-stone-200/90 border-2 border-stone-800 rounded-full flex items-center justify-center text-2xl font-black text-stone-900 shadow-md backdrop-blur-sm active:bg-stone-300 cursor-pointer"
         >
           ＋
         </button>
         <button 
-          onClick={() => setScale(s => Math.max(s - 0.3, 0.5))}
+          onClick={handleZoomOut}
+          title="縮小地圖"
           className="w-12 h-12 bg-stone-200/90 border-2 border-stone-800 rounded-full flex items-center justify-center text-2xl font-black text-stone-900 shadow-md backdrop-blur-sm active:bg-stone-300 cursor-pointer"
         >
           －

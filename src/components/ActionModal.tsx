@@ -188,12 +188,16 @@ export default function ActionModal({
       setSliderVal(province ? Math.min(50, province.gold) : 0);
       setSecondarySliderVal(province ? Math.min(200, province.food) : 0);
     } else if (action === '登用人才') {
-      // Find discovered wild talents in this province
+      // Find discovered wild talents or captives in this province
       const discoveredWild = Object.values(gameState.generalsData).filter(
         g => g.isWild && g.provinceId === provinceId && (gameState.wildGenerals || []).includes(g.name)
       );
-      if (discoveredWild.length > 0) {
-        setTargetGeneralName(discoveredWild[0].name);
+      const captivesInProvince = Object.values(gameState.generalsData).filter(
+        g => g.isCaptive && (g.captiveOfRuler === gameState.rulerName || g.provinceId === provinceId || g.capturedInProvinceId === provinceId)
+      );
+      const candidates = [...discoveredWild, ...captivesInProvince];
+      if (candidates.length > 0) {
+        setTargetGeneralName(candidates[0].name);
       } else {
         setTargetGeneralName(null);
       }
@@ -430,7 +434,7 @@ export default function ActionModal({
       errorMsg = '運送物資不足或未選擇數量';
     } else if (action === '登用人才' && !targetGeneralName) {
       canExecute = false;
-      errorMsg = '本郡尚無已尋訪之在野人才可供登用';
+      errorMsg = '本郡尚無已尋訪之在野人才或天牢俘虜可供登用';
     }
   }
 
@@ -1230,16 +1234,27 @@ export default function ActionModal({
 
                 {action === '登用人才' && (
                   <div>
-                    <div className="text-xs font-bold mb-2">選擇要登用之在野名士：</div>
-                    {Object.values(gameState.generalsData).filter(g => g.isWild && g.provinceId === provinceId && (gameState.wildGenerals || []).includes(g.name)).length === 0 ? (
-                      <div className="text-xs text-stone-600 bg-stone-100 p-2 border border-dashed border-stone-400 text-center">
-                        本郡目前未發現任何在野武將（請先派遣武將進行「尋訪人才」）
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {Object.values(gameState.generalsData)
-                          .filter(g => g.isWild && g.provinceId === provinceId && (gameState.wildGenerals || []).includes(g.name))
-                          .map(wg => (
+                    <div className="text-xs font-bold mb-2">選擇要登用之在野名士或天牢俘虜：</div>
+                    {(() => {
+                      const discoveredWild = Object.values(gameState.generalsData).filter(
+                        g => g.isWild && g.provinceId === provinceId && (gameState.wildGenerals || []).includes(g.name)
+                      );
+                      const captivesInProvince = Object.values(gameState.generalsData).filter(
+                        g => g.isCaptive && (g.captiveOfRuler === gameState.rulerName || g.provinceId === provinceId || g.capturedInProvinceId === provinceId)
+                      );
+                      const candidates = [...discoveredWild, ...captivesInProvince];
+
+                      if (candidates.length === 0) {
+                        return (
+                          <div className="text-xs text-stone-600 bg-stone-100 p-2 border border-dashed border-stone-400 text-center">
+                            本郡目前未發現任何在野名士，亦無天牢俘虜（可進行「尋訪人才」或「戰後招降」）
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="space-y-2">
+                          {candidates.map(wg => (
                             <button
                               key={wg.name}
                               type="button"
@@ -1253,20 +1268,32 @@ export default function ActionModal({
                               <div className="flex items-center gap-2">
                                 <GeneralAvatar name={wg.name} size={32} className="shrink-0 rounded" />
                                 <div>
-                                  <div className="text-sm font-black">{wg.name} ({wg.role || '在野'})</div>
+                                  <div className="text-sm font-black flex items-center gap-1.5">
+                                    <span>{wg.name}</span>
+                                    <span className="text-[10px] text-stone-500 font-normal">({wg.role || '武將'})</span>
+                                  </div>
                                   <div className="text-[10px] text-stone-600">
                                     武: {wg.str} | 智: {wg.int} | 政: {wg.pol} | 魅: {wg.cha}
                                   </div>
-                                  {wg.bio && <div className="text-[10px] text-amber-900 mt-0.5">{wg.bio}</div>}
+                                  {wg.bio && <div className="text-[10px] text-amber-900 mt-0.5 line-clamp-1">{wg.bio}</div>}
                                 </div>
                               </div>
-                              <div className="text-right">
-                                <span className="text-[10px] bg-amber-200 text-amber-900 px-1.5 py-0.5 font-bold rounded">在野</span>
+                              <div className="text-right shrink-0">
+                                {wg.isCaptive ? (
+                                  <span className="text-[10px] bg-rose-800 text-rose-100 px-1.5 py-0.5 font-bold rounded shadow-xs flex items-center gap-1">
+                                    <span>🔒</span> 天牢俘虜
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] bg-amber-200 text-amber-900 px-1.5 py-0.5 font-bold rounded">
+                                    在野
+                                  </span>
+                                )}
                               </div>
                             </button>
                           ))}
-                      </div>
-                    )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
               </div>

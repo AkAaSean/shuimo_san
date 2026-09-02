@@ -14,7 +14,6 @@ import PromptBanner from './components/PromptBanner';
 import BattleView5v5 from './components/BattleView5v5';
 import BattleLaunchView from './components/BattleLaunchView';
 import MilitaryMoveView from './components/MilitaryMoveView';
-import BuildFortView from './components/BuildFortView';
 import TroopView from './components/TroopView';
 import StatusView from './components/StatusView';
 import InspectView from './components/InspectView';
@@ -25,13 +24,16 @@ import SystemModal from './components/SystemModal';
 import PendingBattlesPanel from './components/PendingBattlesPanel';
 import ManualModal from './components/ManualModal';
 import { PostBattleCaptiveModal } from './components/PostBattleCaptiveModal';
+import { RulerSuccessionModal } from './components/RulerSuccessionModal';
+import { GameOverModal } from './components/GameOverModal';
 import { useGameEngine } from './engine/useGameEngine';
-import { ProvinceState } from './types';
+import { GameState, ProvinceState } from './types';
 import { provinces } from './data/provinces';
 
 function GameApp({
   scenarioIndex,
   rulerName,
+  initialGameState,
   onReturnToTitle,
   onResetCurrentGame,
   isFullscreen,
@@ -40,12 +42,13 @@ function GameApp({
   key?: React.Key;
   scenarioIndex: number;
   rulerName: string;
+  initialGameState?: GameState | null;
   onReturnToTitle: () => void;
   onResetCurrentGame: () => void;
   isFullscreen?: boolean;
   onToggleFullscreen?: () => void;
 }) {
-  const { gameState, actions } = useGameEngine(scenarioIndex, rulerName);
+  const { gameState, actions } = useGameEngine(scenarioIndex, rulerName, initialGameState || undefined);
   const [tempAction, setTempAction] = useState<string | null>(null);
 
   // System Modal state
@@ -131,12 +134,6 @@ function GameApp({
 
     if (rawAction === '武將調動' || rawAction === '調動軍隊') {
       actions.setView('military_move');
-      actions.setActiveMenu(null);
-      return;
-    }
-
-    if (rawAction === '建築關寨') {
-      actions.setView('build_fort');
       actions.setActiveMenu(null);
       return;
     }
@@ -259,9 +256,10 @@ function GameApp({
                 {isBattleVictory ? (
                   <div className="w-full h-36 relative overflow-hidden bg-black border-b-2 border-[#1c1917]">
                     <img 
-                      src="./assets/win.jpg" 
+                      src="/assets/win.jpg" 
                       alt="戰爭勝利" 
                       className="w-full h-full object-cover object-center brightness-95"
+                      referrerPolicy="no-referrer"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end justify-center pb-2">
                       <span className="text-amber-300 font-black text-sm tracking-widest drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
@@ -272,9 +270,10 @@ function GameApp({
                 ) : isBattleDefeat ? (
                   <div className="w-full h-36 relative overflow-hidden bg-black border-b-2 border-[#1c1917]">
                     <img 
-                      src="./assets/lost.jpg" 
+                      src="/assets/lost.jpg" 
                       alt="戰爭失敗" 
                       className="w-full h-full object-cover object-center brightness-95"
+                      referrerPolicy="no-referrer"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end justify-center pb-2">
                       <span className="text-rose-400 font-black text-sm tracking-widest drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
@@ -347,7 +346,7 @@ function GameApp({
             />
             
             {/* 左側浮動區：選中的城池資訊與出征軍務標籤 */}
-            <div className="absolute top-2 left-2 z-20 flex flex-col gap-1.5 items-start pointer-events-none">
+            <div className="absolute top-2 left-2 z-20 flex flex-col gap-1.5 items-start pointer-events-none max-w-[calc(50vw-12px)] sm:max-w-none">
               {gameState.selectedProvinceId && !gameState.activeMenu && (
                 <div className="pointer-events-auto">
                   <ProvinceCard 
@@ -457,18 +456,6 @@ function GameApp({
             showToast(`⚔️ 已排定進軍【${targetCityName}】！全軍將於本月『休息』時正式發動進攻！`);
           }}
         />
-      ) : gameState.view === 'build_fort' ? (
-        <BuildFortView 
-          gameState={gameState} 
-          onExit={() => actions.setView('map')}
-          onBuild={(x, y, generalName) => {
-            if (gameState.selectedProvinceId) {
-              actions.executeCommand(gameState.selectedProvinceId, '內政', '建築關寨', generalName, { x, y });
-              showToast(`【${generalName}】已督造完成一座新關寨！`);
-            }
-            actions.setView('map');
-          }}
-        />
       ) : gameState.view === 'troops' ? (
         <TroopView 
           gameState={gameState}
@@ -551,6 +538,25 @@ function GameApp({
           }}
         />
       )}
+
+      {/* Ruler Succession Modal */}
+      {gameState.pendingRulerSuccession && (
+        <RulerSuccessionModal
+          executedRuler={gameState.pendingRulerSuccession.executedRuler}
+          killerRuler={gameState.pendingRulerSuccession.killerRuler}
+          candidateNames={gameState.pendingRulerSuccession.candidates}
+          generalsData={gameState.generalsData}
+          onSelectSuccessor={(successorName) => actions.handleSelectSuccessor(successorName)}
+        />
+      )}
+
+      {/* Game Over Modal */}
+      {gameState.isGameOver && (
+        <GameOverModal
+          reason={gameState.gameOverReason || '我軍勢力毀於一旦，天下霸業就此終結！'}
+          onRestart={onResetCurrentGame}
+        />
+      )}
     </div>
   );
 }
@@ -558,6 +564,7 @@ function GameApp({
 export default function App() {
   const [appState, setAppState] = useState<'title' | 'playing'>('title');
   const [gameConfig, setGameConfig] = useState({ scenario: 0, ruler: '劉備' });
+  const [loadedGameState, setLoadedGameState] = useState<GameState | null>(null);
   const [gameKey, setGameKey] = useState<number>(0);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
@@ -605,7 +612,18 @@ export default function App() {
   };
 
   const handleStartGame = (scenarioIndex: number, rulerName: string) => {
+    setLoadedGameState(null);
     setGameConfig({ scenario: scenarioIndex, ruler: rulerName });
+    setGameKey(prev => prev + 1);
+    setAppState('playing');
+  };
+
+  const handleLoadSaveGame = (savedState: GameState) => {
+    setLoadedGameState(savedState);
+    setGameConfig({
+      scenario: savedState.currentScenario ?? 0,
+      ruler: savedState.rulerName ?? '劉備'
+    });
     setGameKey(prev => prev + 1);
     setAppState('playing');
   };
@@ -617,12 +635,13 @@ export default function App() {
   return (
     <div className="w-full h-[100dvh] bg-stone-900 flex justify-center overflow-hidden touch-none select-none font-serif text-stone-900">
       {appState === 'title' ? (
-        <TitleScreen onStartGame={handleStartGame} />
+        <TitleScreen onStartGame={handleStartGame} onLoadSaveGame={handleLoadSaveGame} />
       ) : (
         <GameApp
           key={gameKey}
           scenarioIndex={gameConfig.scenario}
           rulerName={gameConfig.ruler}
+          initialGameState={loadedGameState}
           onReturnToTitle={() => setAppState('title')}
           onResetCurrentGame={handleResetCurrentGame}
           isFullscreen={isFullscreen}

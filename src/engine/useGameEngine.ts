@@ -4,6 +4,7 @@ import { initGame, advanceTime, executeCommand } from './gameLogic';
 import { calculateFormationTerrainCombatModifier } from './formations';
 import { getGeneralItemBonus } from '../data/items';
 import { calculateCaptiveRate, isCityIsolated, processAICaptiveDecision } from './postBattleLogic';
+import { handleRulerDecapitation, applyPlayerSuccessorChoice } from './rulerSuccessionLogic';
 
 function getBestStrategistForBattle(
   assignedStrategist: string | null | undefined,
@@ -48,8 +49,8 @@ export function battleCombatCalculator(
   });
 }
 
-export function useGameEngine(initialScenario: number, initialRuler: string) {
-  const [gameState, setGameState] = useState<GameState>(() => initGame(initialScenario, initialRuler));
+export function useGameEngine(initialScenario: number, initialRuler: string, initialGameState?: GameState) {
+  const [gameState, setGameState] = useState<GameState>(() => initialGameState || initGame(initialScenario, initialRuler));
 
   const dispatchNextTurn = useCallback(() => {
     setGameState(prev => {
@@ -260,7 +261,7 @@ export function useGameEngine(initialScenario: number, initialRuler: string) {
                   if (decision.action === 'recruit') {
                     baseState.generalsData[gName] = { ...gen, isCaptive: false, captiveOfRuler: null, provinceId: battle.targetProvinceId, loyalty: 70, isWild: false, soldiers: 0 };
                   } else if (decision.action === 'execute') {
-                    baseState.generalsData[gName] = { ...gen, isCaptive: false, captiveOfRuler: null, provinceId: null, isWild: true, loyalty: 0, soldiers: 0 };
+                    handleRulerDecapitation(baseState, gName, winnerRuler);
                   } else if (decision.action === 'release') {
                     baseState.generalsData[gName] = { ...gen, isCaptive: false, captiveOfRuler: null, provinceId: battle.targetProvinceId, isWild: true, soldiers: 0 };
                   } else {
@@ -365,7 +366,7 @@ export function useGameEngine(initialScenario: number, initialRuler: string) {
                 if (decision.action === 'recruit') {
                   baseState.generalsData[gName] = { ...gen, isCaptive: false, captiveOfRuler: null, provinceId: battle.targetProvinceId, loyalty: 70, isWild: false, soldiers: 0 };
                 } else if (decision.action === 'execute') {
-                  baseState.generalsData[gName] = { ...gen, isCaptive: false, captiveOfRuler: null, provinceId: null, isWild: true, loyalty: 0, soldiers: 0 };
+                  handleRulerDecapitation(baseState, gName, winnerRuler);
                 } else if (decision.action === 'release') {
                   baseState.generalsData[gName] = { ...gen, isCaptive: false, captiveOfRuler: null, provinceId: originCity, isWild: true, soldiers: 0 };
                 } else {
@@ -560,16 +561,8 @@ export function useGameEngine(initialScenario: number, initialRuler: string) {
         baseState.popularity = Math.min(100, baseState.popularity + 2);
         result = { success: true, message: `【釋放】主公展現寬厚仁德，當場釋放 ${gen.name}！名聲民心微升。` };
       } else if (action === 'execute') {
-        baseState.generalsData[generalName] = {
-          ...gen,
-          isCaptive: false,
-          captiveOfRuler: null,
-          provinceId: null,
-          isWild: true,
-          loyalty: 0,
-          soldiers: 0
-        };
-        result = { success: true, message: `【處決】主公下令將 ${gen.name} 推出斬首示眾！` };
+        const decapRes = handleRulerDecapitation(baseState, generalName, prev.rulerName);
+        result = { success: true, message: decapRes.eventMsg || `【處決】主公下令將 ${gen.name} 推出斬首示眾！` };
       }
 
       const remaining = captives.filter(c => c.generalName !== generalName);
@@ -580,6 +573,10 @@ export function useGameEngine(initialScenario: number, initialRuler: string) {
     });
 
     return result;
+  }, []);
+
+  const handleSelectSuccessor = useCallback((successorName: string) => {
+    setGameState(prev => applyPlayerSuccessorChoice(prev, successorName));
   }, []);
 
   const selectProvince = useCallback((provinceId: number) => {
@@ -678,6 +675,7 @@ export function useGameEngine(initialScenario: number, initialRuler: string) {
       executeCommand: dispatchExecuteCommand,
       resolveBattle,
       handleCaptiveAction,
+      handleSelectSuccessor,
       updateActiveBattleDefense,
       selectProvince,
       clearSelection,

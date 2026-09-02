@@ -88,7 +88,6 @@ export interface ProvinceState {
   price: number; // 物價
   forts: { x: number, y: number }[]; // 關寨座標
   training?: number; // 訓練度 (0 ~ 100)
-  underConstructionFort?: { x: number; y: number; turnsLeft: number; builderName: string } | null;
   isAutonomous?: boolean; // 郡縣自治標記
   hasDraftedThisMonth?: boolean; // 本月是否已執行過徵兵 (每城每月限一次)
 }
@@ -158,7 +157,7 @@ export interface GameState {
   food: number;
   selectedProvinceId: number | null;
   activeMenu: number | null;
-  view: 'map' | 'battle' | 'build_fort' | 'troops' | 'status' | 'military_move' | 'battle_launch' | 'inspect';
+  view: 'map' | 'battle' | 'troops' | 'status' | 'military_move' | 'battle_launch' | 'inspect';
   
   // Dynamic World Data
   provincesData: Record<number, ProvinceState>;
@@ -202,6 +201,13 @@ export interface GameState {
   }[];
   lastActionResult?: ActionResult | null;
   monthlyEvents?: string[]; // Log of events like disasters happened at the start of the month
+  pendingRulerSuccession?: {
+    executedRuler: string;
+    killerRuler: string;
+    candidates: string[];
+  } | null;
+  isGameOver?: boolean;
+  gameOverReason?: string | null;
 }
 
 export interface ActionResult {

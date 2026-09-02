@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ITEM_SPRITES_MAPPING } from '../data/itemSpritesMapping';
 
 interface ItemAvatarProps {
@@ -21,7 +21,11 @@ export const ItemAvatar: React.FC<ItemAvatarProps> = ({
   const [imageError, setImageError] = useState(false);
   const spriteInfo = ITEM_SPRITES_MAPPING[name];
   const rawImageSrc = spriteInfo ? spriteInfo.imagePath : null;
-  const imageSrc = rawImageSrc && rawImageSrc.startsWith('/') ? '.' + rawImageSrc : rawImageSrc;
+  const imageSrc = rawImageSrc && rawImageSrc.startsWith('./') ? rawImageSrc.substring(1) : rawImageSrc;
+
+  useEffect(() => {
+    setImageError(false);
+  }, [name, imageSrc]);
 
   if (imageError || !imageSrc) {
     // 降級純文字/印鑑風格
@@ -58,6 +62,7 @@ export const ItemAvatar: React.FC<ItemAvatarProps> = ({
         style={{ imageRendering: 'pixelated' }}
         onError={() => setImageError(true)}
         loading="lazy"
+        referrerPolicy="no-referrer"
       />
     </div>
   );

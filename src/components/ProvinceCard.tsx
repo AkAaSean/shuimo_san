@@ -51,20 +51,20 @@ export default function ProvinceCard({ provinceId, gameState, onClose }: Provinc
   };
 
   return (
-    <div className="w-[170px] sm:w-[210px] bg-stone-100/95 border-2 border-stone-800 p-1.5 shadow-xl font-serif backdrop-blur-md rounded-sm text-stone-900">
+    <div className="w-[155px] xs:w-[168px] sm:w-[210px] max-w-[calc(50vw-12px)] sm:max-w-none bg-stone-100/95 border-2 border-stone-800 p-1.5 shadow-xl font-serif backdrop-blur-md rounded-sm text-stone-900 box-border overflow-hidden">
       {/* Header */}
-      <div className="flex justify-between items-center border-b border-stone-800 pb-0.5 mb-1">
-        <div className="flex items-center gap-1 overflow-hidden leading-tight flex-wrap">
-          <span className="font-bold text-[11px] sm:text-xs truncate">[{province.name}]</span>
-          <span className={`text-[8.5px] px-0.5 py-0.1 rounded font-bold border ${getCityTypeColor(tierRules.tier)}`}>
+      <div className="flex justify-between items-center border-b border-stone-800 pb-0.5 mb-1 min-w-0">
+        <div className="flex items-center gap-1 overflow-hidden leading-tight flex-wrap min-w-0 flex-1 pr-0.5">
+          <span className="font-bold text-[11px] sm:text-xs truncate max-w-[75px] sm:max-w-[110px]">[{province.name}]</span>
+          <span className={`text-[8.5px] px-0.5 py-0.1 rounded font-bold border shrink-0 ${getCityTypeColor(tierRules.tier)}`}>
             {tierRules.tierName}
           </span>
           {state.isAutonomous && (
-            <span className="text-[8.5px] bg-amber-600 text-white px-0.5 py-0.1 rounded font-bold">自治</span>
+            <span className="text-[8.5px] bg-amber-600 text-white px-0.5 py-0.1 rounded font-bold shrink-0">自治</span>
           )}
           {(gameState.pendingBattles || (gameState.pendingBattle ? [gameState.pendingBattle] : [])).some(b => b.targetProvinceId === provinceId) && (
-            <span className="text-[8.5px] bg-red-700 text-white px-1 py-0.1 rounded font-bold animate-pulse">
-              ⚔️ 遭受進攻目標
+            <span className="text-[8.5px] bg-red-700 text-white px-1 py-0.1 rounded font-bold animate-pulse shrink-0">
+              ⚔️ 進攻目標
             </span>
           )}
         </div>

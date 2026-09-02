@@ -376,14 +376,19 @@ export const GENERAL_AVATAR_MAP: Record<string, string> = {
 
 // 取得武將頭像，未特別登錄者依所屬陣營/字首產生合理的預設頭像
 export function getGeneralAvatarUrl(generalName: string, factionHint?: string): string {
-  if (GENERAL_AVATAR_MAP[generalName]) {
-    return GENERAL_AVATAR_MAP[generalName];
+  let url = GENERAL_AVATAR_MAP[generalName];
+  if (!url) {
+    if (factionHint === '蜀' || factionHint === '劉備') url = './assets/avatars/shu_0_6.png';
+    else if (factionHint === '魏' || factionHint === '曹操') url = './assets/avatars/wei_0_6.png';
+    else if (factionHint === '吳' || factionHint === '孫權' || factionHint === '孫堅' || factionHint === '孫策') url = './assets/avatars/wu_0_6.png';
+    else url = './assets/avatars/others_1_4.png';
   }
 
-  // 預設頭像
-  if (factionHint === '蜀' || factionHint === '劉備') return './assets/avatars/shu_0_6.png';
-  if (factionHint === '魏' || factionHint === '曹操') return './assets/avatars/wei_0_6.png';
-  if (factionHint === '吳' || factionHint === '孫權' || factionHint === '孫堅' || factionHint === '孫策') return './assets/avatars/wu_0_6.png';
-  
-  return './assets/avatars/others_1_4.png';
+  if (url.startsWith('./')) {
+    return url.substring(1);
+  }
+  if (!url.startsWith('/')) {
+    return '/' + url;
+  }
+  return url;
 }

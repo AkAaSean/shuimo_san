@@ -505,15 +505,6 @@ export default function InspectView({
                 );
               })()}
 
-              {/* Fortifications */}
-              <div className="bg-stone-50 border border-stone-200 p-2 rounded flex justify-between items-center text-xs">
-                <span className="font-bold text-stone-600">已建築關寨</span>
-                <span className="font-black text-[#1c1917]">
-                  {currentInspectProvince.state.forts?.length || 0} 座關隘防禦設施
-                  {currentInspectProvince.state.underConstructionFort && ' (1 座興建中)'}
-                </span>
-              </div>
-
               {/* Generals Stationed in this Province */}
               <div className="flex flex-col gap-1.5">
                 <div className="flex justify-between items-center">
@@ -549,9 +540,9 @@ export default function InspectView({
                               }}
                             />
                             <span className={`text-[10px] px-1 py-0.5 rounded font-bold
-                              ${g.isRuler ? 'bg-[#991b1b] text-white' : 'bg-stone-700 text-stone-100'}`}
+                              ${g.isCaptive ? 'bg-rose-900 text-rose-100' : g.isRuler ? 'bg-[#991b1b] text-white' : 'bg-stone-700 text-stone-100'}`}
                             >
-                              {g.isRuler ? '君主' : g.role}
+                              {g.isCaptive ? '🔒天牢' : g.isRuler ? '君主' : g.role}
                             </span>
                             <span className="text-xs font-black">{g.name}</span>
                             {itemBonus.items.length > 0 && (
@@ -561,7 +552,13 @@ export default function InspectView({
                             )}
                           </div>
                           <div className="text-right text-[10px]">
-                            <span className="font-bold text-red-700">{g.soldiers}兵</span>
+                            {g.isCaptive ? (
+                              <span className="font-bold text-rose-800 bg-rose-100 px-1 py-0.5 rounded">
+                                扣押中
+                              </span>
+                            ) : (
+                              <span className="font-bold text-red-700">{g.soldiers}兵</span>
+                            )}
                             <span className="text-stone-500 ml-1.5">
                               武{g.str}{itemBonus.strBonus > 0 && <strong className="text-emerald-700 font-bold">+{itemBonus.strBonus}</strong>} 智{g.int}{itemBonus.intBonus > 0 && <strong className="text-emerald-700 font-bold">+{itemBonus.intBonus}</strong>}
                             </span>
@@ -720,12 +717,16 @@ export default function InspectView({
                         />
                         <span className="text-sm font-black text-[#1c1917]">{g.name}</span>
                         <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold
-                          ${g.isRuler ? 'bg-[#991b1b] text-white' : 'bg-stone-700 text-stone-100'}`}
+                          ${g.isCaptive ? 'bg-rose-900 text-rose-100' : g.isRuler ? 'bg-[#991b1b] text-white' : 'bg-stone-700 text-stone-100'}`}
                         >
-                          {g.isRuler ? '君主' : g.role}
+                          {g.isCaptive ? '🔒 天牢俘虜' : g.isRuler ? '君主' : g.role}
                         </span>
-                        <span className="text-[10px] bg-amber-100 text-amber-900 border border-amber-300 px-1 py-0.5 rounded font-bold">
-                          {rulerName}
+                        <span className={`text-[10px] px-1 py-0.5 rounded font-bold ${
+                          g.isCaptive 
+                            ? 'bg-rose-100 text-rose-950 border border-rose-300' 
+                            : 'bg-amber-100 text-amber-900 border border-amber-300'
+                        }`}>
+                          {g.isCaptive ? `扣押於【${g.captiveOfRuler || rulerName}】` : rulerName}
                         </span>
                         {itemBonus.items.map(it => (
                           <span
@@ -739,13 +740,19 @@ export default function InspectView({
 
                       <div className="flex items-center gap-2 text-xs shrink-0">
                         <span className="font-bold text-stone-600">
-                          {provMeta ? `${provMeta.name}` : '未入駐'}
+                          {provMeta ? (g.isCaptive ? `${provMeta.name}天牢` : `${provMeta.name}`) : '未入駐'}
                         </span>
-                        <span className={`text-[10px] px-1 rounded font-bold
-                          ${g.hasActed ? 'bg-stone-200 text-stone-600' : 'bg-emerald-100 text-emerald-800'}`}
-                        >
-                          {g.hasActed ? '已行動' : '待命'}
-                        </span>
+                        {g.isCaptive ? (
+                          <span className="text-[10px] px-1 rounded font-bold bg-rose-200 text-rose-900">
+                            關押中
+                          </span>
+                        ) : (
+                          <span className={`text-[10px] px-1 rounded font-bold
+                            ${g.hasActed ? 'bg-stone-200 text-stone-600' : 'bg-emerald-100 text-emerald-800'}`}
+                          >
+                            {g.hasActed ? '已行動' : '待命'}
+                          </span>
+                        )}
                       </div>
                     </div>
 
