@@ -317,194 +317,257 @@ function GameApp({
         </div>
       )}
 
-      {gameState.view === 'map' ? (
-        <>
-          <TopStatus 
-            gameState={gameState} 
-            onRest={() => {
-              const pendingCount = (gameState.pendingBattles || (gameState.pendingBattle ? [gameState.pendingBattle] : [])).length;
-              actions.nextTurn();
-              if (pendingCount > 1) {
-                showToast(`⚔️ 全軍出動！即將依序進行 ${pendingCount} 場戰役！`);
-              } else if (pendingCount === 1) {
-                showToast('⚔️ 全軍出動！戰事即刻開打！');
-              } else {
-                showToast('時光流逝，進入新的一個月。全體武將恢復待命狀態！');
-              }
-            }}
-            onToggleFullscreen={onToggleFullscreen}
-            isFullscreen={isFullscreen}
-            onOpenManual={() => setIsManualOpen(true)}
-          />
-          
-          <div className="flex-1 relative overflow-hidden">
-            <MapArea 
+      <AnimatePresence mode="wait">
+        {gameState.view === 'map' ? (
+          <motion.div 
+            key="map"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="w-full h-full flex flex-col relative overflow-hidden"
+          >
+            <TopStatus 
+              gameState={gameState} 
+              onRest={() => {
+                const pendingCount = (gameState.pendingBattles || (gameState.pendingBattle ? [gameState.pendingBattle] : [])).length;
+                actions.nextTurn();
+                if (pendingCount > 1) {
+                  showToast(`⚔️ 全軍出動！即將依序進行 ${pendingCount} 場戰役！`);
+                } else if (pendingCount === 1) {
+                  showToast('⚔️ 全軍出動！戰事即刻開打！');
+                } else {
+                  showToast('時光流逝，進入新的一個月。全體武將恢復待命狀態！');
+                }
+              }}
+              onToggleFullscreen={onToggleFullscreen}
+              isFullscreen={isFullscreen}
+              onOpenManual={() => setIsManualOpen(true)}
+            />
+            
+            <div className="flex-1 relative overflow-hidden">
+              <MapArea 
+                selectedProvinceId={gameState.selectedProvinceId} 
+                onSelectProvince={actions.selectProvince}
+                onClearSelection={actions.clearSelection}
+                provincesData={gameState.provincesData}
+              />
+              
+              {/* 左側浮動區：選中的城池資訊與出征軍務標籤 */}
+              <div className="absolute top-2 left-2 z-20 flex flex-col gap-1.5 items-start pointer-events-none max-w-[calc(50vw-12px)] sm:max-w-none">
+                {gameState.selectedProvinceId && !gameState.activeMenu && (
+                  <div className="pointer-events-auto">
+                    <ProvinceCard 
+                      provinceId={gameState.selectedProvinceId} 
+                      gameState={gameState}
+                      onClose={actions.clearSelection}
+                    />
+                  </div>
+                )}
+
+                {/* 出征軍務浮動小標籤：置於城池資訊下方，絕不遮擋右側我方城池列表 */}
+                <div className="pointer-events-auto">
+                  <PendingBattlesPanel 
+                    gameState={gameState}
+                    onCancelBattle={(planId, targetProvinceId) => {
+                      actions.executeCommand(1, '軍事', '撤銷出征', undefined, { planId, targetProvinceId });
+                      showToast('已撤銷出征計畫，參戰將領與隨軍錢糧均已歸位。');
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* 右側浮動區：我方城池列表 */}
+              {!gameState.activeMenu && (
+                <RulerTerritoryCard 
+                  gameState={gameState}
+                  onSelectProvince={actions.selectProvince}
+                />
+              )}
+            </div>
+            
+            <PromptBanner 
+              rulerName={gameState.rulerName} 
               selectedProvinceId={gameState.selectedProvinceId} 
-              onSelectProvince={actions.selectProvince}
-              onClearSelection={actions.clearSelection}
               provincesData={gameState.provincesData}
             />
             
-            {/* 左側浮動區：選中的城池資訊與出征軍務標籤 */}
-            <div className="absolute top-2 left-2 z-20 flex flex-col gap-1.5 items-start pointer-events-none max-w-[calc(50vw-12px)] sm:max-w-none">
-              {gameState.selectedProvinceId && !gameState.activeMenu && (
-                <div className="pointer-events-auto">
-                  <ProvinceCard 
-                    provinceId={gameState.selectedProvinceId} 
-                    gameState={gameState}
-                    onClose={actions.clearSelection}
-                  />
-                </div>
-              )}
+            <CommandMenu 
+              gameState={gameState}
+              onCommandSelect={actions.setActiveMenu} 
+              showToast={showToast}
+            />
+            
+            <BottomSheet 
+              activeMenu={gameState.activeMenu} 
+              gameState={gameState}
+              onClose={() => actions.setActiveMenu(null)} 
+              onActionSelect={handleActionSelect} 
+            />
 
-              {/* 出征軍務浮動小標籤：置於城池資訊下方，絕不遮擋右側我方城池列表 */}
-              <div className="pointer-events-auto">
-                <PendingBattlesPanel 
-                  gameState={gameState}
-                  onCancelBattle={(planId, targetProvinceId) => {
-                    actions.executeCommand(1, '軍事', '撤銷出征', undefined, { planId, targetProvinceId });
-                    showToast('已撤銷出征計畫，參戰將領與隨軍錢糧均已歸位。');
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* 右側浮動區：我方城池列表 */}
-            {!gameState.activeMenu && (
-              <RulerTerritoryCard 
-                gameState={gameState}
-                onSelectProvince={actions.selectProvince}
-              />
-            )}
-          </div>
-          
-          <PromptBanner 
-            rulerName={gameState.rulerName} 
-            selectedProvinceId={gameState.selectedProvinceId} 
-            provincesData={gameState.provincesData}
-          />
-          
-          <CommandMenu 
-            gameState={gameState}
-            onCommandSelect={actions.setActiveMenu} 
-            showToast={showToast}
-          />
-          
-          <BottomSheet 
-            activeMenu={gameState.activeMenu} 
-            gameState={gameState}
-            onClose={() => actions.setActiveMenu(null)} 
-            onActionSelect={handleActionSelect} 
-          />
-
-          {/* Action Modal with General Selection & Stats */}
-          <ActionModal
-            isOpen={actionModal.isOpen}
-            category={actionModal.category}
-            action={actionModal.action}
-            gameState={gameState}
-            onClose={() => setActionModal(prev => ({ ...prev, isOpen: false }))}
-            onConfirm={handleModalConfirm}
-          />
-        </>
-      ) : gameState.view === 'military_move' ? (
-        <MilitaryMoveView
-          gameState={gameState}
-          onExit={() => actions.setView('map')}
-          onConfirmMove={(generalNames, targetProvinceId) => {
-            if (gameState.selectedProvinceId) {
-              actions.executeCommand(
-                gameState.selectedProvinceId,
-                '軍事',
-                '武將調動',
-                generalNames[0],
-                { generalNames, targetProvinceId }
-              );
-              showToast(`成功將 ${generalNames.length} 位將領調動至目標郡！`);
-            }
-            actions.setView('map');
-          }}
-        />
-      ) : gameState.view === 'battle_launch' ? (
-        <BattleLaunchView
-          gameState={gameState}
-          onExit={() => actions.setView('map')}
-          onLaunchBattle={(targetProvinceId, attackingGeneralNames, gold, food, strategist, cityProvisions, attackerPrimaryProvinceId, attackerReinforceProvinceId) => {
-            const commander = attackingGeneralNames[0];
-            const commanderProvId = attackerPrimaryProvinceId 
-              || (commander && gameState.generalsData[commander]?.provinceId) 
-              || gameState.selectedProvinceId 
-              || 1;
-            actions.executeCommand(
-              commanderProvId,
-              '軍事',
-              '發動戰役',
-              commander,
-              { 
-                attackingGeneralNames, 
-                targetProvinceId, 
-                gold, 
-                food, 
-                strategist,
-                cityProvisions,
-                attackerPrimaryProvinceId: commanderProvId,
-                attackerReinforceProvinceId
-              }
-            );
-            actions.setView('map');
-            const targetCityName = provinces.find(p => p.id === targetProvinceId)?.name || '敵城';
-            showToast(`⚔️ 已排定進軍【${targetCityName}】！全軍將於本月『休息』時正式發動進攻！`);
-          }}
-        />
-      ) : gameState.view === 'troops' ? (
-        <TroopView 
-          gameState={gameState}
-          initialAction={tempAction || '徵兵'}
-          onExit={() => {
-            actions.setView('map');
-            setTempAction(null);
-          }}
-          onExecute={(category, action, payload, generalName) => {
-            if (gameState.selectedProvinceId) {
-              actions.executeCommand(gameState.selectedProvinceId, category, action, generalName, payload);
-              showToast(`【${action}】指令已成功執行！`);
-            }
-            actions.setView('map');
-            setTempAction(null);
-          }}
-        />
-      ) : gameState.view === 'status' ? (
-        <StatusView
-          gameState={gameState}
-          initialAction={tempAction || '查看本郡狀態'}
-          onExit={() => {
-            actions.setView('map');
-            setTempAction(null);
-          }}
-        />
-      ) : gameState.view === 'inspect' ? (
-        <InspectView
-          gameState={gameState}
-          initialTab={tempAction || '選擇州郡'}
-          onExit={() => {
-            actions.setView('map');
-            setTempAction(null);
-          }}
-          onSelectProvinceOnMap={(pId) => {
-            actions.selectProvince(pId);
-            actions.setView('map');
-            setTempAction(null);
-          }}
-        />
-      ) : (
-        <BattleView5v5 
-          key={gameState.activeBattle ? `${gameState.activeBattle.targetProvinceId}_${gameState.activeBattle.attackerProvinceId}_${gameState.pendingBattles?.length ?? 0}` : 'battle'}
-          gameState={gameState} 
-          onExit={() => actions.resolveBattle('defender')}
-          onResolveBattle={(winner) => actions.resolveBattle(winner)}
-          onUpdateDefenseDeployment={actions.updateActiveBattleDefense}
-        />
-      )}
+            {/* Action Modal with General Selection & Stats */}
+            <ActionModal
+              isOpen={actionModal.isOpen}
+              category={actionModal.category}
+              action={actionModal.action}
+              gameState={gameState}
+              onClose={() => setActionModal(prev => ({ ...prev, isOpen: false }))}
+              onConfirm={handleModalConfirm}
+            />
+          </motion.div>
+        ) : gameState.view === 'military_move' ? (
+          <motion.div 
+            key="military_move"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2 }}
+            className="w-full h-full flex flex-col relative overflow-hidden"
+          >
+            <MilitaryMoveView
+              gameState={gameState}
+              onExit={() => actions.setView('map')}
+              onConfirmMove={(generalNames, targetProvinceId) => {
+                if (gameState.selectedProvinceId) {
+                  actions.executeCommand(
+                    gameState.selectedProvinceId,
+                    '軍事',
+                    '武將調動',
+                    generalNames[0],
+                    { generalNames, targetProvinceId }
+                  );
+                  showToast(`成功將 ${generalNames.length} 位將領調動至目標郡！`);
+                }
+                actions.setView('map');
+              }}
+            />
+          </motion.div>
+        ) : gameState.view === 'battle_launch' ? (
+          <motion.div 
+            key="battle_launch"
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.98 }}
+            transition={{ duration: 0.2 }}
+            className="w-full h-full flex flex-col relative overflow-hidden"
+          >
+            <BattleLaunchView
+              gameState={gameState}
+              onExit={() => actions.setView('map')}
+              onLaunchBattle={(targetProvinceId, attackingGeneralNames, gold, food, strategist, cityProvisions, attackerPrimaryProvinceId, attackerReinforceProvinceId) => {
+                const commander = attackingGeneralNames[0];
+                const commanderProvId = attackerPrimaryProvinceId 
+                  || (commander && gameState.generalsData[commander]?.provinceId) 
+                  || gameState.selectedProvinceId 
+                  || 1;
+                actions.executeCommand(
+                  commanderProvId,
+                  '軍事',
+                  '發動戰役',
+                  commander,
+                  { 
+                    attackingGeneralNames, 
+                    targetProvinceId, 
+                    gold, 
+                    food, 
+                    strategist,
+                    cityProvisions,
+                    attackerPrimaryProvinceId: commanderProvId,
+                    attackerReinforceProvinceId
+                  }
+                );
+                actions.setView('map');
+                const targetCityName = provinces.find(p => p.id === targetProvinceId)?.name || '敵城';
+                showToast(`⚔️ 已排定進軍【${targetCityName}】！全軍將於本月『休息』時正式發動進攻！`);
+              }}
+            />
+          </motion.div>
+        ) : gameState.view === 'troops' ? (
+          <motion.div 
+            key="troops"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2 }}
+            className="w-full h-full flex flex-col relative overflow-hidden"
+          >
+            <TroopView 
+              gameState={gameState}
+              initialAction={tempAction || '徵兵'}
+              onExit={() => {
+                actions.setView('map');
+                setTempAction(null);
+              }}
+              onExecute={(category, action, payload, generalName) => {
+                if (gameState.selectedProvinceId) {
+                  actions.executeCommand(gameState.selectedProvinceId, category, action, generalName, payload);
+                  showToast(`【${action}】指令已成功執行！`);
+                }
+                actions.setView('map');
+                setTempAction(null);
+              }}
+            />
+          </motion.div>
+        ) : gameState.view === 'status' ? (
+          <motion.div 
+            key="status"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2 }}
+            className="w-full h-full flex flex-col relative overflow-hidden"
+          >
+            <StatusView
+              gameState={gameState}
+              initialAction={tempAction || '查看本郡狀態'}
+              onExit={() => {
+                actions.setView('map');
+                setTempAction(null);
+              }}
+            />
+          </motion.div>
+        ) : gameState.view === 'inspect' ? (
+          <motion.div 
+            key="inspect"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2 }}
+            className="w-full h-full flex flex-col relative overflow-hidden"
+          >
+            <InspectView
+              gameState={gameState}
+              initialTab={tempAction || '選擇州郡'}
+              onExit={() => {
+                actions.setView('map');
+                setTempAction(null);
+              }}
+              onSelectProvinceOnMap={(pId) => {
+                actions.selectProvince(pId);
+                actions.setView('map');
+                setTempAction(null);
+              }}
+            />
+          </motion.div>
+        ) : (
+          <motion.div 
+            key="battle"
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.98 }}
+            transition={{ duration: 0.25 }}
+            className="w-full h-full flex flex-col relative overflow-hidden"
+          >
+            <BattleView5v5 
+              key={gameState.activeBattle ? `${gameState.activeBattle.targetProvinceId}_${gameState.activeBattle.attackerProvinceId}_${gameState.pendingBattles?.length ?? 0}` : 'battle'}
+              gameState={gameState} 
+              onExit={() => actions.resolveBattle('defender')}
+              onResolveBattle={(winner) => actions.resolveBattle(winner)}
+              onUpdateDefenseDeployment={actions.updateActiveBattleDefense}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* System Modal for Save, Load, Restart, Audio Settings */}
       <SystemModal
@@ -634,20 +697,40 @@ export default function App() {
 
   return (
     <div className="w-full h-[100dvh] bg-stone-900 flex justify-center overflow-hidden touch-none select-none font-serif text-stone-900">
-      {appState === 'title' ? (
-        <TitleScreen onStartGame={handleStartGame} onLoadSaveGame={handleLoadSaveGame} />
-      ) : (
-        <GameApp
-          key={gameKey}
-          scenarioIndex={gameConfig.scenario}
-          rulerName={gameConfig.ruler}
-          initialGameState={loadedGameState}
-          onReturnToTitle={() => setAppState('title')}
-          onResetCurrentGame={handleResetCurrentGame}
-          isFullscreen={isFullscreen}
-          onToggleFullscreen={toggleFullscreen}
-        />
-      )}
+      <AnimatePresence mode="wait">
+        {appState === 'title' ? (
+          <motion.div
+            key="title"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="w-full h-full flex flex-col justify-center items-center"
+          >
+            <TitleScreen onStartGame={handleStartGame} onLoadSaveGame={handleLoadSaveGame} />
+          </motion.div>
+        ) : (
+          <motion.div
+            key={`game-${gameKey}`}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="w-full h-full flex flex-col justify-center items-center"
+          >
+            <GameApp
+              key={gameKey}
+              scenarioIndex={gameConfig.scenario}
+              rulerName={gameConfig.ruler}
+              initialGameState={loadedGameState}
+              onReturnToTitle={() => setAppState('title')}
+              onResetCurrentGame={handleResetCurrentGame}
+              isFullscreen={isFullscreen}
+              onToggleFullscreen={toggleFullscreen}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

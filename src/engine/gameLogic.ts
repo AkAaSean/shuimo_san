@@ -2652,6 +2652,23 @@ export function advanceTime(state: GameState): GameState {
         const loyFactor = (updatedP.loyalty || 50) / 100;
         const foodHarvest = Math.round((updatedP.population / 100) * devFactor * floodSafety * loyFactor * 12 + updatedP.value * 30);
         updatedP.food = Math.min(999999, updatedP.food + foodHarvest);
+
+        // 隨機事件: 大豐收 (Bumper Harvest)
+        // 治水良善 (水患 <= 35) 且農業開發度良好 (>= 30) 時觸發
+        const harvestChance = 0.15 + ((updatedP.value || 50) / 200) * 0.1;
+        if ((updatedP.flood || 0) <= 35 && (updatedP.value || 0) >= 30 && Math.random() < harvestChance) {
+           const cityName = provinces.find(x => x.id === updatedP.id)?.name || '城池';
+           const bonusHarvest = Math.floor(foodHarvest * (0.35 + Math.random() * 0.25));
+           const bonusLoyalty = 5 + Math.floor(Math.random() * 6);
+           const bonusPop = 500 + Math.floor(Math.random() * 1500);
+
+           updatedP.food = Math.min(999999, updatedP.food + bonusHarvest);
+           updatedP.loyalty = Math.min(100, updatedP.loyalty + bonusLoyalty);
+           updatedP.population += bonusPop;
+
+           const msg = `🌾【大豐收】風調雨順！${cityName} 迎來秋季大豐收！穀倉盈滿，糧草額外增加 ${bonusHarvest}，民心提升 ${bonusLoyalty}，流民前來安居 ${bonusPop} 人！`;
+           newState.monthlyEvents?.push(msg);
+        }
      }
 
      // Yearly flood rate increase (happens dynamically over time)
@@ -2779,20 +2796,38 @@ export function advanceTime(state: GameState): GameState {
      }
 
      // 隨機事件: 地震 (Earthquake)
-     // 12個月皆可能發生，極低頻率
+     // 12個月皆可能發生，調整為極低頻率（高風險區約 0.2%/月，一般區域約 0.03%/月）
      const earthquakeProvinces = [16, 17, 18, 19, 20, 35, 36, 37, 38, 39, 40, 43];
-     const earthquakeChance = earthquakeProvinces.includes(updatedP.id) ? 0.0167 : 0.004;
+     let earthquakeChance = earthquakeProvinces.includes(updatedP.id) ? 0.002 : 0.0003;
+     
+     // 若城池治水防災加固（治水度 > 50），地震發生機率可再降低最多 50%
+     const floodControl = 100 - (updatedP.flood || 0);
+     if (floodControl > 50) {
+        earthquakeChance *= (1 - (floodControl - 50) * 0.01);
+     }
      
      if (Math.random() < earthquakeChance) {
         const cityName = provinces.find(x => x.id === updatedP.id)?.name || '未知城池';
         
         // 基礎傷害 (農業、商業、治水、人口、士兵、民心)
-        const valueLoss = Math.floor(updatedP.value * (0.2 + Math.random() * 0.2)); // 20%~40%
-        const commerceLoss = Math.floor((updatedP.commerce || 50) * (0.2 + Math.random() * 0.2)); // 20%~40%
-        const popLoss = Math.floor(updatedP.population * (0.05 + Math.random() * 0.05)); // 5%~10%
-        const soldierLoss = Math.floor((updatedP.soldiers || 0) * (0.05 + Math.random() * 0.05)); // 5%~10%
-        const floodDmg = 30 + Math.floor(Math.random() * 21); // 30~50
-        const loyaltyLoss = 15 + Math.floor(Math.random() * 6); // 15~20
+        let valueLoss = Math.floor(updatedP.value * (0.2 + Math.random() * 0.2)); // 20%~40%
+        let commerceLoss = Math.floor((updatedP.commerce || 50) * (0.2 + Math.random() * 0.2)); // 20%~40%
+        let popLoss = Math.floor(updatedP.population * (0.05 + Math.random() * 0.05)); // 5%~10%
+        let soldierLoss = Math.floor((updatedP.soldiers || 0) * (0.05 + Math.random() * 0.05)); // 5%~10%
+        let floodDmg = 20 + Math.floor(Math.random() * 15); // 20~35
+        let loyaltyLoss = 10 + Math.floor(Math.random() * 5); // 10~15
+        
+        // 防災治水良好 (治水度 >= 60)，地震損害減半
+        let isMitigated = false;
+        if (floodControl >= 60) {
+           valueLoss = Math.floor(valueLoss * 0.5);
+           commerceLoss = Math.floor(commerceLoss * 0.5);
+           popLoss = Math.floor(popLoss * 0.5);
+           soldierLoss = Math.floor(soldierLoss * 0.5);
+           floodDmg = Math.floor(floodDmg * 0.5);
+           loyaltyLoss = Math.floor(loyaltyLoss * 0.5);
+           isMitigated = true;
+        }
         
         updatedP.value = Math.max(0, updatedP.value - valueLoss);
         updatedP.commerce = Math.max(0, (updatedP.commerce || 50) - commerceLoss);
@@ -2803,7 +2838,12 @@ export function advanceTime(state: GameState): GameState {
         updatedP.flood = Math.min(100, updatedP.flood + floodDmg);
         updatedP.loyalty = Math.max(0, updatedP.loyalty - loyaltyLoss);
         
-        let msg = `【地震】天搖地動！${cityName} 發生大地震！房屋倒塌，哀鴻遍野！商業下降 ${commerceLoss}，農業下降 ${valueLoss}，軍民死傷 ${popLoss + soldierLoss} 人，民心大幅下降 ${loyaltyLoss}。`;
+        let msg = `【地震】天搖地動！${cityName} 發生大地震！`;
+        if (isMitigated) {
+           msg += `得益於平時治水與設施加固，災情得以減輕。商業下降 ${commerceLoss}，農業下降 ${valueLoss}，軍民傷亡 ${popLoss + soldierLoss} 人。`;
+        } else {
+           msg += `房屋倒塌，哀鴻遍野！商業下降 ${commerceLoss}，農業下降 ${valueLoss}，軍民死傷 ${popLoss + soldierLoss} 人，民心大幅下降 ${loyaltyLoss}。`;
+        }
         
         // 緊急救援補償 (僅玩家勢力且極度缺錢缺糧)
         if (updatedP.rulerName === state.rulerName) {
