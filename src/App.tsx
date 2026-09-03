@@ -275,7 +275,7 @@ function GameApp({
                 {isBattleVictory ? (
                   <div className="w-full h-36 relative overflow-hidden bg-black border-b-2 border-[#1c1917]">
                     <img 
-                      src="/assets/win.jpg" 
+                      src="./assets/win.jpg" 
                       alt="戰爭勝利" 
                       className="w-full h-full object-cover object-center brightness-95"
                       referrerPolicy="no-referrer"
@@ -289,7 +289,7 @@ function GameApp({
                 ) : isBattleDefeat ? (
                   <div className="w-full h-36 relative overflow-hidden bg-black border-b-2 border-[#1c1917]">
                     <img 
-                      src="/assets/lost.jpg" 
+                      src="./assets/lost.jpg" 
                       alt="戰爭失敗" 
                       className="w-full h-full object-cover object-center brightness-95"
                       referrerPolicy="no-referrer"

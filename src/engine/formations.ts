@@ -18,19 +18,19 @@ export function getTerrainBackgroundUrl(terrain?: string): string {
     case '水上':
     case '水域':
     case '水戰':
-      return '/assets/river.jpg';
+      return './assets/river.jpg';
     case '密林':
     case '森林':
     case '樹林':
-      return '/assets/forest.jpg';
+      return './assets/forest.jpg';
     case '山嶽':
     case '山地':
     case '險山':
-      return '/assets/mountain.jpg';
+      return './assets/mountain.jpg';
     case '平地':
     case '平原':
     default:
-      return '/assets/plan.jpg';
+      return './assets/plan.jpg';
   }
 }
 

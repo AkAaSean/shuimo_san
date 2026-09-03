@@ -350,22 +350,22 @@ export default function MapArea({ selectedProvinceId, onSelectProvince, onClearS
             {/* 4 Quadrants of public/assets/city.jpg (1024x1024) */}
             {/* 左上：大型城池 (截取中間 360x360 視覺更置中) */}
             <pattern id="city-pattern-metropolis" patternUnits="objectBoundingBox" width="1" height="1" viewBox="76 76 360 360">
-              <image href="/assets/city.jpg" x="0" y="0" width="1024" height="1024" preserveAspectRatio="none" />
+              <image href="./assets/city.jpg" x="0" y="0" width="1024" height="1024" preserveAspectRatio="none" />
             </pattern>
 
             {/* 右上：商業城池 */}
             <pattern id="city-pattern-commercial" patternUnits="objectBoundingBox" width="1" height="1" viewBox="588 76 360 360">
-              <image href="/assets/city.jpg" x="0" y="0" width="1024" height="1024" preserveAspectRatio="none" />
+              <image href="./assets/city.jpg" x="0" y="0" width="1024" height="1024" preserveAspectRatio="none" />
             </pattern>
 
             {/* 左下：農業城池 */}
             <pattern id="city-pattern-agricultural" patternUnits="objectBoundingBox" width="1" height="1" viewBox="76 588 360 360">
-              <image href="/assets/city.jpg" x="0" y="0" width="1024" height="1024" preserveAspectRatio="none" />
+              <image href="./assets/city.jpg" x="0" y="0" width="1024" height="1024" preserveAspectRatio="none" />
             </pattern>
 
             {/* 右下：中型城池和邊界城池 */}
             <pattern id="city-pattern-midsized" patternUnits="objectBoundingBox" width="1" height="1" viewBox="588 588 360 360">
-              <image href="/assets/city.jpg" x="0" y="0" width="1024" height="1024" preserveAspectRatio="none" />
+              <image href="./assets/city.jpg" x="0" y="0" width="1024" height="1024" preserveAspectRatio="none" />
             </pattern>
 
             {/* Golden Glow Filter for Selection */}

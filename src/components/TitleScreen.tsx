@@ -4,7 +4,7 @@ import { SCENARIOS } from '../data/scenarios';
 import { provinces } from '../data/provinces';
 import { GameState } from '../types';
 
-const scenarioBg = '/assets/Open_page.jpg';
+const scenarioBg = './assets/Open_page.jpg';
 
 interface SaveSlotMeta {
   slotId: number;
