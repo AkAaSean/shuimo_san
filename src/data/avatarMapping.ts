@@ -384,11 +384,5 @@ export function getGeneralAvatarUrl(generalName: string, factionHint?: string): 
     else url = './assets/avatars/others_1_4.png';
   }
 
-  if (url.startsWith('./')) {
-    return url.substring(1);
-  }
-  if (!url.startsWith('/')) {
-    return '/' + url;
-  }
   return url;
 }

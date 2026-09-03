@@ -21,7 +21,7 @@ export const ItemAvatar: React.FC<ItemAvatarProps> = ({
   const [imageError, setImageError] = useState(false);
   const spriteInfo = ITEM_SPRITES_MAPPING[name];
   const rawImageSrc = spriteInfo ? spriteInfo.imagePath : null;
-  const imageSrc = rawImageSrc && rawImageSrc.startsWith('./') ? rawImageSrc.substring(1) : rawImageSrc;
+  const imageSrc = rawImageSrc;
 
   useEffect(() => {
     setImageError(false);

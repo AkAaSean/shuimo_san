@@ -30,7 +30,7 @@ export function getTerrainBackgroundUrl(terrain?: string): string {
     case '平地':
     case '平原':
     default:
-      return './assets/plan.jpg';
+      return './assets/patch.jpg';
   }
 }
 
