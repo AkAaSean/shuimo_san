@@ -171,6 +171,16 @@ export const GENERAL_AVATAR_MAP: Record<string, string> = {
   '嚴畯': './assets/avatars/wu_2_6.png',
   '潘濬': './assets/avatars/wu_2_6.png',
   '程咨': './assets/avatars/wu_1_5.png',
+  '留贊': './assets/avatars/wu_1_4.png',
+  '孫韶': './assets/avatars/wu_1_0.png',
+  '孫桓': './assets/avatars/wu_0_1.png',
+  '施績': './assets/avatars/wu_1_5.png',
+  '朱異': './assets/avatars/wu_1_4.png',
+  '鍾離牧': './assets/avatars/wu_1_6.png',
+  '陸凱': './assets/avatars/wu_2_2.png',
+  '陸績': './assets/avatars/wu_2_3.png',
+  '吾粲': './assets/avatars/wu_2_4.png',
+  '張悌': './assets/avatars/wu_2_5.png',
 
   // === 群雄陣營 (Others / Non-Wei-Shu-Wu) ===
   '呂布': './assets/avatars/others_0_3.png',

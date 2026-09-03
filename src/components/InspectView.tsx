@@ -9,6 +9,7 @@ import { SCENARIOS } from '../data/scenarios';
 import { PROVINCE_BASE_CONFIGS } from '../data/provinceBaseConfig';
 import { getProvinceTierRules } from '../data/historicalProvinceConfig';
 import { TREASURE_ITEMS, TreasureItem, getGeneralItemBonus } from '../data/items';
+import { getGeneralDescription } from '../data/generalDescriptions';
 import { getEstimatedAnnualGold, getEstimatedAnnualFood, getEstimatedMonthlyFoodConsumption } from '../engine/gameLogic';
 
 interface InspectViewProps {
@@ -849,6 +850,12 @@ export default function InspectView({
                         </div>
                       );
                     })()}
+
+                    {/* Historical Description */}
+                    <div className="bg-[#fcfbf9] border border-amber-200/80 rounded px-2 py-1 text-[11px] text-stone-700 leading-snug flex items-start gap-1">
+                      <span className="text-amber-800 font-bold shrink-0">📜 典故:</span>
+                      <span className="text-stone-800 font-medium">{getGeneralDescription(g.name)}</span>
+                    </div>
                   </div>
                 );
               })}
@@ -1231,10 +1238,20 @@ export default function InspectView({
                 </div>
                 <button
                   onClick={() => setSelectedGeneralDetail(null)}
-                  className="text-stone-400 hover:text-stone-800 text-lg font-black"
+                  className="text-stone-400 hover:text-stone-800 text-lg font-black cursor-pointer p-1"
                 >
                   ✕
                 </button>
+              </div>
+
+              {/* Historical Biography / Description */}
+              <div className="bg-[#fcfbf9] border border-amber-300 rounded p-2.5 text-xs text-stone-800 shadow-2xs flex flex-col gap-1">
+                <div className="font-bold text-amber-900 flex items-center gap-1 text-[11px]">
+                  <span>📜</span> 歷史典故與生平傳記：
+                </div>
+                <p className="text-[12px] leading-relaxed font-medium text-stone-900 pl-0.5">
+                  {getGeneralDescription(selectedGeneralDetail.name)}
+                </p>
               </div>
 
               {/* Held Treasures Section */}

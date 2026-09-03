@@ -5,6 +5,7 @@ import { getProvinceTierRules } from '../data/historicalProvinceConfig';
 import { getGeneralItemBonus } from '../data/items';
 import { getGeneralAvailableSkills, getBattleSkillInfo, isPassiveSkill } from '../engine/skills';
 import { getGeneralAvailableFormations, getFormationInfo, FORMATION_TERRAIN_MATRIX, TERRAIN_DETAILS } from '../engine/formations';
+import { getGeneralDescription } from '../data/generalDescriptions';
 import { GeneralAvatar } from './GeneralAvatar';
 import { ItemAvatar } from './ItemAvatar';
 
@@ -420,6 +421,14 @@ export default function StatusView({ gameState, initialAction, onExit }: StatusV
                       </div>
                     );
                   })()}
+
+                  {/* Historical Description */}
+                  <div className="mt-2.5 pt-2 border-t border-stone-200 text-xs">
+                    <div className="bg-[#fcfbf9] border border-amber-200/80 rounded px-2.5 py-1.5 text-stone-700 leading-relaxed flex items-start gap-1.5">
+                      <span className="text-amber-800 text-[11px] font-bold shrink-0">📜 典故:</span>
+                      <span className="text-[11px] font-medium text-stone-800">{getGeneralDescription(g.name)}</span>
+                    </div>
+                  </div>
                 </div>
               );
             })}
