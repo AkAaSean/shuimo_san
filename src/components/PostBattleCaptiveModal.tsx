@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { GeneralState } from '../types';
-import { Crown, ShieldAlert, UserCheck, Lock, UserX, Skull, Sparkles, MessageSquareQuote, ArrowRight, CheckCircle2, XCircle } from 'lucide-react';
+import { Crown, ShieldAlert, UserCheck, Lock, UserX, Skull, Sparkles, MessageSquareQuote, ArrowRight, CheckCircle2, XCircle, Shield, AlertTriangle } from 'lucide-react';
+import { calculateCaptiveRecruitChance } from '../engine/postBattleLogic';
 
 interface PendingCaptive {
   generalName: string;
@@ -8,6 +9,8 @@ interface PendingCaptive {
   winnerRuler: string;
   defeatedRuler: string;
   isEliminatedRuler?: boolean;
+  isFactionEliminated?: boolean;
+  isRulerSelf?: boolean;
 }
 
 interface PostBattleCaptiveModalProps {
@@ -18,32 +21,16 @@ interface PostBattleCaptiveModalProps {
   onClose: () => void;
 }
 
-function getSurrenderQuote(gen?: GeneralState): string {
-  if (!gen) return `「感佩主公仁德恩威，某願投降，誓死效忠！」`;
-  if (gen.str >= 85) return `「勝者為王，敗者為寇！主公神武無匹，某願降，隨主公橫掃天下！」`;
-  if (gen.int >= 85) return `「主公明聖智勇，實乃天命之主。某願效犬馬之勞，獻微薄之力！」`;
-  if (gen.pol >= 80) return `「天下苦戰久矣，今遇明主，某願披肝膽以效微勞！」`;
-  return `「感佩主公仁德恩威，某願開懷請降！誓死效忠主公！」`;
-}
-
-function getRefusalQuote(gen?: GeneralState): string {
-  if (!gen) return `「忠臣不事二主，何必多言！吾寧死不降！」`;
-  if (gen.str >= 85) return `「吾乃當世猛將，安肯降汝！要殺便殺，休得口生花言！」`;
-  if (gen.int >= 85) return `「忠臣不事二主，烈女不更二夫。閣下無須多言，某決不屈服！」`;
-  if (gen.pol >= 80) return `「吾吃漢祿長大，食人之祿，忠人之事，豈能改投他門！」`;
-  return `「哼！勝敗乃兵家常事，吾寧死不降！」`;
-}
-
 function getImprisonQuote(): string {
-  return `「哼！死都不降，何懼區區牢獄之苦！」`;
+  return `「哼！大丈夫死則死耳，何懼區區囹圄之苦！」`;
 }
 
 function getReleaseQuote(): string {
-  return `「承蒙主公不殺之恩，大恩不言謝，後會有期！」`;
+  return `「承蒙主公不殺大恩，某感佩五內，後會有期！」`;
 }
 
 function getExecuteQuote(): string {
-  return `「天命如此，吾死何恨！某先去一步矣！」`;
+  return `「天命如此，吾死何恨！先主，某先來一步矣！」`;
 }
 
 export const PostBattleCaptiveModal: React.FC<PostBattleCaptiveModalProps> = ({
@@ -78,12 +65,19 @@ export const PostBattleCaptiveModal: React.FC<PostBattleCaptiveModalProps> = ({
 
   const captiveGen = generalsData[currentCaptiveInfo.generalName];
   const playerGen = (Object.values(generalsData) as GeneralState[]).find(g => g.name === playerRulerName);
-  const playerCha = playerGen?.cha || 80;
 
-  // 預估招降成功率
-  const baseLoyalty = captiveGen?.loyalty ?? 50;
-  const rawChance = (playerCha / 110) * (1 - baseLoyalty / 160);
-  const recruitPercent = Math.min(95, Math.max(15, Math.round(rawChance * 100)));
+  const isFactionEliminated = !!(currentCaptiveInfo.isFactionEliminated || currentCaptiveInfo.isEliminatedRuler);
+  const isRulerSelf = !!(currentCaptiveInfo.isRulerSelf || currentCaptiveInfo.generalName === currentCaptiveInfo.defeatedRuler);
+
+  // 精準計算招降率與忠誠度評判
+  const evalResult = calculateCaptiveRecruitChance(
+    captiveGen || { name: currentCaptiveInfo.generalName, loyalty: 50 } as any,
+    playerRulerName,
+    playerGen || null,
+    currentCaptiveInfo.defeatedRuler,
+    isFactionEliminated,
+    isRulerSelf
+  );
 
   const handleAction = (action: 'recruit' | 'imprison' | 'release' | 'execute') => {
     if (action === 'recruit') {
@@ -94,12 +88,12 @@ export const PostBattleCaptiveModal: React.FC<PostBattleCaptiveModalProps> = ({
         setRecruitSuccess(true);
         setRecruitFailed(false);
         setLastAction('recruit');
-        setDialogueQuote(getSurrenderQuote(captiveGen));
+        setDialogueQuote(evalResult.surrenderQuote);
         setFeedbackMsg(res.message);
       } else {
         setRecruitSuccess(false);
         setRecruitFailed(true);
-        setDialogueQuote(getRefusalQuote(captiveGen));
+        setDialogueQuote(evalResult.refusalQuote);
         setFeedbackMsg(res.message);
       }
       return;
@@ -151,11 +145,30 @@ export const PostBattleCaptiveModal: React.FC<PostBattleCaptiveModalProps> = ({
 
         {/* Captive Body */}
         <div className="p-6 flex flex-col gap-4">
-          {/* Banner notice if elimination */}
-          {currentCaptiveInfo.isEliminatedRuler && (
-            <div className="bg-rose-950/60 border border-rose-600/60 rounded-xl p-3 flex items-center gap-2 text-rose-200 text-xs font-bold">
+          
+          {/* Status banner: Faction Eliminated vs Ruler Still Alive */}
+          {isFactionEliminated ? (
+            <div className="bg-rose-950/60 border border-rose-600/60 rounded-xl p-3 flex items-center gap-2.5 text-rose-200 text-xs font-bold shadow">
               <ShieldAlert className="w-5 h-5 text-rose-400 shrink-0" />
-              <span>敵方勢力【{currentCaptiveInfo.defeatedRuler}】已滅亡！城內將領全數被生擒！</span>
+              <div>
+                <span className="block text-rose-300 font-extrabold">【滅國大捷】敵方勢力【{currentCaptiveInfo.defeatedRuler}】已遭徹底滅亡！</span>
+                <span className="text-[11px] text-rose-200/80">舊主已逝，國破家亡，敵將已無效忠實體，歸順意願大幅提升。</span>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-amber-950/50 border border-amber-600/40 rounded-xl p-3 flex items-center gap-2.5 text-amber-200 text-xs shadow">
+              <Shield className="w-5 h-5 text-amber-400 shrink-0" />
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-extrabold text-amber-300">舊主【{currentCaptiveInfo.defeatedRuler}】尚在人間（勢力未滅）</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-rose-900/60 text-rose-300 border border-rose-700/50">
+                    忠臣不事二主
+                  </span>
+                </div>
+                <span className="text-[11px] text-amber-300/80 block mt-0.5">
+                  君主尚存時忠義名將難以當場策反。可先收押天牢，待削其心志或滅其國再行登用！
+                </span>
+              </div>
             </div>
           )}
 
@@ -168,10 +181,17 @@ export const PostBattleCaptiveModal: React.FC<PostBattleCaptiveModalProps> = ({
             </div>
             <div className="flex-1 flex flex-col gap-1">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-black text-amber-100 tracking-wider">
-                  {currentCaptiveInfo.generalName}
-                </h3>
-                <span className="text-xs px-2 py-0.5 rounded bg-stone-800 text-amber-300 border border-amber-900/50">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-black text-amber-100 tracking-wider">
+                    {currentCaptiveInfo.generalName}
+                  </h3>
+                  {isRulerSelf && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-900/80 text-rose-200 font-bold border border-rose-600">
+                      敵軍君主
+                    </span>
+                  )}
+                </div>
+                <span className="text-xs px-2 py-0.5 rounded bg-stone-800 text-amber-300 border border-amber-900/50 font-bold">
                   {captiveGen?.role || '武將'}
                 </span>
               </div>
@@ -209,7 +229,7 @@ export const PostBattleCaptiveModal: React.FC<PostBattleCaptiveModalProps> = ({
             <div className="flex items-center justify-between border-b border-amber-800/30 pb-2">
               <span className="text-xs font-bold flex items-center gap-1.5 text-amber-400">
                 <MessageSquareQuote className="w-4 h-4 text-amber-400 shrink-0" />
-                【{currentCaptiveInfo.generalName}】直面回答：
+                【{currentCaptiveInfo.generalName}】直面回應：
               </span>
               {recruitSuccess && (
                 <span className="text-xs font-extrabold text-amber-400 flex items-center gap-1">
@@ -218,7 +238,7 @@ export const PostBattleCaptiveModal: React.FC<PostBattleCaptiveModalProps> = ({
               )}
               {recruitFailed && (
                 <span className="text-xs font-extrabold text-rose-400 flex items-center gap-1">
-                  <XCircle className="w-4 h-4" /> 【拒絕投降】
+                  <XCircle className="w-4 h-4" /> 【誓死不降】
                 </span>
               )}
             </div>
@@ -236,21 +256,39 @@ export const PostBattleCaptiveModal: React.FC<PostBattleCaptiveModalProps> = ({
 
           {/* Recruitment success forecast bar if not yet acted */}
           {!recruitAttempted && !lastAction && (
-            <div className="flex items-center justify-between text-xs text-stone-400 px-1 bg-stone-900/40 p-2 rounded-lg border border-stone-800/80">
-              <span className="flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-amber-400" />
-                說服投降勝算評估：
-              </span>
-              <span className="font-extrabold text-amber-300 text-sm">
-                {recruitPercent}%
-              </span>
+            <div className="flex items-center justify-between text-xs text-stone-400 px-3 bg-stone-900/60 p-2.5 rounded-lg border border-stone-800/80">
+              <div className="flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>說服招降勝算：</span>
+                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                  evalResult.tagColor === 'rose'
+                    ? 'bg-rose-950 text-rose-300 border border-rose-800/60'
+                    : evalResult.tagColor === 'amber'
+                    ? 'bg-amber-950 text-amber-300 border border-amber-800/60'
+                    : 'bg-emerald-950 text-emerald-300 border border-emerald-800/60'
+                }`}>
+                  {evalResult.statusTag}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                {evalResult.percent === 0 ? (
+                  <span className="font-extrabold text-rose-400 text-sm flex items-center gap-1">
+                    <Shield className="w-3.5 h-3.5" /> 0% (絕不背主)
+                  </span>
+                ) : (
+                  <span className="font-extrabold text-amber-300 text-sm">
+                    {evalResult.percent}%
+                  </span>
+                )}
+              </div>
             </div>
           )}
 
           {/* Notice after refusal */}
           {recruitFailed && !lastAction && (
-            <div className="bg-amber-950/40 border border-amber-600/50 p-2.5 rounded-lg text-xs font-bold text-amber-200 text-center animate-in fade-in">
-              💡 敵將堅貞拒不投降！請選擇其它處置方式（關押、釋放或斬首）：
+            <div className="bg-amber-950/40 border border-amber-600/50 p-2.5 rounded-lg text-xs font-bold text-amber-200 text-center animate-in fade-in flex items-center justify-center gap-1.5">
+              <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>敵將堅貞不屈！建議【關押天牢】以圖後計，亦可選擇釋放或斬首：</span>
             </div>
           )}
 
@@ -271,15 +309,16 @@ export const PostBattleCaptiveModal: React.FC<PostBattleCaptiveModalProps> = ({
               {/* Recruit Button */}
               <button
                 onClick={() => handleAction('recruit')}
-                disabled={recruitFailed}
-                className={`py-3 px-4 rounded-xl font-bold text-xs sm:text-sm border shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                  recruitFailed
-                    ? 'bg-stone-900 text-stone-600 border-stone-800 cursor-not-allowed line-through opacity-70'
-                    : 'bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-stone-950 border-amber-300 active:scale-95'
+                disabled={recruitFailed || evalResult.percent === 0}
+                className={`py-3 px-4 rounded-xl font-bold text-xs sm:text-sm border shadow-md flex items-center justify-center gap-2 transition-all ${
+                  recruitFailed || evalResult.percent === 0
+                    ? 'bg-stone-900 text-stone-500 border-stone-800 cursor-not-allowed opacity-60'
+                    : 'bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-stone-950 border-amber-300 active:scale-95 cursor-pointer'
                 }`}
+                title={evalResult.percent === 0 ? '敵君尚在且該將領誓死忠誠，無法在戰後立即招降，請先關押天牢！' : ''}
               >
                 <UserCheck className="w-4 h-4" />
-                {recruitFailed ? '【已拒絕投降】' : '【招降 / 說服】'}
+                {evalResult.percent === 0 ? '【誓死不降・難以招降】' : recruitFailed ? '【已拒絕投降】' : '【招降 / 說服】'}
               </button>
 
               {/* Imprison Button */}
@@ -316,3 +355,4 @@ export const PostBattleCaptiveModal: React.FC<PostBattleCaptiveModalProps> = ({
     </div>
   );
 };
+

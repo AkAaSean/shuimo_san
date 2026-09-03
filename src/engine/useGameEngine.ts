@@ -3,7 +3,7 @@ import { GameState, ProvinceState, GeneralState, FormationTerrainType } from '..
 import { initGame, advanceTime, executeCommand } from './gameLogic';
 import { calculateFormationTerrainCombatModifier } from './formations';
 import { getGeneralItemBonus } from '../data/items';
-import { calculateCaptiveRate, isCityIsolated, processAICaptiveDecision } from './postBattleLogic';
+import { calculateCaptiveRate, isCityIsolated, processAICaptiveDecision, calculateCaptiveRecruitChance } from './postBattleLogic';
 import { handleRulerDecapitation, applyPlayerSuccessorChoice } from './rulerSuccessionLogic';
 
 function getBestStrategistForBattle(
@@ -174,6 +174,7 @@ export function useGameEngine(initialScenario: number, initialRuler: string, ini
         : (isDefense ? battle.attackerRuler! : prev.rulerName);
 
       const capturedGeneralsForPlayer: string[] = [];
+      let isFactionEliminated = false;
 
       if (winner === 'attacker') {
         // --- 1. 攻方勝利 (破城) ---
@@ -230,6 +231,7 @@ export function useGameEngine(initialScenario: number, initialRuler: string, ini
         // 檢查敗方是否滅國 (被攻陷後在全地圖是否已無任何城池)
         const remainingDefCities = (Object.values(baseState.provincesData) as ProvinceState[]).filter(p => p.id !== battle.targetProvinceId && p.rulerName === defeatedRuler);
         const isEliminated = remainingDefCities.length === 0;
+        isFactionEliminated = isEliminated;
         const isIsolated = isCityIsolated(battle.targetProvinceId, defeatedRuler, baseState.provincesData);
 
         // 處理敵方守將 (與援軍) 的俘虜與逃脫
@@ -250,22 +252,23 @@ export function useGameEngine(initialScenario: number, initialRuler: string, ini
                     ...gen,
                     isCaptive: true,
                     captiveOfRuler: winnerRuler,
+                    originalRulerName: defeatedRuler,
                     capturedInProvinceId: battle.targetProvinceId,
                     soldiers: 0
                   };
                 } else {
                   // AI 勝，自動決策處置俘虜
                   const winnerGen = (Object.values(baseState.generalsData) as GeneralState[]).find(g => g.name === winnerRuler) || null;
-                  const decision = processAICaptiveDecision(gen, winnerRuler, winnerGen, battle.targetProvinceId, isEliminated && gName === defeatedRuler);
+                  const decision = processAICaptiveDecision(gen, winnerRuler, winnerGen, battle.targetProvinceId, isEliminated, gName === defeatedRuler, defeatedRuler);
 
                   if (decision.action === 'recruit') {
-                    baseState.generalsData[gName] = { ...gen, isCaptive: false, captiveOfRuler: null, provinceId: battle.targetProvinceId, loyalty: 70, isWild: false, soldiers: 0 };
+                    baseState.generalsData[gName] = { ...gen, isCaptive: false, captiveOfRuler: null, originalRulerName: null, provinceId: battle.targetProvinceId, loyalty: 70, isWild: false, soldiers: 0 };
                   } else if (decision.action === 'execute') {
                     handleRulerDecapitation(baseState, gName, winnerRuler);
                   } else if (decision.action === 'release') {
-                    baseState.generalsData[gName] = { ...gen, isCaptive: false, captiveOfRuler: null, provinceId: battle.targetProvinceId, isWild: true, soldiers: 0 };
+                    baseState.generalsData[gName] = { ...gen, isCaptive: false, captiveOfRuler: null, originalRulerName: null, provinceId: battle.targetProvinceId, isWild: true, soldiers: 0 };
                   } else {
-                    baseState.generalsData[gName] = { ...gen, isCaptive: true, captiveOfRuler: winnerRuler, capturedInProvinceId: battle.targetProvinceId, soldiers: 0 };
+                    baseState.generalsData[gName] = { ...gen, isCaptive: true, captiveOfRuler: winnerRuler, originalRulerName: defeatedRuler, capturedInProvinceId: battle.targetProvinceId, soldiers: 0 };
                   }
                 }
               } else {
@@ -356,21 +359,22 @@ export function useGameEngine(initialScenario: number, initialRuler: string, ini
                   ...gen,
                   isCaptive: true,
                   captiveOfRuler: winnerRuler,
+                  originalRulerName: defeatedRuler,
                   capturedInProvinceId: battle.targetProvinceId,
                   soldiers: 0
                 };
               } else {
                 const winnerGen = (Object.values(baseState.generalsData) as GeneralState[]).find(g => g.name === winnerRuler) || null;
-                const decision = processAICaptiveDecision(gen, winnerRuler, winnerGen, battle.targetProvinceId, false);
+                const decision = processAICaptiveDecision(gen, winnerRuler, winnerGen, battle.targetProvinceId, false, gName === defeatedRuler, defeatedRuler);
 
                 if (decision.action === 'recruit') {
-                  baseState.generalsData[gName] = { ...gen, isCaptive: false, captiveOfRuler: null, provinceId: battle.targetProvinceId, loyalty: 70, isWild: false, soldiers: 0 };
+                  baseState.generalsData[gName] = { ...gen, isCaptive: false, captiveOfRuler: null, originalRulerName: null, provinceId: battle.targetProvinceId, loyalty: 70, isWild: false, soldiers: 0 };
                 } else if (decision.action === 'execute') {
                   handleRulerDecapitation(baseState, gName, winnerRuler);
                 } else if (decision.action === 'release') {
-                  baseState.generalsData[gName] = { ...gen, isCaptive: false, captiveOfRuler: null, provinceId: originCity, isWild: true, soldiers: 0 };
+                  baseState.generalsData[gName] = { ...gen, isCaptive: false, captiveOfRuler: null, originalRulerName: null, provinceId: originCity, isWild: true, soldiers: 0 };
                 } else {
-                  baseState.generalsData[gName] = { ...gen, isCaptive: true, captiveOfRuler: winnerRuler, capturedInProvinceId: battle.targetProvinceId, soldiers: 0 };
+                  baseState.generalsData[gName] = { ...gen, isCaptive: true, captiveOfRuler: winnerRuler, originalRulerName: defeatedRuler, capturedInProvinceId: battle.targetProvinceId, soldiers: 0 };
                 }
               }
             } else {
@@ -424,7 +428,9 @@ export function useGameEngine(initialScenario: number, initialRuler: string, ini
           capturedInProvinceId: battle.targetProvinceId,
           winnerRuler: prev.rulerName,
           defeatedRuler,
-          isEliminatedRuler: gName === defeatedRuler
+          isEliminatedRuler: isFactionEliminated && (gName === defeatedRuler),
+          isFactionEliminated: isFactionEliminated,
+          isRulerSelf: gName === defeatedRuler
         }));
       }
 
@@ -523,20 +529,29 @@ export function useGameEngine(initialScenario: number, initialRuler: string, ini
       const playerCha = playerRulerGen?.cha || 80;
 
       if (action === 'recruit') {
-        const chance = Math.min(0.95, Math.max(0.15, (playerCha / 110) * (1 - (gen.loyalty || 50) / 160)));
-        if (Math.random() < chance) {
+        const evalResult = calculateCaptiveRecruitChance(
+          gen,
+          prev.rulerName,
+          playerRulerGen,
+          currentCaptive.defeatedRuler,
+          !!(currentCaptive.isFactionEliminated || currentCaptive.isEliminatedRuler),
+          !!(currentCaptive.isRulerSelf || currentCaptive.generalName === currentCaptive.defeatedRuler)
+        );
+
+        if (Math.random() < evalResult.chance) {
+          const initLoyalty = (currentCaptive.isFactionEliminated || currentCaptive.isEliminatedRuler) ? 75 : 65;
           baseState.generalsData[generalName] = {
             ...gen,
             isCaptive: false,
             captiveOfRuler: null,
             provinceId: currentCaptive.capturedInProvinceId,
-            loyalty: 75,
+            loyalty: initLoyalty,
             isWild: false,
             soldiers: 0
           };
-          result = { success: true, message: `【招降成功】${gen.name} 感佩主公仁德恩威，開懷應允，誓死效忠！` };
+          result = { success: true, message: `【招降成功】${gen.name}：${evalResult.surrenderQuote}` };
         } else {
-          result = { success: false, message: `【招降失敗】${gen.name} 怒道：『忠臣不事二主，何必多言！』` };
+          result = { success: false, message: `【招降失敗】${gen.name}：${evalResult.refusalQuote}` };
           return prev;
         }
       } else if (action === 'imprison') {
@@ -544,6 +559,7 @@ export function useGameEngine(initialScenario: number, initialRuler: string, ini
           ...gen,
           isCaptive: true,
           captiveOfRuler: prev.rulerName,
+          originalRulerName: currentCaptive.defeatedRuler,
           capturedInProvinceId: currentCaptive.capturedInProvinceId,
           provinceId: currentCaptive.capturedInProvinceId,
           soldiers: 0
@@ -554,6 +570,7 @@ export function useGameEngine(initialScenario: number, initialRuler: string, ini
           ...gen,
           isCaptive: false,
           captiveOfRuler: null,
+          originalRulerName: null,
           provinceId: currentCaptive.capturedInProvinceId,
           isWild: true,
           soldiers: 0
@@ -631,6 +648,81 @@ export function useGameEngine(initialScenario: number, initialRuler: string, ini
     }));
   }, []);
 
+  const respondDiplomacyOffer = useCallback((accepted: boolean) => {
+    setGameState(prev => {
+      const offer = prev.pendingDiplomacyOffer;
+      if (!offer) return prev;
+
+      const playerRuler = prev.rulerName;
+      const otherRuler = offer.fromRuler;
+      const currentAbsoluteMonth = prev.year * 12 + prev.month;
+
+      const updatedAlliances = { ...(prev.alliances || {}) };
+      if (!updatedAlliances[playerRuler]) updatedAlliances[playerRuler] = {};
+      if (!updatedAlliances[otherRuler]) updatedAlliances[otherRuler] = {};
+
+      const updatedDiplomacy = { ...(prev.diplomacyData || {}) };
+      if (!updatedDiplomacy[playerRuler]) updatedDiplomacy[playerRuler] = {};
+      if (!updatedDiplomacy[otherRuler]) updatedDiplomacy[otherRuler] = {};
+
+      const updatedProvinces = { ...prev.provincesData };
+      const playerCapital = (Object.values(updatedProvinces) as ProvinceState[]).find(p => p.rulerName === playerRuler);
+
+      let resultMsg = '';
+
+      if (accepted) {
+        // 接受：建立同盟或停火條約
+        const expiryAbsolute = currentAbsoluteMonth + offer.durationMonths;
+        updatedAlliances[playerRuler][otherRuler] = expiryAbsolute;
+        updatedAlliances[otherRuler][playerRuler] = expiryAbsolute;
+
+        // 友好度提升
+        const relBoost = offer.type === 'alliance' ? 18 : 25;
+        const currentRel = updatedDiplomacy[playerRuler]?.[otherRuler] ?? 50;
+        const newRel = Math.min(100, Math.max(0, currentRel + relBoost));
+        updatedDiplomacy[playerRuler][otherRuler] = newRel;
+        updatedDiplomacy[otherRuler][playerRuler] = newRel;
+
+        // 收受贈金與贈糧
+        if (playerCapital) {
+          updatedProvinces[playerCapital.id] = {
+            ...playerCapital,
+            gold: playerCapital.gold + offer.giftGold,
+            food: playerCapital.food + offer.giftFood,
+          };
+        }
+
+        if (offer.type === 'alliance') {
+          resultMsg = `🤝 主公接納了【${otherRuler}】之盟約提議！兩國簽署互保盟約（為期 ${offer.durationMonths} 個月），獲贈黃金 ${offer.giftGold} 兩！兩國友好度提升至 ${newRel}。`;
+        } else {
+          resultMsg = `📜 主公恩准了【${otherRuler}】之稱臣乞和！收納賠款黃金 ${offer.giftGold} 兩、軍糧 ${offer.giftFood} 石，兩國立約停戰 ${offer.durationMonths} 個月！兩國友好度提升至 ${newRel}。`;
+        }
+      } else {
+        // 拒絕：微降友好度
+        const currentRel = updatedDiplomacy[playerRuler]?.[otherRuler] ?? 50;
+        const newRel = Math.max(10, currentRel - 5);
+        updatedDiplomacy[playerRuler][otherRuler] = newRel;
+        updatedDiplomacy[otherRuler][playerRuler] = newRel;
+
+        resultMsg = `❌ 主公斷然拒絕了【${otherRuler}】的外交提案，使者倉皇辭別離去。兩國友好度微降至 ${newRel}。`;
+      }
+
+      return {
+        ...prev,
+        pendingDiplomacyOffer: null,
+        provincesData: updatedProvinces,
+        alliances: updatedAlliances,
+        diplomacyData: updatedDiplomacy,
+        lastActionResult: {
+          action: '外交交涉',
+          success: accepted,
+          title: accepted ? (offer.type === 'alliance' ? '兩國締盟大吉' : '准予停戰乞和') : '駁回外邦使者',
+          message: resultMsg
+        }
+      };
+    });
+  }, []);
+
   const updateActiveBattleDefense = useCallback((params: {
     defendingGenerals: string[];
     defenderReinforceProvinceId?: number | null;
@@ -683,6 +775,7 @@ export function useGameEngine(initialScenario: number, initialRuler: string, ini
       setView,
       clearActionResult,
       clearMonthlyEvents,
+      respondDiplomacyOffer,
       loadGameState,
       resetGame
     }

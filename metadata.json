@@ -1,6 +1,6 @@
 {
-  "name": "三國志策略遊戲",
-  "description": "經典三國志戰略模擬遊戲，包含 41 郡地圖、多時期劇本、武將數據與內政軍事系統",
+  "name": "水墨三國",
+  "description": "水墨風三國志經典戰略模擬遊戲，包含天下郡縣版圖、歷史名將列傳、電腦勢力動態經略與戰陣對決系統",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

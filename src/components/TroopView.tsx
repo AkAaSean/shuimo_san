@@ -278,8 +278,8 @@ export default function TroopView({ gameState, initialAction, onExit, onExecute 
 
   // Handle Reassign Execution
   const handleExecuteReassign = () => {
-    if (!reassignHostGen) return;
-    onExecute('兵士', '編制兵力', { allocations }, reassignHostGen);
+    if (!reassignHostGen || freeTroopPool < 0) return;
+    onExecute('兵士', '編制兵力', { allocations, unassignedTroops: freeTroopPool }, reassignHostGen);
     onExit();
   };
 
@@ -319,6 +319,14 @@ export default function TroopView({ gameState, initialAction, onExit, onExecute 
       initAlloc[g.name] = g.soldiers || 0;
     });
     setAllocations(initAlloc);
+  };
+
+  const handleZeroAllocations = () => {
+    const zeroAlloc: Record<string, number> = {};
+    generals.forEach(g => {
+      zeroAlloc[g.name] = 0;
+    });
+    setAllocations(zeroAlloc);
   };
 
   return (
@@ -930,6 +938,12 @@ export default function TroopView({ gameState, initialAction, onExit, onExecute 
 
               <div className="flex flex-wrap gap-1.5 shrink-0">
                 <button
+                  onClick={handleZeroAllocations}
+                  className="px-2.5 py-1 text-xs border border-stone-400 bg-white hover:bg-stone-100 font-bold text-red-800"
+                >
+                  🧹 全部歸零
+                </button>
+                <button
                   onClick={handleBalanceAllocations}
                   className="px-2.5 py-1 text-xs border border-stone-400 bg-white hover:bg-stone-100 font-bold"
                 >
@@ -948,6 +962,51 @@ export default function TroopView({ gameState, initialAction, onExit, onExecute 
                   🔄 恢復初始
                 </button>
               </div>
+            </div>
+
+            {/* Select Host General */}
+            <div className="bg-white/90 border border-stone-400 p-3 sm:p-4 shadow-sm">
+              <div className="flex items-center gap-1.5 font-black text-[#1c1917] text-sm mb-3 pb-1 border-b-2 border-stone-300">
+                <span>👤</span>
+                <span>指定主理編制之武將</span>
+              </div>
+              {availableGenerals.length === 0 ? (
+                <div className="text-sm font-bold text-red-700 bg-red-50 p-3 text-center border border-red-200">
+                  本郡本月已無待命將領可執行編制
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5 max-h-48 overflow-y-auto pr-1">
+                  {availableGenerals.map(g => {
+                    const isSelected = reassignHostGen === g.name;
+                    return (
+                      <button
+                        key={g.name}
+                        onClick={() => setReassignHostGen(g.name)}
+                        className={`p-2.5 border-2 text-left transition ${
+                          isSelected
+                            ? 'border-[#991b1b] bg-amber-50/80 ring-1 ring-[#991b1b]'
+                            : 'border-stone-300 bg-white hover:border-stone-500'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <GeneralAvatar name={g.name} size={32} className="shrink-0 rounded shadow-xs" />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <span className="font-black text-sm text-[#1c1917] truncate">{g.name}</span>
+                            </div>
+                            <div className="text-[10px] text-stone-500 font-bold">
+                              {g.role || '將領'}
+                            </div>
+                          </div>
+                          <div className="shrink-0 flex items-center justify-center w-5 h-5 border-2 rounded-full border-stone-400 bg-white">
+                            {isSelected && <div className="w-2.5 h-2.5 bg-[#991b1b] rounded-full" />}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Free Troop Pool Counter */}
@@ -973,6 +1032,7 @@ export default function TroopView({ gameState, initialAction, onExit, onExecute 
                   const currentVal = allocations[g.name] ?? (g.soldiers || 0);
                   const bonus = getGeneralItemBonus(g.name, gameState.currentScenario);
                   const totalStr = g.str + bonus.strBonus;
+                  const maxAllowed = Math.min(g.maxTroops, currentVal + Math.max(0, freeTroopPool));
 
                   return (
                     <div key={g.name} className="bg-[#f9f8f5] border border-stone-300 p-2.5 sm:p-3 space-y-2">
@@ -996,7 +1056,7 @@ export default function TroopView({ gameState, initialAction, onExit, onExecute 
                         <input
                           type="range"
                           min={0}
-                          max={g.maxTroops}
+                          max={maxAllowed}
                           step={50}
                           value={currentVal}
                           onChange={e => {
@@ -1019,19 +1079,19 @@ export default function TroopView({ gameState, initialAction, onExit, onExecute 
                             -100
                           </button>
                           <button
-                            onClick={() => setAllocations(prev => ({ ...prev, [g.name]: Math.min(g.maxTroops, currentVal + 100) }))}
+                            onClick={() => setAllocations(prev => ({ ...prev, [g.name]: Math.min(maxAllowed, currentVal + 100) }))}
                             className="px-1.5 py-0.5 text-[11px] border border-stone-300 bg-white hover:bg-stone-100 font-bold"
                           >
                             +100
                           </button>
                           <button
-                            onClick={() => setAllocations(prev => ({ ...prev, [g.name]: Math.min(g.maxTroops, currentVal + 500) }))}
+                            onClick={() => setAllocations(prev => ({ ...prev, [g.name]: Math.min(maxAllowed, currentVal + 500) }))}
                             className="px-1.5 py-0.5 text-[11px] border border-stone-300 bg-white hover:bg-stone-100 font-bold"
                           >
                             +500
                           </button>
                           <button
-                            onClick={() => setAllocations(prev => ({ ...prev, [g.name]: g.maxTroops }))}
+                            onClick={() => setAllocations(prev => ({ ...prev, [g.name]: maxAllowed }))}
                             className="px-2 py-0.5 text-[11px] border border-[#991b1b] bg-amber-50 text-[#991b1b] font-bold"
                           >
                             滿額
@@ -1047,13 +1107,13 @@ export default function TroopView({ gameState, initialAction, onExit, onExecute 
               <div className="pt-2">
                 <button
                   onClick={handleExecuteReassign}
-                  disabled={!reassignHostGen || freeTroopPool !== 0 || availableGenerals.length === 0}
+                  disabled={!reassignHostGen || freeTroopPool < 0 || availableGenerals.length === 0}
                   className="w-full py-3 bg-[#991b1b] hover:bg-red-800 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-base border-2 border-[#1c1917] shadow active:scale-98 transition flex items-center justify-center gap-2"
                 >
                   <span>📋</span>
                   {freeTroopPool === 0 
                     ? `確認完成全郡將領兵力編制 (${totalGarrison.toLocaleString()}人)` 
-                    : (freeTroopPool > 0 ? `尚餘 ${freeTroopPool} 人未分配` : `超出總兵力 ${Math.abs(freeTroopPool)} 人`)}
+                    : (freeTroopPool > 0 ? `確認完成編制 (預備兵: ${freeTroopPool.toLocaleString()} 人)` : `兵力不足，超編 ${Math.abs(freeTroopPool)} 人`)}
                 </button>
               </div>
             </div>

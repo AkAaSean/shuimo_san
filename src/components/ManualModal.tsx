@@ -198,7 +198,7 @@ export default function ManualModal({ isOpen = true, onClose }: ManualModalProps
                     </div>
                     <div className="p-2.5 bg-stone-50 border border-stone-300">
                       <div className="font-black text-[#1c1917] mb-1">🏛️ 郡縣自治</div>
-                      將後方安全城池委任為自治狀態，太守會自動進行內政開發與治安維護。
+                      至【7.君主】授權非君主所在城池自治。太守與守將每月將自動進行治水、賑民、農商修墾與兵操，並於月初呈報奏績；君主仍可調兵或隨時收回直轄。
                     </div>
                   </div>
                 </div>
@@ -333,7 +333,7 @@ export default function ManualModal({ isOpen = true, onClose }: ManualModalProps
 
         {/* Footer */}
         <div className="bg-[#e6e2db] px-4 sm:px-6 py-3 border-t-2 border-[#1c1917] flex justify-between items-center text-xs shrink-0">
-          <span className="font-bold text-stone-600">水墨三國 v0.3 指南手冊</span>
+          <span className="font-bold text-stone-600">水墨三國 v0.4 指南手冊</span>
           <button 
             onClick={onClose}
             className="bg-[#991b1b] hover:bg-red-800 text-amber-100 font-black px-5 py-1.5 border-2 border-[#1c1917] shadow-[2px_2px_0_#1c1917] cursor-pointer active:scale-95 transition-all"

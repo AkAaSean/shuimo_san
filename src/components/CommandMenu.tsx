@@ -100,7 +100,11 @@ export default function CommandMenu({ gameState, onCommandSelect, showToast }: C
 
               {/* 白字標籤與鎖定圖示 */}
               <span className="relative z-10 pointer-events-none flex items-center justify-center gap-0.5 text-white font-black text-xs sm:text-sm tracking-widest drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
-                {!isAllowed && <span className="text-[10px] text-amber-300">🔒</span>}
+                {isDisallowedByAutonomy ? (
+                  <span className="text-[9px] bg-amber-600/90 text-amber-100 px-1 py-0.2 rounded font-black tracking-normal">委任</span>
+                ) : !isAllowed ? (
+                  <span className="text-[10px] text-amber-300">🔒</span>
+                ) : null}
                 <span>{cmd.label.split('.')[1]}</span>
               </span>
 
@@ -127,11 +131,16 @@ export default function CommandMenu({ gameState, onCommandSelect, showToast }: C
           );
         })}
       </div>
-      <div className="mt-1 text-center text-[10px] text-stone-700 font-bold pb-0.5 flex justify-center items-center gap-2 tracking-wider">
+      <div className="mt-1 text-center text-[10px] text-stone-700 font-bold pb-0.5 flex justify-center items-center gap-2 tracking-wider flex-wrap">
         <span>◆ 水墨指令盤 ◆</span>
         {!isPlayerCity && (
           <span className="text-amber-900 font-black bg-amber-100/90 px-1.5 py-0.2 rounded border border-amber-400 text-[9.5px] shadow-2xs">
             ⚠️ 非我方轄區，僅限 0狀態/1查看/9系統
+          </span>
+        )}
+        {isPlayerCity && isAutonomous && (
+          <span className="text-amber-950 font-black bg-amber-200/95 px-1.5 py-0.2 rounded border border-amber-500 text-[9.5px] shadow-2xs">
+            🏛️ 該城已自治（太守自動施政，兵/內/商/謀已委任；可至【7.君主】收回直轄）
           </span>
         )}
       </div>

@@ -9,13 +9,15 @@ import {
   getGeneralAvailableFormations, 
   getFormationTerrainEffect, 
   TERRAIN_DETAILS, 
-  calculateFormationTerrainCombatModifier 
+  calculateFormationTerrainCombatModifier,
+  getTerrainBackgroundUrl
 } from '../engine/formations';
 import { provinces } from '../data/provinces';
 import { getGeneralItemBonus } from '../data/items';
 import FormationTerrainMatrixModal from './FormationTerrainMatrixModal';
 import DefenseSetupModal from './DefenseSetupModal';
 import PreBattleFormationView from './PreBattleFormationView';
+import BattleSkillVFX, { BattleVFXEvent } from './BattleSkillVFX';
 import { 
   Swords, 
   Flame, 
@@ -110,6 +112,57 @@ export default function BattleView5v5({
     skillName: string;
     quote: string;
   } | null>(null);
+  const [currentVFX, setCurrentVFX] = useState<BattleVFXEvent | null>(null);
+  const [screenShake, setScreenShake] = useState(false);
+
+  const triggerScreenShake = (intensity: 'light' | 'heavy' = 'light') => {
+    setScreenShake(true);
+    setTimeout(() => setScreenShake(false), intensity === 'heavy' ? 450 : 250);
+  };
+
+  const triggerSkillVFX = (
+    casterUnit: BattleUnit, 
+    skillName: string, 
+    targetUnitIds: string[] = [], 
+    isAoe: boolean = false
+  ) => {
+    const isCasterEnemy = isDefense ? casterUnit.isAttacker : !casterUnit.isAttacker;
+    const quote = getSkillQuote(casterUnit.generalName, skillName, gameState.generalsData[casterUnit.generalName]);
+    
+    setCurrentVFX({
+      id: `vfx_${Date.now()}_${Math.random()}`,
+      type: 'skill',
+      skillName,
+      casterName: casterUnit.generalName,
+      casterUnitId: casterUnit.id,
+      isCasterEnemy,
+      targetUnitIds,
+      isAoe,
+      quote,
+      duration: 1200
+    });
+
+    if (['無雙', '山崩', '業火', '水龍計', '橫掃', '鐵壁衝撞'].includes(skillName)) {
+      triggerScreenShake('heavy');
+    } else {
+      triggerScreenShake('light');
+    }
+  };
+
+  const triggerMeleeVFX = (casterUnit: BattleUnit, targetId: string) => {
+    const isCasterEnemy = isDefense ? casterUnit.isAttacker : !casterUnit.isAttacker;
+    setCurrentVFX({
+      id: `vfx_${Date.now()}_${Math.random()}`,
+      type: 'melee',
+      casterName: casterUnit.generalName,
+      casterUnitId: casterUnit.id,
+      isCasterEnemy,
+      targetUnitIds: [targetId],
+      isAoe: false,
+      duration: 500
+    });
+    triggerScreenShake('light');
+  };
 
   const triggerSkillSpeech = (unitId: string, generalName: string, skillName: string) => {
     const genData = gameState.generalsData[generalName];
@@ -660,13 +713,14 @@ export default function BattleView5v5({
 
     addLog(`⚔️ 【${activeUnit.generalName}】(${activeUnit.formation}陣) ${terrainNote} 揮軍猛攻 ${targetUnit.generalName} ${isCrit ? '💥(暴擊!)' : ''}，造成 ${damage} 傷害！`, 'attack');
     triggerDamagePopup(targetId, `-${damage}`, isCrit);
+    triggerMeleeVFX(activeUnit, targetId);
 
     let newUnits = battleState.units.map((u: any) => {
       if (u.id === targetId) {
         return { ...u, troops: Math.max(0, u.troops - damage) };
       }
       if (u.id === activeUnitId) {
-        return { ...u, stamina: Math.max(0, u.stamina - 10), hasActed: true };
+        return { ...u, hasActed: true };
       }
       return u;
     });
@@ -706,6 +760,11 @@ export default function BattleView5v5({
       // 若單體戰法未帶 targetId，預設第一個有效目標
       targetUnit = isAllySkill(currentSkill) ? allyUnits[0] : enemyUnits[0];
     }
+
+    const targetUnitIds = isAoeSkill(currentSkill)
+      ? (isAllySkill(currentSkill) ? allyUnits.map((u: any) => u.id) : enemyUnits.map((u: any) => u.id))
+      : (targetUnit ? [targetUnit.id] : []);
+    triggerSkillVFX(activeUnit, currentSkill, targetUnitIds, isAoeSkill(currentSkill));
 
     let updatedUnits = [...battleState.units];
 
@@ -1117,7 +1176,15 @@ export default function BattleView5v5({
       return;
     }
 
-    const gen = gameState.generalsData[actingUnit.generalName] || { str: 50, int: 50, hp: 50, pol: 50, cha: 50 };
+    const gen = gameState.generalsData[actingUnit.generalName] || { 
+      name: actingUnit.generalName, 
+      str: 50, 
+      int: 50, 
+      hp: 50, 
+      pol: 50, 
+      cha: 50,
+      formations: ['魚鱗'] 
+    };
     const availableSkills = actingUnit.skills || [];
     const battlefieldTerrain: FormationTerrainType = battleState.terrain || '平地';
 
@@ -1128,6 +1195,160 @@ export default function BattleView5v5({
 
     const maxHp = gameState.generalsData[actingUnit.generalName]?.soldiers || actingUnit.maxTroops || 1000;
     const hpRatio = actingUnit.troops / maxHp;
+
+    // ────────── 0. 士氣崩潰與潰退撤軍 (Morale Collapse & Tactical Retreat) ──────────
+    const isAiAttacker = actingUnit.isAttacker;
+    const aiFood = isAiAttacker ? battleState.attackerFood : battleState.defenderFood;
+    const isStarving = aiFood <= 0;
+    const unitMorale = actingUnit.morale ?? 100;
+
+    // A. 主帥全軍大撤退判定 (鳴金收兵：攻方糧盡或大部精銳折損殆盡)
+    if (actingUnit.isCommander && isAiAttacker) {
+      const allAiUnits = battleState.units.filter((u: any) => u.isAttacker === actingUnit.isAttacker);
+      const totalAiTroops = allAiUnits.reduce((sum: number, u: any) => sum + u.troops, 0);
+      const totalAiMax = allAiUnits.reduce((sum: number, u: any) => {
+        const m = gameState.generalsData[u.generalName]?.soldiers || u.maxTroops || 1000;
+        return sum + m;
+      }, 0);
+      const totalPlayerTroops = possibleTargets.reduce((sum: number, u: any) => sum + u.troops, 0);
+
+      if ((isStarving || (totalAiMax > 0 && totalAiTroops / totalAiMax < 0.20)) && totalPlayerTroops > totalAiTroops * 2.2) {
+        addLog(`🏳️🚩【鳴金收兵】敵軍主帥【${actingUnit.generalName}】審時度勢，全軍死傷枕藉且糧草無以為繼，斷然下達全軍總撤退令！`, 'event');
+        // 保存所有存活敵將的現有兵馬
+        battleState.units.forEach((u: any) => {
+          if (u.isAttacker === actingUnit.isAttacker && u.troops > 0) {
+            const g = gameState.generalsData[u.generalName];
+            if (g) {
+              gameState.generalsData[u.generalName] = { ...g, soldiers: u.troops };
+            }
+          }
+        });
+        setTimeout(() => {
+          setBattleOutcome({
+            winner: isDefense ? 'defender' : 'attacker',
+            title: isDefense ? '敵軍退兵・守城大捷' : '敵軍撤退・戰役大捷',
+            message: `敵方主將【${actingUnit.generalName}】自知敗局已定，為保全殘存精銳下達全軍撤退令，殘部有序退守後方城池！`,
+            isWin: isDefense
+          });
+        }, 500);
+        return;
+      }
+    }
+
+    // B. 個別將領潰退撤軍判定 (部隊瀕臨覆滅或士氣瓦解時退避保全實力)
+    let shouldRetreat = false;
+    let retreatReason = '';
+
+    if (unitMorale <= 20) {
+      shouldRetreat = true;
+      retreatReason = '士氣崩潰散亂';
+    } else if (isStarving && (actingUnit.troops < 800 || unitMorale < 35)) {
+      shouldRetreat = true;
+      retreatReason = '軍糧斷絕士無戰心';
+    } else if (actingUnit.troops < 500 || hpRatio < 0.18) {
+      shouldRetreat = true;
+      retreatReason = `兵力僅存 ${actingUnit.troops.toLocaleString()} 人`;
+    }
+
+    if (shouldRetreat) {
+      let willExecuteRetreat = false;
+      if (isMightyWarrior) {
+        // 勇將性格強悍：只有在兵力少於 280 或士氣 <= 15 或斷糧殘兵時才肯撤離
+        willExecuteRetreat = actingUnit.troops <= 280 || unitMorale <= 15 || (isStarving && actingUnit.troops <= 420);
+      } else if (isStrategist) {
+        // 軍師深諳兵法與保全之道：滿足條件 100% 撤離戰場
+        willExecuteRetreat = true;
+      } else {
+        // 統帥均衡型：85% 機率撤退
+        willExecuteRetreat = Math.random() < 0.85;
+      }
+
+      if (willExecuteRetreat) {
+        // 保存存活兵力回城，避免白白折損
+        const existingGen = gameState.generalsData[actingUnit.generalName];
+        if (existingGen) {
+          gameState.generalsData[actingUnit.generalName] = {
+            ...existingGen,
+            soldiers: Math.max(0, actingUnit.troops)
+          };
+        }
+
+        addLog(`🏃‍♂️💨【潰退撤軍】敵將【${actingUnit.generalName}】因${retreatReason}，見大勢已去，為保全實力（尚存 ${actingUnit.troops.toLocaleString()} 兵馬），果斷率殘部突圍撤離戰場！`, 'passive');
+        triggerDamagePopup(actingUnit.id, '🏃‍♂️撤退!', false);
+
+        const newUnits = battleState.units.map((u: any) => {
+          if (u.id === actingUnit.id) {
+            return { ...u, troops: 0, hasActed: true };
+          }
+          return u;
+        });
+
+        advanceTurn(newUnits, turnQueue);
+        return;
+      }
+    }
+
+    // ────────── 0.5 陣形與地形相剋動態變陣 (Dynamic Formation & Terrain Adaptation) ──────────
+    // 敵將依據當前戰場地形（山嶽、水上、密林、平地）與雙方態勢主動變換最適陣形
+    if (actingUnit.stamina >= 15) {
+      const currentEff = getFormationTerrainEffect(actingUnit.formation || '魚鱗', battlefieldTerrain);
+      const availableForms = gen.formations && gen.formations.length > 0 
+        ? gen.formations 
+        : getGeneralAvailableFormations(gen);
+
+      if (availableForms.length > 1) {
+        let bestForm = actingUnit.formation || '魚鱗';
+        let bestScore = currentEff.ratingScore;
+        let bestEff = currentEff;
+
+        availableForms.forEach((formName: string) => {
+          const eff = getFormationTerrainEffect(formName, battlefieldTerrain);
+          let score = eff.ratingScore;
+
+          // 戰場地形適應加權
+          if (battlefieldTerrain === '水上' && formName === '水陣') score += 40;
+          if (battlefieldTerrain === '山嶽' && (formName === '鋒矢' || formName === '方圓')) score += 25;
+          if (battlefieldTerrain === '密林' && (formName === '方圓' || formName === '八卦')) score += 30;
+          if (battlefieldTerrain === '平地' && (formName === '錐行' || formName === '鶴翼' || formName === '魚鱗')) score += 20;
+
+          // 軍師奇門加權
+          if (formName === '八卦' && isStrategist) score += 35;
+
+          // 殘血自保偏好重裝方圓陣
+          if (hpRatio < 0.35 && formName === '方圓') score += 30;
+
+          if (score > bestScore) {
+            bestScore = score;
+            bestForm = formName;
+            bestEff = eff;
+          }
+        });
+
+        // 若評估出的最佳陣形顯著優於現有陣形 (評分增加 18 分以上，或現有陣形處於 C/D 級劣勢)
+        const isCurrentWeak = currentEff.rating === 'D' || currentEff.rating === 'C';
+        const isSignificantUpgrade = bestScore >= currentEff.ratingScore + 18;
+
+        if (bestForm !== actingUnit.formation && (isCurrentWeak || isSignificantUpgrade) && Math.random() < 0.80) {
+          addLog(`🚩【奇謀變陣】敵將【${actingUnit.generalName}】洞悉戰場【${battlefieldTerrain}】地勢險要，棄用【${actingUnit.formation}陣】，號令全軍變換為【${bestForm}陣】(${bestEff.rating}級適應・${bestEff.tag})！`, 'event');
+          triggerDamagePopup(actingUnit.id, `變陣·${bestForm}`, false);
+
+          const newUnits = battleState.units.map((u: any) => {
+            if (u.id === actingUnit.id) {
+              return {
+                ...u,
+                formation: bestForm,
+                stamina: Math.max(0, u.stamina - 15),
+                hasActed: true
+              };
+            }
+            return u;
+          });
+
+          advanceTurn(newUnits, turnQueue);
+          return;
+        }
+      }
+    }
 
     // ────────── 1. 戰術評估：友軍傷情與負面狀態 ──────────
     const debuffedAllies = allyUnits.filter((u: any) => u.status === 'confused' || u.status === 'panicked' || u.status === 'burning');
@@ -1312,6 +1533,12 @@ export default function BattleView5v5({
     if (skillToUse) {
       const skillDef = BATTLE_SKILLS[skillToUse];
       triggerSkillSpeech(actingUnit.id, actingUnit.generalName, skillToUse);
+      
+      const targetUnitIds = isAoeSkill(skillToUse)
+        ? (isAllySkill(skillToUse) ? allyUnits.map((u: any) => u.id) : enemyUnits.map((u: any) => u.id))
+        : (targetUnit ? [targetUnit.id] : []);
+      triggerSkillVFX(actingUnit, skillToUse, targetUnitIds, isAoeSkill(skillToUse));
+
       let defMod = targetUnit.status === 'defending' ? 0.65 : targetUnit.status === 'confused' ? 1.25 : 1.0;
       let atkMod = actingUnit.status === 'moraled' ? 1.25 : actingUnit.status === 'panicked' ? 0.75 : 1.0;
 
@@ -1690,13 +1917,14 @@ export default function BattleView5v5({
 
     addLog(`⚔️ 敵將【${actingUnit.generalName}】(${actingUnit.formation}陣) ${terrainNote} 揮軍猛攻我方 ${targetUnit.generalName} ${isCrit ? '💥(暴擊!)' : ''}，造成 ${damage} 傷害！`, 'attack');
     triggerDamagePopup(targetUnit.id, `-${damage}`, isCrit);
+    triggerMeleeVFX(actingUnit, targetUnit.id);
 
     const newUnits = battleState.units.map((u: any) => {
       if (u.id === targetUnit.id) {
         return { ...u, troops: Math.max(0, u.troops - damage) };
       }
       if (u.id === actingUnit.id) {
-        return { ...u, stamina: Math.max(0, u.stamina - 10), hasActed: true };
+        return { ...u, hasActed: true };
       }
       return u;
     });
@@ -1918,9 +2146,21 @@ export default function BattleView5v5({
   const enemyFood = isDefense ? battleState.attackerFood : battleState.defenderFood;
 
   return (
-    <div className="absolute inset-0 z-50 flex flex-col font-serif select-none bg-[#141210] text-stone-200 overflow-hidden">
+    <div className={`absolute inset-0 z-50 flex flex-col font-serif select-none bg-[#141210] text-stone-200 overflow-hidden ${screenShake ? 'animate-battle-shake' : ''}`}>
+      {/* 戰場即時地形半透明背景底圖 (水上: river.jpg / 密林: forest.jpg / 平原: plan.jpg / 山嶽: mountain.jpg) */}
+      <div 
+        className="absolute inset-0 pointer-events-none transition-all duration-1000 ease-in-out bg-cover bg-center z-0"
+        style={{
+          backgroundImage: `url(${getTerrainBackgroundUrl(battlefieldTerrain)})`,
+          opacity: 0.22,
+          filter: 'saturate(0.85) brightness(0.95)'
+        }}
+      />
+      {/* 典雅暗黑漸層與氛圍遮罩，保障介面所有文字、血條與技能極致清晰 */}
+      <div className="absolute inset-0 pointer-events-none z-0 bg-gradient-to-b from-[#141210]/60 via-transparent to-[#141210]/85" />
+
       {/* 1. 頂部狀態列 (手機與電腦皆全時顯示：戰場地點、天數、地形、兩軍兵糧、情報按鈕) */}
-      <div className="bg-[#1f1a16] border-b border-[#3b3128] px-2 py-1 sm:px-2.5 sm:py-1.5 z-30 shadow-md flex flex-col gap-0.5 sm:gap-1 shrink-0">
+      <div className="bg-[#1f1a16]/95 border-b border-[#3b3128] px-2 py-1 sm:px-2.5 sm:py-1.5 z-30 shadow-md flex flex-col gap-0.5 sm:gap-1 shrink-0 backdrop-blur-[2px]">
         {/* 第一行：主要戰場與操作快捷列 */}
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
@@ -2047,13 +2287,13 @@ export default function BattleView5v5({
       </div>
 
       {/* 2. 核心 5 vs 5 戰場區域 */}
-      <div className="flex-1 min-h-0 flex flex-col relative px-1 py-0.5 sm:px-4 sm:py-2" style={{
-        background: 'radial-gradient(ellipse at 50% 30%, #261f1a 0%, #141210 100%)'
+      <div className="flex-1 min-h-0 flex flex-col relative px-1 py-0.5 sm:px-4 sm:py-2 z-10" style={{
+        background: 'radial-gradient(ellipse at 50% 30%, rgba(38, 31, 26, 0.45) 0%, rgba(20, 18, 16, 0.75) 100%)'
       }}>
         {/* 對峙陣容區 (5 列並排) */}
         <div className="flex-1 flex gap-1 sm:gap-4 overflow-hidden relative">
           {/* 左列：我軍 (5 人，陣亡自動依序遞補) */}
-          <div className="flex-1 flex flex-col justify-between gap-0.5 sm:gap-1 overflow-y-auto no-scrollbar">
+          <div className="flex-1 flex flex-col justify-between gap-0.5 sm:gap-1 overflow-y-auto overflow-x-hidden no-scrollbar">
             <div className="text-[10px] sm:text-[11px] font-black text-sky-400 flex items-center justify-between px-0.5 pb-0.5 border-b border-sky-900/40 shrink-0">
               <span className="flex items-center gap-0.5 truncate">🔷 我軍 ({isDefense ? '守備' : '攻城'})</span>
               <span className="text-[9px] text-stone-400 font-bold shrink-0">
@@ -2088,7 +2328,7 @@ export default function BattleView5v5({
           </div>
 
           {/* 右列：敵軍 (5 人，陣亡自動依序遞補) */}
-          <div className="flex-1 flex flex-col justify-between gap-0.5 sm:gap-1 overflow-y-auto no-scrollbar">
+          <div className="flex-1 flex flex-col justify-between gap-0.5 sm:gap-1 overflow-y-auto overflow-x-hidden no-scrollbar">
             <div className="text-[10px] sm:text-[11px] font-black text-rose-400 flex items-center justify-between px-0.5 pb-0.5 border-b border-rose-900/40 shrink-0">
               <span className="flex items-center gap-0.5 truncate">🔶 敵軍 ({isDefense ? '進攻' : '守敵'})</span>
               <span className="text-[9px] text-stone-400 font-bold shrink-0">
@@ -2612,6 +2852,13 @@ export default function BattleView5v5({
           </div>
         </div>
       )}
+
+      {/* 戰法發動與斬擊攻擊特效系統 (特寫橫幅、粒子動畫、光影閃爍與立體合成音效) */}
+      <BattleSkillVFX
+        vfxEvent={currentVFX}
+        gameState={gameState}
+        onVFXComplete={() => setCurrentVFX(null)}
+      />
     </div>
   );
 }
@@ -2739,7 +2986,7 @@ function CompactUnitStrip({
             </span>
           </div>
 
-          {/* 士氣 & 訓練度 (敵我皆顯示) + 體力 (僅我方顯示，敵方隱藏以確保手機端不溢出且符合戰爭迷霧) */}
+          {/* 士氣、訓練度 & 體力 (敵我雙方皆公開顯示) */}
           <div className="flex items-center gap-1 sm:gap-2 text-[8px] sm:text-[9px] leading-none flex-wrap">
             <span className="flex items-center gap-0.5 font-bold text-amber-300 shrink-0">
               <Flame className="w-2 h-2 sm:w-2.5 sm:h-2.5 text-amber-400 shrink-0" />
@@ -2749,12 +2996,10 @@ function CompactUnitStrip({
               <Target className="w-2 h-2 sm:w-2.5 sm:h-2.5 text-emerald-400 shrink-0" />
               訓:{unit.training ?? 80}
             </span>
-            {!isEnemy && (
-              <span className="flex items-center gap-0.5 font-bold text-sky-300 shrink-0">
-                <Zap className="w-2 h-2 sm:w-2.5 sm:h-2.5 text-sky-400 shrink-0" />
-                體:{unit.stamina ?? 100}
-              </span>
-            )}
+            <span className="flex items-center gap-0.5 font-bold text-sky-300 shrink-0">
+              <Zap className="w-2 h-2 sm:w-2.5 sm:h-2.5 text-sky-400 shrink-0" />
+              體:{unit.stamina ?? 100}
+            </span>
           </div>
         </div>
       </div>

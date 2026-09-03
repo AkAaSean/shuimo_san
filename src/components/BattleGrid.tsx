@@ -429,7 +429,7 @@ export default function BattleGrid({
       <motion.div
         drag
         dragConstraints={containerRef}
-        dragElastic={0.1}
+        dragElastic={0}
         className="origin-center cursor-grab active:cursor-grabbing z-10 shrink-0 p-8"
         style={{ width: gridWidth + 64, height: gridHeight + 64, scale }}
       >

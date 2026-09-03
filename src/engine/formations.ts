@@ -13,6 +13,27 @@ export interface TerrainDetail {
   advantageSummary: string;
 }
 
+export function getTerrainBackgroundUrl(terrain?: string): string {
+  switch (terrain) {
+    case '水上':
+    case '水域':
+    case '水戰':
+      return '/assets/river.jpg';
+    case '密林':
+    case '森林':
+    case '樹林':
+      return '/assets/forest.jpg';
+    case '山嶽':
+    case '山地':
+    case '險山':
+      return '/assets/mountain.jpg';
+    case '平地':
+    case '平原':
+    default:
+      return '/assets/plan.jpg';
+  }
+}
+
 export const TERRAIN_DETAILS: Record<FormationTerrainType, TerrainDetail> = {
   '平地': {
     id: '平地',

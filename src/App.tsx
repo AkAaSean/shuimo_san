@@ -23,9 +23,11 @@ import RulerTerritoryCard from './components/RulerTerritoryCard';
 import SystemModal from './components/SystemModal';
 import PendingBattlesPanel from './components/PendingBattlesPanel';
 import ManualModal from './components/ManualModal';
+import AIDebugPanel from './components/AIDebugPanel';
 import { PostBattleCaptiveModal } from './components/PostBattleCaptiveModal';
 import { RulerSuccessionModal } from './components/RulerSuccessionModal';
 import { GameOverModal } from './components/GameOverModal';
+import { DiplomacyOfferModal } from './components/DiplomacyOfferModal';
 import { useGameEngine } from './engine/useGameEngine';
 import { GameState, ProvinceState } from './types';
 import { provinces } from './data/provinces';
@@ -73,6 +75,7 @@ function GameApp({
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isManualOpen, setIsManualOpen] = useState(false);
+  const [isAIDebugOpen, setIsAIDebugOpen] = useState(false);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -88,6 +91,12 @@ function GameApp({
       ? gameState.provincesData[gameState.selectedProvinceId] 
       : null;
     const isPlayerCity = currentProv ? currentProv.rulerName === gameState.rulerName : true;
+
+    if (rawAction === '電腦AI觀測' || rawAction === 'AI觀測') {
+      setIsAIDebugOpen(true);
+      actions.setActiveMenu(null);
+      return;
+    }
 
     if (['存檔', '讀檔', '重新開始'].includes(rawAction)) {
       setSystemModal({
@@ -213,9 +222,9 @@ function GameApp({
               exit={{ scale: 0.9, opacity: 0 }}
               className="bg-[#f4f1ea] border-4 border-[#1c1917] w-full max-w-sm p-5 shadow-2xl font-serif text-[#1c1917] flex flex-col items-center text-center relative"
             >
-              <div className="text-4xl mb-2">🌊</div>
+              <div className="text-4xl mb-2">⚔️</div>
               <div className="text-lg font-black text-[#991b1b] border-b-2 border-[#1c1917] pb-2 mb-3 w-full">
-                天災與事件報告
+                天下風雲戰報
               </div>
               <div className="text-xs font-bold leading-relaxed bg-white/90 p-3.5 border border-stone-400 mb-4 w-full text-stone-800 text-left space-y-2 max-h-[40vh] overflow-y-auto">
                 {gameState.monthlyEvents.map((msg, idx) => (
@@ -230,6 +239,16 @@ function GameApp({
               </button>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      {/* AI 主動外交交涉提議彈窗 (Diplomacy Offer Modal) */}
+      <AnimatePresence>
+        {gameState.pendingDiplomacyOffer && !gameState.currentBattle && (
+          <DiplomacyOfferModal
+            offer={gameState.pendingDiplomacyOffer}
+            onRespond={(accepted) => actions.respondDiplomacyOffer(accepted)}
+          />
         )}
       </AnimatePresence>
 
@@ -343,6 +362,7 @@ function GameApp({
               onToggleFullscreen={onToggleFullscreen}
               isFullscreen={isFullscreen}
               onOpenManual={() => setIsManualOpen(true)}
+              onOpenAIDebug={() => setIsAIDebugOpen(true)}
             />
             
             <div className="flex-1 relative overflow-hidden">
@@ -436,7 +456,15 @@ function GameApp({
                     generalNames[0],
                     { generalNames, targetProvinceId }
                   );
-                  showToast(`成功將 ${generalNames.length} 位將領調動至目標郡！`);
+                  const targetProv = gameState.provincesData[targetProvinceId];
+                  const targetPInfo = provinces.find(p => p.id === targetProvinceId);
+                  const targetPName = targetPInfo ? targetPInfo.name : `${targetProvinceId}郡`;
+                  const isRulerMoved = generalNames.includes(gameState.rulerName);
+                  if (isRulerMoved && targetProv?.isAutonomous) {
+                    showToast(`👑 君主移駕【${targetPName}】，治所即刻解除自治、回歸君主親政直轄！`);
+                  } else {
+                    showToast(`成功將 ${generalNames.length} 位將領調動至【${targetPName}】！`);
+                  }
                 }
                 actions.setView('map');
               }}
@@ -583,10 +611,17 @@ function GameApp({
         isFullscreen={isFullscreen}
       />
 
-      {/* Manual Modal: 水墨三國說明書 v0.2 */}
+      {/* Manual Modal: 水墨三國說明書 v0.4 */}
       <ManualModal
         isOpen={isManualOpen}
         onClose={() => setIsManualOpen(false)}
+      />
+
+      {/* AI Debug / Telemetry Panel */}
+      <AIDebugPanel
+        isOpen={isAIDebugOpen}
+        onClose={() => setIsAIDebugOpen(false)}
+        gameState={gameState}
       />
 
       {/* Post-battle captive modal */}

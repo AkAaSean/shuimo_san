@@ -3,6 +3,7 @@ import { GameState } from '../types';
 import { provinces } from '../data/provinces';
 import { getGeneralItemBonus } from '../data/items';
 import { GeneralAvatar } from './GeneralAvatar';
+import { getAutonomyPolicyInfo } from '../utils/autonomyHelper';
 
 interface MilitaryMoveViewProps {
   gameState: GameState;
@@ -109,8 +110,15 @@ export default function MilitaryMoveView({ gameState, onExit, onConfirmMove }: M
                           : 'border-stone-300 bg-stone-50 hover:border-stone-500'
                       }`}
                     >
-                      <div className="font-black text-sm text-stone-900">
-                        {cp.info?.name} ({cp.id}郡)
+                      <div className="flex items-center justify-between">
+                        <div className="font-black text-sm text-stone-900">
+                          {cp.info?.name} ({cp.id}郡)
+                        </div>
+                        {cp.state?.isAutonomous && (
+                          <span className="text-[10px] bg-amber-100 text-amber-950 font-black px-1.5 py-0.5 rounded border border-amber-400">
+                            🏛️ 自治 · {getAutonomyPolicyInfo(cp.state.autonomyPolicy).shortName}
+                          </span>
+                        )}
                       </div>
                       <div className="text-xs text-stone-600">
                         君主: <span className="font-bold">{cp.state?.rulerName || '無'}</span>
@@ -126,9 +134,22 @@ export default function MilitaryMoveView({ gameState, onExit, onConfirmMove }: M
           </div>
 
           {/* Rule Note */}
-          <div className="bg-amber-100/70 border border-amber-400 p-2.5 text-xs text-amber-900">
-            <span className="font-bold">調動規則：</span>
-            本月已經執行過內政/商業/兵士/謀略等任務之武將，<span className="font-black text-red-700">不能移動</span>。調動後武將本月視為已行動。
+          <div className="bg-amber-100/70 border border-amber-400 p-2.5 text-xs text-amber-900 space-y-2">
+            <div>
+              <span className="font-bold">調動規則：</span>
+              本月已經執行過任務之武將，<span className="font-black text-red-700">不能移動</span>。調動後武將本月視為已行動。
+            </div>
+            {targetProvinceId && gameState.provincesData[targetProvinceId]?.isAutonomous && selectedGenerals[gameState.rulerName] && (
+              <div className="text-emerald-950 font-bold bg-emerald-50 border border-emerald-400 p-2 rounded shadow-xs space-y-1">
+                <div className="flex items-center gap-1.5 text-xs text-emerald-900 font-black">
+                  <span>👑</span>
+                  <span>【君主移駕直轄方針】</span>
+                </div>
+                <div className="text-[11px] leading-relaxed">
+                  目標城池目前處於<strong>【{getAutonomyPolicyInfo(gameState.provincesData[targetProvinceId]?.autonomyPolicy).name}】自治中</strong>。依據國家體制方針，君主御駕親臨坐鎮後，該城將<strong>即刻自動解除自治、回歸君主直轄親政</strong>，全城指令盤將全面解鎖！
+                </div>
+              </div>
+            )}
           </div>
 
           {/* General List */}

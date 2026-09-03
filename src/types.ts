@@ -74,6 +74,8 @@ export interface General {
   passives?: PassiveSkillId[]; // 武將被動特技 (佈陣)
 }
 
+export type AutonomyPolicy = 'balanced' | 'agriculture' | 'commerce' | 'military' | 'disaster';
+
 export interface ProvinceState {
   id: number;
   rulerName: string | null;
@@ -89,6 +91,7 @@ export interface ProvinceState {
   forts: { x: number, y: number }[]; // 關寨座標
   training?: number; // 訓練度 (0 ~ 100)
   isAutonomous?: boolean; // 郡縣自治標記
+  autonomyPolicy?: AutonomyPolicy; // 自治方針：balanced(均衡發展) | agriculture(農墾積糧) | commerce(商貿富邑) | military(軍備擴張) | disaster(防汛固本)
   hasDraftedThisMonth?: boolean; // 本月是否已執行過徵兵 (每城每月限一次)
 }
 
@@ -114,6 +117,7 @@ export interface GeneralState {
   isWild?: boolean; // 是否為在野武將 (尚未被任何勢力登用)
   isCaptive?: boolean; // 是否為俘虜 (被關押在城池天牢)
   captiveOfRuler?: string | null; // 扣押該俘虜之君主
+  originalRulerName?: string | null; // 俘虜原本效忠之君主
   capturedInProvinceId?: number | null; // 監禁之城池 ID
   hasRedHare?: boolean; // 是否擁有名馬/退路特技
   bio?: string;
@@ -198,6 +202,8 @@ export interface GameState {
     winnerRuler: string;
     defeatedRuler: string;
     isEliminatedRuler?: boolean;
+    isFactionEliminated?: boolean;
+    isRulerSelf?: boolean;
   }[];
   lastActionResult?: ActionResult | null;
   monthlyEvents?: string[]; // Log of events like disasters happened at the start of the month
@@ -206,8 +212,73 @@ export interface GameState {
     killerRuler: string;
     candidates: string[];
   } | null;
+  pendingDiplomacyOffer?: PendingDiplomacyOffer | null;
   isGameOver?: boolean;
   gameOverReason?: string | null;
+  aiTelemetry?: AITelemetry;
+}
+
+export interface PendingDiplomacyOffer {
+  type: 'alliance' | 'surrender_peace';
+  fromRuler: string;
+  fromGeneralName?: string;
+  targetRuler: string;
+  title: string;
+  message: string;
+  durationMonths: number;
+  giftGold: number;
+  giftFood: number;
+}
+
+export interface AIDecisionLogItem {
+  id: string;
+  rulerName: string;
+  provinceId: number;
+  provinceName: string;
+  generalName?: string;
+  actionType: '開墾土地' | '繁榮商業' | '治水防汛' | '賑濟百姓' | '整軍徵兵' | '軍隊操演' | '尋訪人才' | '登用人才' | '戰略調度' | '軍糧輜重' | '外交博弈' | '謀略計策' | '平糶平糴' | '官吏修葺';
+  detail: string;
+  costGold: number;
+  costFood: number;
+  gainText: string;
+  year: number;
+  month: number;
+  timestamp: number;
+}
+
+export interface FactionAIDebugInfo {
+  rulerName: string;
+  personality: string;
+  totalGold: number;
+  totalFood: number;
+  totalSoldiers: number;
+  totalGenerals: number;
+  provincesCount: number;
+  posture: string;
+  provinces: {
+    id: number;
+    name: string;
+    isFrontier: boolean;
+    gold: number;
+    food: number;
+    soldiers: number;
+    value: number;
+    maxDev: number;
+    commerce: number;
+    maxCommerce: number;
+    flood: number;
+    loyalty: number;
+    generalsCount: number;
+    generalsNames: string[];
+    recentActions: string[];
+  }[];
+}
+
+export interface AITelemetry {
+  lastUpdatedYear: number;
+  lastUpdatedMonth: number;
+  factions: FactionAIDebugInfo[];
+  recentLogs: AIDecisionLogItem[];
 }
 
 export interface ActionResult {

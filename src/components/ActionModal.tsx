@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { GameState } from '../types';
+import { GameState, AutonomyPolicy } from '../types';
 import { provinces } from '../data/provinces';
 import { getGeneralItemBonus } from '../data/items';
 import { getProvinceTierRules, calculateDevGain, calculateFloodGain } from '../data/historicalProvinceConfig';
 import { getGeneralAmbition } from '../data/historicalLoyalty';
 import { getStrategistReport } from '../engine/strategistAdvice';
 import { GeneralAvatar } from './GeneralAvatar';
+import { AUTONOMY_POLICIES, getAutonomyPolicyInfo } from '../utils/autonomyHelper';
 
 interface ActionModalProps {
   isOpen: boolean;
@@ -74,10 +75,12 @@ export default function ActionModal({
   // Extra action parameters
   const [sliderVal, setSliderVal] = useState<number>(10);
   const [targetProvinceId, setTargetProvinceId] = useState<number | null>(null);
+  const [targetProvinceIds, setTargetProvinceIds] = useState<number[]>([]);
   const [targetGeneralName, setTargetGeneralName] = useState<string | null>(null);
   const [secondarySliderVal, setSecondarySliderVal] = useState<number>(0);
   const [selectedTreasureName, setSelectedTreasureName] = useState<string>('黃金錦囊');
   const [isAutonomousToggle, setIsAutonomousToggle] = useState<boolean>(true);
+  const [selectedAutonomyPolicy, setSelectedAutonomyPolicy] = useState<AutonomyPolicy>('balanced');
 
   const generalsInSelectedProv = targetProvinceId !== null 
     ? foreignGenerals.filter(fg => fg.provinceId === targetProvinceId)
@@ -156,8 +159,14 @@ export default function ActionModal({
       const rulerProvId = rulerGen?.provinceId;
       const initialTarget = (provinceId !== rulerProvId) ? provinceId : (ownedProvincesList.find(op => op.id !== rulerProvId)?.id || provinceId);
       setTargetProvinceId(initialTarget);
+      if (initialTarget) {
+        setTargetProvinceIds([initialTarget]);
+      } else {
+        setTargetProvinceIds([]);
+      }
       const initialTargetProv = initialTarget ? gameState.provincesData[initialTarget] : null;
       setIsAutonomousToggle(!(initialTargetProv?.isAutonomous));
+      setSelectedAutonomyPolicy(initialTargetProv?.autonomyPolicy || 'balanced');
       if (allPlayerGenerals.length > 0) setSelectedGeneralName(allPlayerGenerals[0].name);
     } else if (availableGenerals.length > 0) {
       if (category === '內政') {
@@ -312,9 +321,9 @@ export default function ActionModal({
       errorMsg = '請選擇要賞賜的武將';
     }
   } else if (action === '郡縣自治') {
-    if (!targetProvinceId) {
+    if (targetProvinceIds.length === 0) {
       canExecute = false;
-      errorMsg = '請選擇要設定自治的州郡';
+      errorMsg = '請至少選擇一個要設定自治/直轄的州郡';
     }
   } else if (action === '撕毀同盟') {
     if (!targetProvinceId) {
@@ -456,7 +465,7 @@ export default function ActionModal({
     } else if (action === '賞賜金帛' || action === '賞賜物品') {
       payload = { targetGeneralName, itemName: selectedTreasureName, goldCost: 20 };
     } else if (action === '郡縣自治') {
-      payload = { targetProvinceId, isAutonomous: isAutonomousToggle };
+      payload = { targetProvinceIds, isAutonomous: isAutonomousToggle, autonomyPolicy: selectedAutonomyPolicy };
     } else if (action === '登用人才' || action === '登用他國人才' || action === '離間君臣') {
       payload = { targetGeneralName, targetProvinceId };
     } else if (action === '進貢金糧') {
@@ -789,16 +798,38 @@ export default function ActionModal({
               <div className="bg-white/90 border border-stone-400 p-3 space-y-3">
                 {action === '郡縣自治' && (
                   <div className="space-y-3">
-                    <div className="font-black text-xs text-stone-800 flex justify-between items-center">
-                      <span>選擇授權自治之州郡：</span>
-                      <span className="text-[11px] text-amber-800 font-bold">直轄郡縣: {ownedProvincesList.length}</span>
+                    <div className="font-black text-xs text-stone-800 flex justify-between items-end">
+                      <div className="space-y-1">
+                        <div>選擇授權自治或收回直轄之州郡：</div>
+                        <div className="text-[10px] text-stone-500 font-bold">可複選多個州郡進行批量設定</div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button 
+                          type="button" 
+                          onClick={() => {
+                            const rulerCapitalId = Object.values(gameState.generalsData).find(g => g.name === gameState.rulerName)?.provinceId;
+                            setTargetProvinceIds(ownedProvincesList.filter(op => op.id !== rulerCapitalId).map(op => op.id));
+                          }}
+                          className="text-[10px] bg-stone-200 hover:bg-stone-300 text-stone-800 px-1.5 py-0.5 rounded border border-stone-300"
+                        >
+                          全選
+                        </button>
+                        <button 
+                          type="button" 
+                          onClick={() => setTargetProvinceIds([])}
+                          className="text-[10px] bg-stone-200 hover:bg-stone-300 text-stone-800 px-1.5 py-0.5 rounded border border-stone-300"
+                        >
+                          清空
+                        </button>
+                      </div>
                     </div>
 
-                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                    <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
                       {ownedProvincesList.map(op => {
-                        const isSelected = targetProvinceId === op.id;
+                        const isSelected = targetProvinceIds.includes(op.id);
                         const currentAutonomy = op.state.isAutonomous;
                         const isRulerCapital = Object.values(gameState.generalsData).find(g => g.name === gameState.rulerName)?.provinceId === op.id;
+                        const policyInfo = getAutonomyPolicyInfo(op.state.autonomyPolicy);
                         
                         return (
                           <button
@@ -806,15 +837,26 @@ export default function ActionModal({
                             type="button"
                             onClick={() => {
                               if (isRulerCapital) return;
-                              setTargetProvinceId(op.id);
-                              setIsAutonomousToggle(!currentAutonomy);
+                              if (isSelected) {
+                                setTargetProvinceIds(prev => prev.filter(id => id !== op.id));
+                              } else {
+                                setTargetProvinceIds(prev => [...prev, op.id]);
+                                // If it's the first one selected and it has a policy, pre-fill the policy selector
+                                if (targetProvinceIds.length === 0 && op.state.autonomyPolicy) {
+                                  setSelectedAutonomyPolicy(op.state.autonomyPolicy);
+                                  setIsAutonomousToggle(!currentAutonomy);
+                                }
+                              }
                             }}
-                            className={`w-full p-2.5 border text-xs text-left font-bold transition-all flex items-center justify-between ${
+                            className={`w-full p-2.5 border text-xs text-left font-bold transition-all flex items-center gap-2 ${
                               isRulerCapital ? 'border-stone-200 bg-stone-100 opacity-60 cursor-not-allowed' :
                               isSelected ? 'border-[#991b1b] bg-amber-50 text-[#991b1b] ring-1 ring-[#991b1b]' : 'border-stone-300 bg-stone-100 hover:bg-stone-200'
                             }`}
                           >
-                            <div>
+                            <div className="shrink-0 flex items-center justify-center w-4 h-4 border rounded-sm border-stone-400 bg-white">
+                              {isSelected && <span className="text-[#991b1b] leading-none mb-0.5">✔</span>}
+                            </div>
+                            <div className="flex-1">
                               <div className="font-black text-sm text-stone-900">{op.info?.name} ({op.id}郡)</div>
                               <div className="text-[11px] text-stone-600 font-normal">
                                 太守: <span className="font-bold text-amber-900">{op.prefect ? op.prefect.name : '未任命'}</span> | 金: {op.state.gold} | 糧: {op.state.food}
@@ -823,9 +865,11 @@ export default function ActionModal({
 
                             <div className="text-right shrink-0">
                               {isRulerCapital ? (
-                                <span className="text-[10px] bg-rose-800 text-rose-100 px-2 py-0.5 rounded font-bold">君主所在 (不可自治)</span>
+                                <span className="text-[10px] bg-rose-800 text-rose-100 px-2 py-0.5 rounded font-bold">都城 (不可自治)</span>
                               ) : currentAutonomy ? (
-                                <span className="text-[10px] bg-emerald-800 text-emerald-100 px-2 py-0.5 rounded font-bold">【自治中】</span>
+                                <span className="text-[10px] bg-emerald-800 text-emerald-100 px-2 py-0.5 rounded font-bold">
+                                  【自治 · {policyInfo.icon}{policyInfo.shortName}】
+                                </span>
                               ) : (
                                 <span className="text-[10px] bg-stone-700 text-stone-100 px-2 py-0.5 rounded font-bold">【直轄中】</span>
                               )}
@@ -835,13 +879,87 @@ export default function ActionModal({
                       })}
                     </div>
 
-                    <div className="p-2.5 bg-amber-50 border border-amber-300 text-xs text-amber-950 font-bold space-y-1">
-                      <div className="font-black text-amber-900">🏛️ 自治授權狀態：</div>
-                      <div>
-                        選取州郡：<span className="text-[#991b1b] font-black">{provinces.find(p => p.id === targetProvinceId)?.name || '未選擇'}</span>
+                    <div className="p-2.5 bg-amber-50 border border-amber-300 text-xs text-amber-950 font-bold space-y-2 rounded-sm shadow-xs">
+                      <div className="flex justify-between items-center">
+                        <div className="font-black text-amber-900 flex items-center gap-1">
+                          <span>🏛️</span> 批量設定目標狀態：
+                        </div>
+                        <div className="text-[11px] text-stone-600">
+                          已選：<span className="text-[#991b1b] font-black">{targetProvinceIds.length} 郡</span>
+                        </div>
                       </div>
-                      <div>
-                        將變更為：<span className="font-black underline text-emerald-900">{isAutonomousToggle ? '【開】授權太守自治 (每月自動開墾防洪)' : '【關】收回自治授權 (手動管理)'}</span>
+
+                      <div className="flex gap-2 pt-0.5">
+                        <button
+                          type="button"
+                          onClick={() => setIsAutonomousToggle(true)}
+                          className={`flex-1 py-1.5 px-2 rounded font-bold text-xs border transition-all cursor-pointer ${
+                            isAutonomousToggle
+                              ? 'bg-emerald-800 text-white border-emerald-950 ring-2 ring-emerald-500 shadow-xs'
+                              : 'bg-stone-200 text-stone-700 border-stone-300 hover:bg-stone-300'
+                          }`}
+                        >
+                          ✅ 授權自治 (太守自動治理)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsAutonomousToggle(false)}
+                          className={`flex-1 py-1.5 px-2 rounded font-bold text-xs border transition-all cursor-pointer ${
+                            !isAutonomousToggle
+                              ? 'bg-stone-800 text-white border-stone-950 ring-2 ring-stone-600 shadow-xs'
+                              : 'bg-stone-200 text-stone-700 border-stone-300 hover:bg-stone-300'
+                          }`}
+                        >
+                          🏛️ 收回直轄 (君主親自管理)
+                        </button>
+                      </div>
+
+                      {/* 自治方針選擇 (當選取授權自治時顯示) */}
+                      {isAutonomousToggle && (
+                        <div className="pt-2 border-t border-amber-200/80 space-y-1.5">
+                          <div className="font-black text-amber-950 flex items-center justify-between text-[11px]">
+                            <span>📜 指定太守施政方針：</span>
+                            <span className="text-emerald-900 font-bold">
+                              當前選擇：{getAutonomyPolicyInfo(selectedAutonomyPolicy).icon} {getAutonomyPolicyInfo(selectedAutonomyPolicy).name}
+                            </span>
+                          </div>
+                          
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                            {AUTONOMY_POLICIES.map(policy => {
+                              const isCur = selectedAutonomyPolicy === policy.id;
+                              return (
+                                <button
+                                  key={policy.id}
+                                  type="button"
+                                  onClick={() => setSelectedAutonomyPolicy(policy.id)}
+                                  className={`p-1.5 text-left rounded border transition-all cursor-pointer ${
+                                    isCur
+                                      ? 'bg-emerald-900 text-white border-emerald-950 shadow-xs ring-1 ring-emerald-400'
+                                      : 'bg-white text-stone-800 border-stone-300 hover:bg-amber-100/50'
+                                  }`}
+                                >
+                                  <div className="font-black text-[11px] flex items-center gap-1">
+                                    <span>{policy.icon}</span>
+                                    <span>{policy.name}</span>
+                                    {isCur && <span className="text-[9px] bg-emerald-500 text-white px-1 rounded ml-auto">選定</span>}
+                                  </div>
+                                  <div className={`text-[10px] mt-0.5 leading-tight ${isCur ? 'text-emerald-100' : 'text-stone-500'}`}>
+                                    {policy.desc}
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="text-[11px] text-stone-700 bg-amber-100/70 p-2 rounded border border-amber-200 space-y-1 leading-relaxed font-normal">
+                        <div>
+                          💡 <strong>自治機制</strong>：授權自治後，坐鎮太守或守將每月初將依<strong>【{getAutonomyPolicyInfo(selectedAutonomyPolicy).name}】</strong>方針自動治水防汛、開荒修墾、平抑物價撫民與兵馬操演，並呈報月度自治奏報。
+                        </div>
+                        <div className="text-amber-950 font-bold pt-0.5 border-t border-amber-200/80">
+                          👑 <strong>君主親政方針</strong>：君主所在之王畿都城不可委任自治。君主日後若移駕坐鎮任何自治城池，該城將依國家方針<strong>自動解除自治、回歸君主親政直轄</strong>，全城指令盤即刻解鎖！
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1345,7 +1463,7 @@ export default function ActionModal({
               )}
               {action === '郡縣自治' && (
                 <div>
-                  設定 <span className="font-bold text-amber-900">{provinces.find(p => p.id === targetProvinceId)?.name || '該郡'}</span> 實施 <span className="font-bold text-emerald-900">{isAutonomousToggle ? '【自治模式】' : '【直轄模式】'}</span>。授權後太守將於每月自動進行開墾防洪與護民。
+                  設定 <span className="font-bold text-amber-900">{targetProvinceIds.length > 0 ? (targetProvinceIds.length > 3 ? `${provinces.find(p => p.id === targetProvinceIds[0])?.name} 等 ${targetProvinceIds.length} 郡` : targetProvinceIds.map(id => provinces.find(p => p.id === id)?.name).join('、')) : '未選擇州郡'}</span> 實施 <span className="font-bold text-emerald-900">{isAutonomousToggle ? `【自治模式 · ${getAutonomyPolicyInfo(selectedAutonomyPolicy).icon}${getAutonomyPolicyInfo(selectedAutonomyPolicy).name}】` : '【直轄親政模式】'}</span>。{isAutonomousToggle ? `授權後各郡太守將依【${getAutonomyPolicyInfo(selectedAutonomyPolicy).name}】方針於月初自動進行治水防汛、開墾撫民與整軍備戰。` : '收回自治後全城由君主親理朝政，指令盤全面解鎖。'}
                 </div>
               )}
               {action === '登用他國人才' && (

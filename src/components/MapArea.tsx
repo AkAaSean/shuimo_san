@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react'
 import { motion, useAnimation, useMotionValue } from 'motion/react';
 import { provinces } from '../data/provinces';
 import { ProvinceState } from '../types';
+import { PROVINCE_BASE_CONFIGS } from '../data/provinceBaseConfig';
 import chinaMapBg from '../assets/images/china_map_bg_1787578499258.jpg';
 
 interface MapAreaProps {
@@ -35,6 +36,15 @@ const getRulerText = (rulerName: string | null) => {
   return rulerName.charAt(0);
 };
 
+// 根據都市類型對應 public/assets/city.jpg 的四象限
+const getCityPatternId = (provinceId: number): string => {
+  const tier = PROVINCE_BASE_CONFIGS[provinceId]?.tier;
+  if (tier === 'METROPOLIS') return 'city-pattern-metropolis';     // 左上：大型城池
+  if (tier === 'COMMERCIAL') return 'city-pattern-commercial';     // 右上：商業城池
+  if (tier === 'AGRICULTURAL') return 'city-pattern-agricultural'; // 左下：農業城池
+  return 'city-pattern-midsized';                                  // 右下：中型城池和邊界城池
+};
+
 export default function MapArea({ selectedProvinceId, onSelectProvince, onClearSelection, provincesData }: MapAreaProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const controls = useAnimation();
@@ -60,14 +70,14 @@ export default function MapArea({ selectedProvinceId, onSelectProvince, onClearS
 
   const MAP_BASE_SIZE = 1600;
 
-  // 計算讓完整大地圖能全視角呈現在視區內的最小縮放比率（全景模式，看清整個三國大地圖全貌）
+  // 計算永遠填滿視窗容器的最小縮放比率，確保畫面 100% 永遠被地圖完全覆蓋，絕不露出底圖
   const minScale = useMemo(() => {
     const safeW = containerSize.width || (typeof window !== 'undefined' ? window.innerWidth : 800);
-    const safeH = containerSize.height || (typeof window !== 'undefined' ? window.innerHeight - 140 : 600);
+    const safeH = containerSize.height || (typeof window !== 'undefined' ? window.innerHeight - 120 : 600);
     const wRatio = safeW / MAP_BASE_SIZE;
     const hRatio = safeH / MAP_BASE_SIZE;
-    const fitScale = Math.min(wRatio, hRatio);
-    return Math.max(0.18, fitScale * 0.95);
+    // 使用 Math.max 確保地圖的寬與高皆不小於視窗寬高，永遠填滿視窗
+    return Math.max(wRatio, hRatio);
   }, [containerSize.width, containerSize.height]);
 
   // 精確監聽容器尺寸變更
@@ -104,21 +114,29 @@ export default function MapArea({ selectedProvinceId, onSelectProvince, onClearS
     };
   }, []);
 
-  // 通用平滑縮放與平移函數
-  const animateToTransform = useCallback((targetScale: number, targetX: number, targetY: number, duration = 0.22) => {
+  // 嚴格計算當前縮放比率下，地圖平移的極限邊界（確保地圖邊緣永遠覆蓋視窗，絕不露出底圖）
+  const getClampedPosition = useCallback((targetX: number, targetY: number, scale: number) => {
     const safeW = containerSize.width || 800;
     const safeH = containerSize.height || 600;
+    const mapW = MAP_BASE_SIZE * scale;
+    const mapH = MAP_BASE_SIZE * scale;
+
+    // 地圖寬高皆大於等於視窗寬高，允許中心移動的最大偏移量
+    const maxX = Math.max(0, (mapW - safeW) / 2);
+    const maxY = Math.max(0, (mapH - safeH) / 2);
+
+    return {
+      x: Math.min(maxX, Math.max(-maxX, targetX)),
+      y: Math.min(maxY, Math.max(-maxY, targetY)),
+      maxX,
+      maxY
+    };
+  }, [containerSize.width, containerSize.height]);
+
+  // 通用平滑縮放與平移函數
+  const animateToTransform = useCallback((targetScale: number, targetX: number, targetY: number, duration = 0.22) => {
     const clampedScale = Math.min(3.0, Math.max(minScale, targetScale));
-
-    const mapRenderedW = MAP_BASE_SIZE * clampedScale;
-    const mapRenderedH = MAP_BASE_SIZE * clampedScale;
-
-    // 允許地圖自由平移，確保角落與邊緣城池皆可平移置中呈現
-    const maxDragX = (mapRenderedW / 2) + (safeW * 0.3);
-    const maxDragY = (mapRenderedH / 2) + (safeH * 0.3);
-
-    const clampedX = Math.min(maxDragX, Math.max(-maxDragX, targetX));
-    const clampedY = Math.min(maxDragY, Math.max(-maxDragY, targetY));
+    const { x: clampedX, y: clampedY } = getClampedPosition(targetX, targetY, clampedScale);
 
     x.set(clampedX);
     y.set(clampedY);
@@ -131,9 +149,20 @@ export default function MapArea({ selectedProvinceId, onSelectProvince, onClearS
       scale: clampedScale,
       transition: { duration, ease: [0.25, 0.1, 0.25, 1] }
     });
-  }, [containerSize, minScale, controls, x, y, scaleValue]);
+  }, [minScale, getClampedPosition, controls, x, y, scaleValue]);
 
-  // 確保選中城池時精確置中
+  // 當容器大小或最小縮放變化時，自動修正越界，保證絕不露底
+  useEffect(() => {
+    const activeScale = scaleValue.get();
+    const effectiveScale = Math.max(activeScale, minScale);
+    const { x: clampedX, y: clampedY } = getClampedPosition(x.get(), y.get(), effectiveScale);
+
+    if (effectiveScale !== activeScale || clampedX !== x.get() || clampedY !== y.get()) {
+      animateToTransform(effectiveScale, clampedX, clampedY, 0.15);
+    }
+  }, [containerSize, minScale, getClampedPosition, animateToTransform, scaleValue, x, y]);
+
+  // 確保選中城池時精確置中，且嚴格鎖定在地圖邊界內
   useEffect(() => {
     const safeW = containerSize.width || 800;
     if (selectedProvinceId) {
@@ -143,19 +172,20 @@ export default function MapArea({ selectedProvinceId, onSelectProvince, onClearS
         const targetScale = Math.max(activeScale < 1.2 ? 1.45 : activeScale, minScale);
         const isMobile = safeW < 640;
 
-        const targetX = (800 - selectedP.x) * targetScale;
-        const targetY = (800 - selectedP.y) * targetScale - (isMobile ? 15 : 0);
+        const rawTargetX = (800 - selectedP.x) * targetScale;
+        const rawTargetY = (800 - selectedP.y) * targetScale - (isMobile ? 15 : 0);
 
-        animateToTransform(targetScale, targetX, targetY, 0.25);
+        animateToTransform(targetScale, rawTargetX, rawTargetY, 0.25);
       }
     } else {
       let activeScale = scaleValue.get();
       if (activeScale < minScale) {
         activeScale = minScale;
       }
-      animateToTransform(activeScale, x.get(), y.get(), 0.2);
+      const { x: clampedX, y: clampedY } = getClampedPosition(x.get(), y.get(), activeScale);
+      animateToTransform(activeScale, clampedX, clampedY, 0.2);
     }
-  }, [selectedProvinceId, containerSize, minScale, animateToTransform, x, y, scaleValue]);
+  }, [selectedProvinceId, containerSize, minScale, animateToTransform, getClampedPosition, x, y, scaleValue]);
 
   // 滑鼠滾輪順暢縮放 (Wheel Zoom)
   useEffect(() => {
@@ -168,13 +198,13 @@ export default function MapArea({ selectedProvinceId, onSelectProvince, onClearS
       const activeScale = scaleValue.get();
       const newScale = Math.min(3.0, Math.max(minScale, activeScale * zoomFactor));
 
-      if (Math.abs(newScale - activeScale) < 0.01) return;
+      if (Math.abs(newScale - activeScale) < 0.005) return;
 
       const scaleRatio = newScale / activeScale;
-      const targetX = x.get() * scaleRatio;
-      const targetY = y.get() * scaleRatio;
+      const rawTargetX = x.get() * scaleRatio;
+      const rawTargetY = y.get() * scaleRatio;
 
-      animateToTransform(newScale, targetX, targetY, 0.12);
+      animateToTransform(newScale, rawTargetX, rawTargetY, 0.12);
     };
 
     container.addEventListener('wheel', handleWheel, { passive: false });
@@ -204,20 +234,35 @@ export default function MapArea({ selectedProvinceId, onSelectProvince, onClearS
 
       const activeScale = scaleValue.get();
       const scaleRatio = newScale / activeScale;
-      const targetX = x.get() * scaleRatio;
-      const targetY = y.get() * scaleRatio;
+      const rawTargetX = x.get() * scaleRatio;
+      const rawTargetY = y.get() * scaleRatio;
+      const { x: clampedX, y: clampedY } = getClampedPosition(rawTargetX, rawTargetY, newScale);
 
-      x.set(targetX);
-      y.set(targetY);
+      x.set(clampedX);
+      y.set(clampedY);
       scaleValue.set(newScale);
       setCurrentScale(newScale);
-      controls.set({ x: targetX, y: targetY, scale: newScale });
+      controls.set({ x: clampedX, y: clampedY, scale: newScale });
     }
   };
 
   const handleTouchEnd = () => {
     touchStartDistRef.current = null;
+    const activeScale = scaleValue.get();
+    const { x: clampedX, y: clampedY } = getClampedPosition(x.get(), y.get(), activeScale);
+    animateToTransform(activeScale, clampedX, clampedY, 0.15);
   };
+
+  // 拖曳結束時自動校準防護，保證不露底
+  const handleDragEnd = useCallback(() => {
+    const activeScale = scaleValue.get();
+    const curX = x.get();
+    const curY = y.get();
+    const { x: clampedX, y: clampedY } = getClampedPosition(curX, curY, activeScale);
+    if (Math.abs(curX - clampedX) > 0.5 || Math.abs(curY - clampedY) > 0.5) {
+      animateToTransform(activeScale, clampedX, clampedY, 0.12);
+    }
+  }, [scaleValue, x, y, getClampedPosition, animateToTransform]);
 
   // 將選中的城池渲染順序排在最後，確保其光圈與文字永遠在最上層
   const sortedProvinces = useMemo(() => {
@@ -229,42 +274,37 @@ export default function MapArea({ selectedProvinceId, onSelectProvince, onClearS
     });
   }, [selectedProvinceId]);
 
-  // 約束拖拽範圍
-  const mapRenderedWidth = MAP_BASE_SIZE * currentScale;
-  const mapRenderedHeight = MAP_BASE_SIZE * currentScale;
-  const safeW = containerSize.width || 800;
-  const safeH = containerSize.height || 600;
-
-  const maxDragX = (mapRenderedWidth / 2) + (safeW * 0.3);
-  const maxDragY = (mapRenderedHeight / 2) + (safeH * 0.3);
-
-  const dragConstraints = {
-    left: -maxDragX,
-    right: maxDragX,
-    top: -maxDragY,
-    bottom: maxDragY,
-  };
+  // 精準約束拖拽範圍，完全杜絕露底
+  const dragConstraints = useMemo(() => {
+    const { maxX, maxY } = getClampedPosition(0, 0, currentScale);
+    return {
+      left: -maxX,
+      right: maxX,
+      top: -maxY,
+      bottom: maxY,
+    };
+  }, [getClampedPosition, currentScale]);
 
   const applyZoom = (newScale: number) => {
     const activeScale = scaleValue.get();
     const clampedScale = Math.max(newScale, minScale);
-    let targetX = x.get();
-    let targetY = y.get();
+    let rawTargetX = x.get();
+    let rawTargetY = y.get();
 
     if (selectedProvinceId) {
       const selectedP = provinces.find(p => p.id === selectedProvinceId);
       if (selectedP) {
-        const isMobile = safeW < 640;
-        targetX = (800 - selectedP.x) * clampedScale;
-        targetY = (800 - selectedP.y) * clampedScale - (isMobile ? 15 : 0);
+        const isMobile = (containerSize.width || 800) < 640;
+        rawTargetX = (800 - selectedP.x) * clampedScale;
+        rawTargetY = (800 - selectedP.y) * clampedScale - (isMobile ? 15 : 0);
       }
     } else {
       const scaleRatio = clampedScale / activeScale;
-      targetX = targetX * scaleRatio;
-      targetY = targetY * scaleRatio;
+      rawTargetX = rawTargetX * scaleRatio;
+      rawTargetY = rawTargetY * scaleRatio;
     }
 
-    animateToTransform(clampedScale, targetX, targetY, 0.2);
+    animateToTransform(clampedScale, rawTargetX, rawTargetY, 0.2);
   };
 
   const handleZoomIn = () => {
@@ -294,6 +334,7 @@ export default function MapArea({ selectedProvinceId, onSelectProvince, onClearS
         drag
         dragConstraints={dragConstraints}
         dragElastic={0}
+        onDragEnd={handleDragEnd}
         animate={controls}
         style={{ x, y, scale: scaleValue }}
         className="absolute w-[1600px] h-[1600px] cursor-grab active:cursor-grabbing origin-center"
@@ -304,6 +345,38 @@ export default function MapArea({ selectedProvinceId, onSelectProvince, onClearS
           viewBox="0 0 1600 1600" 
           style={{ touchAction: 'none' }}
         >
+          {/* SVG Definitions for City Sprite Patterns and Filters */}
+          <defs>
+            {/* 4 Quadrants of public/assets/city.jpg (1024x1024) */}
+            {/* 左上：大型城池 (截取中間 360x360 視覺更置中) */}
+            <pattern id="city-pattern-metropolis" patternUnits="objectBoundingBox" width="1" height="1" viewBox="76 76 360 360">
+              <image href="/assets/city.jpg" x="0" y="0" width="1024" height="1024" preserveAspectRatio="none" />
+            </pattern>
+
+            {/* 右上：商業城池 */}
+            <pattern id="city-pattern-commercial" patternUnits="objectBoundingBox" width="1" height="1" viewBox="588 76 360 360">
+              <image href="/assets/city.jpg" x="0" y="0" width="1024" height="1024" preserveAspectRatio="none" />
+            </pattern>
+
+            {/* 左下：農業城池 */}
+            <pattern id="city-pattern-agricultural" patternUnits="objectBoundingBox" width="1" height="1" viewBox="76 588 360 360">
+              <image href="/assets/city.jpg" x="0" y="0" width="1024" height="1024" preserveAspectRatio="none" />
+            </pattern>
+
+            {/* 右下：中型城池和邊界城池 */}
+            <pattern id="city-pattern-midsized" patternUnits="objectBoundingBox" width="1" height="1" viewBox="588 588 360 360">
+              <image href="/assets/city.jpg" x="0" y="0" width="1024" height="1024" preserveAspectRatio="none" />
+            </pattern>
+
+            {/* Golden Glow Filter for Selection */}
+            <filter id="city-selected-glow" x="-40%" y="-40%" width="180%" height="180%">
+              <feDropShadow dx="0" dy="0" stdDeviation="3.5" floodColor="#fbbf24" floodOpacity="0.95" />
+            </filter>
+            <filter id="city-shadow" x="-30%" y="-30%" width="160%" height="160%">
+              <feDropShadow dx="0" dy="2.5" stdDeviation="2.5" floodColor="#000000" floodOpacity="0.75" />
+            </filter>
+          </defs>
+
           {/* Clickable Background to clear selection */}
           <rect x="0" y="0" width="1600" height="1600" fill="transparent" onClick={() => onClearSelection && onClearSelection()} />
 
@@ -388,13 +461,18 @@ export default function MapArea({ selectedProvinceId, onSelectProvince, onClearS
               ))}
             </g>
             
-            {/* Draw city nodes */}
+            {/* Draw city nodes with city.jpg custom pictorial sprites */}
             {sortedProvinces.map((p) => {
               const isSelected = p.id === selectedProvinceId;
               const pData = provincesData ? provincesData[p.id] : null;
               const rulerName = pData ? pData.rulerName : null;
               const fill = getRulerFill(rulerName, isSelected);
               const textContent = getRulerText(rulerName);
+              const patternId = getCityPatternId(p.id);
+
+              const citySize = isSelected ? 50 : 38;
+              const halfSize = citySize / 2;
+              const cornerRadius = isSelected ? 9 : 7;
 
               return (
                 <g 
@@ -403,83 +481,126 @@ export default function MapArea({ selectedProvinceId, onSelectProvince, onClearS
                   onClick={() => onSelectProvince(p.id)}
                   className="cursor-pointer"
                 >
-                  {/* Selected City Wave Effect */}
+                  {/* Selected City Wave Effect (Yellow Highlight) */}
                   {isSelected && (
                     <>
                       <circle
-                        r={38}
+                        r={44}
                         fill="none"
                         stroke="#fbbf24"
                         strokeWidth={2.5}
                         className="animate-ping opacity-60 pointer-events-none"
                       />
                       <circle
-                        r={28}
+                        r={32}
                         fill="none"
                         stroke="#f59e0b"
                         strokeWidth={3}
                         className="animate-ping opacity-80 pointer-events-none"
                         style={{ animationDelay: '0.15s' }}
                       />
+                      {/* Golden Aura Halo */}
+                      <rect
+                        x={-halfSize - 4}
+                        y={-halfSize - 4}
+                        width={citySize + 8}
+                        height={citySize + 8}
+                        rx={cornerRadius + 2}
+                        fill="#fbbf24"
+                        fillOpacity={0.25}
+                        stroke="#fbbf24"
+                        strokeWidth={2}
+                        className="animate-pulse pointer-events-none"
+                      />
                     </>
                   )}
 
-                  {/* Outer Ring */}
-                  <circle
-                    r={isSelected ? 26 : 17}
+                  {/* Drop Shadow Base Plate */}
+                  <rect
+                    x={-halfSize}
+                    y={-halfSize}
+                    width={citySize}
+                    height={citySize}
+                    rx={cornerRadius}
+                    fill="#000000"
+                    filter="url(#city-shadow)"
+                  />
+
+                  {/* City Pictorial Icon (Filled with 4-quadrant city.jpg pattern) */}
+                  <rect
+                    x={-halfSize}
+                    y={-halfSize}
+                    width={citySize}
+                    height={citySize}
+                    rx={cornerRadius}
+                    fill={`url(#${patternId})`}
+                    className="transition-all duration-200"
+                  />
+
+                  {/* Outer Frame / Border: Golden if selected, Ruler/Stone tone if unselected */}
+                  <rect
+                    x={-halfSize}
+                    y={-halfSize}
+                    width={citySize}
+                    height={citySize}
+                    rx={cornerRadius}
                     fill="none"
-                    stroke={isSelected ? '#fbbf24' : '#ffffff'}
-                    strokeWidth={isSelected ? 5 : 2.5}
+                    stroke={isSelected ? '#fbbf24' : fill}
+                    strokeWidth={isSelected ? 4.5 : 3.5}
+                    filter={isSelected ? 'url(#city-selected-glow)' : undefined}
                     className="transition-all duration-200"
                   />
 
-                  {/* Inner Ruler Color Circle */}
-                  <circle
-                    r={isSelected ? 21 : 14}
-                    fill={fill}
-                    stroke="#1c1917"
-                    strokeWidth={isSelected ? 2.5 : 1.5}
-                    className="transition-all duration-200"
-                  />
-
-                  {/* City Name Label with paint-order GPU outline */}
+                  {/* City Name Label with high-contrast outline */}
                   <text
-                    y={isSelected ? -16 : -24}
+                    y={isSelected ? -halfSize - 7 : -halfSize - 6}
                     textAnchor="middle"
                     className={`font-serif transition-all duration-200 ${
                       isSelected ? 'font-black fill-yellow-300 text-[23px]' : 'font-black fill-white text-[17px]'
                     }`}
                     stroke="#000000"
-                    strokeWidth={isSelected ? "4" : "3"}
+                    strokeWidth={isSelected ? "4.5" : "3.5"}
                     style={{ paintOrder: 'stroke fill' }}
                   >
                     {p.name}
+                    {pData?.isAutonomous && (
+                      <tspan fill="#f59e0b" fontSize={isSelected ? "17px" : "13px"} fontWeight="bold"> 治</tspan>
+                    )}
                   </text>
 
-                  {/* Ruler Initial or Province ID */}
-                  {textContent ? (
-                    <text
-                      y={isSelected ? 7 : 5}
-                      textAnchor="middle"
-                      className={`font-serif fill-white font-black ${isSelected ? 'text-[16px]' : 'text-[13px]'}`}
-                      stroke="#000000"
-                      strokeWidth="2.5"
-                      style={{ paintOrder: 'stroke fill' }}
-                    >
-                      {textContent}
-                    </text>
-                  ) : (
-                    <text
-                      y={isSelected ? 6 : 4}
-                      textAnchor="middle"
-                      className={`font-serif fill-white font-black ${isSelected ? 'text-[14px]' : 'text-[11px]'}`}
-                      stroke="#000000"
-                      strokeWidth="2.5"
-                      style={{ paintOrder: 'stroke fill' }}
-                    >
-                      {p.id}
-                    </text>
-                  )}
+                  {/* Ruler Faction Crest / Badge at bottom-right */}
+                  <g transform={`translate(${halfSize - (isSelected ? 6 : 4)}, ${halfSize - (isSelected ? 6 : 4)})`}>
+                    <circle
+                      r={isSelected ? 11 : 8.5}
+                      fill={fill}
+                      stroke={isSelected ? '#fbbf24' : '#ffffff'}
+                      strokeWidth={isSelected ? 2.5 : 2}
+                      filter="url(#city-shadow)"
+                    />
+                    {textContent ? (
+                      <text
+                        y={isSelected ? 4 : 3}
+                        textAnchor="middle"
+                        className={`font-serif fill-white font-black ${isSelected ? 'text-[12px]' : 'text-[9.5px]'}`}
+                        stroke="#000000"
+                        strokeWidth="2"
+                        style={{ paintOrder: 'stroke fill' }}
+                      >
+                        {textContent}
+                      </text>
+                    ) : (
+                      <text
+                        y={isSelected ? 3.5 : 2.5}
+                        textAnchor="middle"
+                        className={`font-serif fill-white font-black ${isSelected ? 'text-[10px]' : 'text-[8px]'}`}
+                        stroke="#000000"
+                        strokeWidth="1.5"
+                        style={{ paintOrder: 'stroke fill' }}
+                      >
+                        {p.id}
+                      </text>
+                    )}
+                  </g>
                 </g>
               );
             })}

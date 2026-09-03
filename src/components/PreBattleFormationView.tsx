@@ -6,7 +6,8 @@ import {
   getFormationInfo, 
   getGeneralAvailableFormations, 
   getFormationTerrainEffect, 
-  TERRAIN_DETAILS 
+  TERRAIN_DETAILS,
+  getTerrainBackgroundUrl
 } from '../engine/formations';
 import FormationTerrainMatrixModal from './FormationTerrainMatrixModal';
 import { 
@@ -123,8 +124,20 @@ export default function PreBattleFormationView({
 
   return (
     <div className="absolute inset-0 z-50 flex flex-col font-serif select-none bg-[#191512] text-stone-200 overflow-hidden">
+      {/* 戰場即時地形半透明背景底圖 */}
+      <div 
+        className="absolute inset-0 pointer-events-none transition-all duration-1000 ease-in-out bg-cover bg-center z-0"
+        style={{
+          backgroundImage: `url(${getTerrainBackgroundUrl(battlefieldTerrain)})`,
+          opacity: 0.20,
+          filter: 'saturate(0.85) brightness(0.95)'
+        }}
+      />
+      {/* 典雅暗黑漸層與遮罩 */}
+      <div className="absolute inset-0 pointer-events-none z-0 bg-gradient-to-b from-[#191512]/60 via-transparent to-[#191512]/85" />
+
       {/* 頂部 Header */}
-      <div className="h-12 bg-[#251e19] border-b-2 border-[#473b30] px-3 sm:px-4 flex justify-between items-center z-30 shadow-md shrink-0">
+      <div className="h-12 bg-[#251e19]/95 border-b-2 border-[#473b30] px-3 sm:px-4 flex justify-between items-center z-30 shadow-md shrink-0 backdrop-blur-[2px]">
         <div className="flex items-center gap-2">
           <Flag className="w-5 h-5 text-amber-400" />
           <span className="font-black text-base sm:text-lg text-amber-300 tracking-wider">
@@ -182,7 +195,7 @@ export default function PreBattleFormationView({
       </div>
 
       {/* 內容區：左列出戰順序名單 (點 2: 前 5 人首發，6 人以上後備援軍) + 右側陣形配置 */}
-      <div className="flex-1 flex flex-col md:flex-row overflow-y-auto overflow-x-hidden p-2 sm:p-4 gap-3 bg-radial from-[#221c17] to-[#120f0d]">
+      <div className="flex-1 flex flex-col md:flex-row overflow-y-auto overflow-x-hidden p-2 sm:p-4 gap-3 bg-radial from-[#221c17]/75 to-[#120f0d]/90 relative z-10">
         {/* 左列：武將出戰順序清單 (支援我軍 / 敵軍雙向檢視) */}
         <div className="w-full md:w-5/12 flex flex-col gap-2 shrink-0">
           {/* 敵我切換分頁 */}
