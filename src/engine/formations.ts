@@ -1,4 +1,4 @@
-import { Formation, FormationTerrainType } from '../types';
+import { Formation, FormationTerrainType, TerrainRatio } from '../types';
 import { provinces } from '../data/provinces';
 
 export interface TerrainDetail {
@@ -14,24 +14,132 @@ export interface TerrainDetail {
 }
 
 export function getTerrainBackgroundUrl(terrain?: string): string {
+  // Normalize path string: use relative path for Vite and subpath compatibility
   switch (terrain) {
     case '水上':
     case '水域':
     case '水戰':
+    case '江河':
       return './assets/river.jpg';
     case '密林':
     case '森林':
     case '樹林':
+    case '沼澤':
       return './assets/forest.jpg';
     case '山嶽':
     case '山地':
     case '險山':
+    case '峽谷':
       return './assets/mountain.jpg';
+    case '城池':
+    case '城郭':
+    case '關隘':
+    case '關卡':
+    case '太守府':
+      return './assets/city.jpg';
     case '平地':
     case '平原':
     default:
-      return './assets/patch.jpg';
+      return './assets/plain.jpg';
   }
+}
+
+export function getTerrainAtmosphere(terrain?: string): {
+  tintOverlay: string;
+  themeColor: string;
+  glowColor: string;
+  particleColor: string;
+} {
+  switch (terrain) {
+    case '水上':
+    case '水域':
+    case '水戰':
+    case '江河':
+      return {
+        tintOverlay: 'radial-gradient(ellipse at 50% 40%, rgba(3, 105, 161, 0.25) 0%, rgba(14, 116, 144, 0.45) 55%, rgba(15, 23, 42, 0.85) 100%)',
+        themeColor: '#0284c7',
+        glowColor: 'rgba(56, 189, 248, 0.4)',
+        particleColor: '#38bdf8'
+      };
+    case '密林':
+    case '森林':
+    case '樹林':
+    case '沼澤':
+      return {
+        tintOverlay: 'radial-gradient(ellipse at 50% 40%, rgba(21, 128, 61, 0.25) 0%, rgba(22, 101, 52, 0.45) 55%, rgba(15, 23, 42, 0.85) 100%)',
+        themeColor: '#16a34a',
+        glowColor: 'rgba(74, 222, 128, 0.4)',
+        particleColor: '#4ade80'
+      };
+    case '山嶽':
+    case '山地':
+    case '險山':
+    case '峽谷':
+      return {
+        tintOverlay: 'radial-gradient(ellipse at 50% 40%, rgba(180, 83, 9, 0.25) 0%, rgba(146, 64, 14, 0.45) 55%, rgba(24, 18, 14, 0.85) 100%)',
+        themeColor: '#d97706',
+        glowColor: 'rgba(251, 191, 36, 0.4)',
+        particleColor: '#fbbf24'
+      };
+    case '城池':
+    case '城郭':
+    case '關隘':
+    case '關卡':
+    case '太守府':
+      return {
+        tintOverlay: 'radial-gradient(ellipse at 50% 40%, rgba(120, 113, 108, 0.25) 0%, rgba(68, 64, 60, 0.45) 55%, rgba(28, 25, 23, 0.85) 100%)',
+        themeColor: '#eab308',
+        glowColor: 'rgba(234, 179, 8, 0.4)',
+        particleColor: '#fde047'
+      };
+    case '平地':
+    case '平原':
+    default:
+      return {
+        tintOverlay: 'radial-gradient(ellipse at 50% 40%, rgba(120, 80, 40, 0.22) 0%, rgba(68, 64, 60, 0.45) 55%, rgba(20, 18, 16, 0.85) 100%)',
+        themeColor: '#84cc16',
+        glowColor: 'rgba(163, 230, 53, 0.4)',
+        particleColor: '#a3e635'
+      };
+  }
+}
+
+/**
+ * 計算每日戰場地形：
+ * - 首日 (isFirstDay = true)：100% 精準採用該城池的主地理地形
+ * - 第 2 天起 (isFirstDay = false)：系統完全依據該省份的地形比率 (terrainRatio) 進行地勢轉移抽籤
+ */
+export function rollTerrainForDay(
+  primaryTerrain?: FormationTerrainType | string,
+  ratioObj?: TerrainRatio | Record<string, number>,
+  isFirstDay: boolean = false
+): FormationTerrainType {
+  const normPrimary = (primaryTerrain || '平地') as FormationTerrainType;
+
+  // 若為開戰首日，100% 使用該城池的主要地理地形
+  if (isFirstDay && normPrimary && ['平地', '山嶽', '水上', '密林'].includes(normPrimary)) {
+    return normPrimary;
+  }
+
+  // 第 2 天起：完全依該省份的地形比率 (terrainRatio) 進行地勢移轉
+  const ratio = ratioObj && Object.keys(ratioObj).length > 0 
+    ? ratioObj 
+    : { 平地: 50, 山嶽: 20, 水上: 15, 密林: 15 };
+
+  const totalWeight = Object.values(ratio).reduce((a, b) => a + (Number(b) || 0), 0) || 100;
+  const rand = Math.random() * totalWeight;
+
+  let cumulative = 0;
+  for (const [t, p] of Object.entries(ratio)) {
+    const weight = Number(p) || 0;
+    if (weight <= 0) continue;
+    cumulative += weight;
+    if (rand <= cumulative) {
+      return t as FormationTerrainType;
+    }
+  }
+
+  return normPrimary || '平地';
 }
 
 export const TERRAIN_DETAILS: Record<FormationTerrainType, TerrainDetail> = {

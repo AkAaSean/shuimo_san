@@ -7,7 +7,8 @@ import {
   getGeneralAvailableFormations, 
   getFormationTerrainEffect, 
   TERRAIN_DETAILS,
-  getTerrainBackgroundUrl
+  getTerrainBackgroundUrl,
+  getTerrainAtmosphere
 } from '../engine/formations';
 import FormationTerrainMatrixModal from './FormationTerrainMatrixModal';
 import { 
@@ -122,19 +123,29 @@ export default function PreBattleFormationView({
     onUpdateFormations(nextMap);
   };
 
+  const terrainAtmo = getTerrainAtmosphere(battlefieldTerrain);
+
   return (
     <div className="absolute inset-0 z-50 flex flex-col font-serif select-none bg-[#191512] text-stone-200 overflow-hidden">
-      {/* 戰場即時地形半透明背景底圖 */}
+      {/* 戰場即時地形動態底圖 (高畫質清晰顯示) */}
       <div 
-        className="absolute inset-0 pointer-events-none transition-all duration-1000 ease-in-out bg-cover bg-center z-0"
+        key={battlefieldTerrain}
+        className="absolute inset-0 pointer-events-none transition-all duration-1000 ease-in-out bg-cover bg-center z-0 animate-fade-in"
         style={{
           backgroundImage: `url(${getTerrainBackgroundUrl(battlefieldTerrain)})`,
-          opacity: 0.20,
-          filter: 'saturate(0.85) brightness(0.95)'
+          opacity: 0.45,
+          filter: 'saturate(1.2) brightness(0.92) contrast(1.08)'
         }}
       />
-      {/* 典雅暗黑漸層與遮罩 */}
-      <div className="absolute inset-0 pointer-events-none z-0 bg-gradient-to-b from-[#191512]/60 via-transparent to-[#191512]/85" />
+      {/* 地形專屬氣候與大氣色調遮罩 */}
+      <div 
+        className="absolute inset-0 pointer-events-none transition-all duration-1000 ease-in-out z-0"
+        style={{
+          background: terrainAtmo.tintOverlay
+        }}
+      />
+      {/* 典雅暗黑漸層與邊緣暗角遮罩 */}
+      <div className="absolute inset-0 pointer-events-none z-0 bg-gradient-to-b from-[#191512]/70 via-transparent to-[#191512]/90" />
 
       {/* 頂部 Header */}
       <div className="h-12 bg-[#251e19]/95 border-b-2 border-[#473b30] px-3 sm:px-4 flex justify-between items-center z-30 shadow-md shrink-0 backdrop-blur-[2px]">

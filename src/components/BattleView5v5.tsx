@@ -10,7 +10,9 @@ import {
   getFormationTerrainEffect, 
   TERRAIN_DETAILS, 
   calculateFormationTerrainCombatModifier,
-  getTerrainBackgroundUrl
+  getTerrainBackgroundUrl,
+  getTerrainAtmosphere,
+  rollTerrainForDay
 } from '../engine/formations';
 import { provinces } from '../data/provinces';
 import { getGeneralItemBonus } from '../data/items';
@@ -54,18 +56,7 @@ interface BattleViewProps {
   }) => void;
 }
 
-function rollTerrainForDay(ratioObj?: { 平地: number; 山嶽: number; 水上: number; 密林: number }): FormationTerrainType {
-  const ratio = ratioObj || { 平地: 40, 山嶽: 20, 水上: 20, 密林: 20 };
-  const rand = Math.random() * 100;
-  let cumulative = 0;
-  for (const [t, p] of Object.entries(ratio)) {
-    cumulative += p;
-    if (rand <= cumulative) {
-      return t as FormationTerrainType;
-    }
-  }
-  return '平地';
-}
+
 
 export default function BattleView5v5({ 
   gameState, 
@@ -114,6 +105,12 @@ export default function BattleView5v5({
   } | null>(null);
   const [currentVFX, setCurrentVFX] = useState<BattleVFXEvent | null>(null);
   const [screenShake, setScreenShake] = useState(false);
+  const [terrainShiftBanner, setTerrainShiftBanner] = useState<{
+    terrain: FormationTerrainType;
+    symbol: string;
+    text: string;
+    advantage: string;
+  } | null>(null);
 
   const triggerScreenShake = (intensity: 'light' | 'heavy' = 'light') => {
     setScreenShake(true);
@@ -194,8 +191,9 @@ export default function BattleView5v5({
   useEffect(() => {
     if (!battle) return;
 
-    const targetProvObj = provinces.find(p => p.id === battle.targetProvinceId);
-    const battlefieldTerrain: FormationTerrainType = rollTerrainForDay(targetProvObj?.terrainRatio);
+    const targetProvObj = provinces.find(p => Number(p.id) === Number(battle.targetProvinceId));
+    const primaryTerrain = targetProvObj?.terrain || '平地';
+    const battlefieldTerrain: FormationTerrainType = rollTerrainForDay(primaryTerrain, targetProvObj?.terrainRatio, true);
 
     // 守方城池庫存糧食 (需求 4: 玩家是防守端，主城軍糧全部攜帶)
     const defenderProvState = gameState.provincesData[battle.targetProvinceId];
@@ -591,11 +589,25 @@ export default function BattleView5v5({
       });
 
       // 每日戰場地形依城池地形比例隨機變更
-      const targetProvObj = provinces.find(p => p.id === battleState.provinceId);
-      const nextTerrain = rollTerrainForDay(targetProvObj?.terrainRatio);
+      const targetProvObj = provinces.find(p => Number(p.id) === Number(battleState.provinceId));
+      const primaryTerrain = targetProvObj?.terrain || '平地';
+      const nextTerrain = rollTerrainForDay(primaryTerrain, targetProvObj?.terrainRatio, false);
       const terrainDetail = TERRAIN_DETAILS[nextTerrain];
 
       addLog(`📅 【第 ${nextDay} 天】開戰！戰場地勢移轉為【${terrainDetail?.symbol || ''}${nextTerrain}】！`, 'event');
+      
+      // 觸發視覺地勢移轉提示橫幅
+      if (nextTerrain !== battleState.terrain) {
+        setTerrainShiftBanner({
+          terrain: nextTerrain,
+          symbol: terrainDetail?.symbol || '🏞️',
+          text: `第 ${nextDay} 天 ‧ 地勢移轉為【${terrainDetail?.name || nextTerrain}】`,
+          advantage: terrainDetail?.advantageSummary || ''
+        });
+        setTimeout(() => {
+          setTerrainShiftBanner(null);
+        }, 4000);
+      }
       
       if (atkStarving) {
         addLog(isDefense ? `⚠️ 敵方攻軍糧草罄盡！部隊缺糧恐慌，士氣大跌 15 點並出現逃兵！` : `⚠️ 我軍糧草罄盡！部隊缺糧恐慌，全軍士氣大跌 15 點並出現逃兵！`, 'attack');
@@ -2135,6 +2147,7 @@ export default function BattleView5v5({
 
   const battlefieldTerrain: FormationTerrainType = battleState.terrain || '平地';
   const terrainInfo = TERRAIN_DETAILS[battlefieldTerrain];
+  const terrainAtmo = getTerrainAtmosphere(battlefieldTerrain);
 
   // 計算雙方即時兵糧消耗預估 (需求 3)
   const playerAliveTroops = playerUnits.filter((u: any) => u.troops > 0).reduce((sum: number, u: any) => sum + u.troops, 0);
@@ -2147,17 +2160,47 @@ export default function BattleView5v5({
 
   return (
     <div className={`absolute inset-0 z-50 flex flex-col font-serif select-none bg-[#141210] text-stone-200 overflow-hidden ${screenShake ? 'animate-battle-shake' : ''}`}>
-      {/* 戰場即時地形半透明背景底圖 (水上: river.jpg / 密林: forest.jpg / 平原: plan.jpg / 山嶽: mountain.jpg) */}
+      {/* 戰場即時動態地形底圖 (水上: river.jpg / 密林: forest.jpg / 平原: plain.jpg / 山嶽: mountain.jpg / 城池: city.jpg) */}
       <div 
-        className="absolute inset-0 pointer-events-none transition-all duration-1000 ease-in-out bg-cover bg-center z-0"
+        key={battlefieldTerrain}
+        className="absolute inset-0 pointer-events-none transition-all duration-1000 ease-in-out bg-cover bg-center z-0 animate-fade-in"
         style={{
           backgroundImage: `url(${getTerrainBackgroundUrl(battlefieldTerrain)})`,
-          opacity: 0.22,
-          filter: 'saturate(0.85) brightness(0.95)'
+          opacity: 0.50,
+          filter: 'saturate(1.25) brightness(0.92) contrast(1.10)'
         }}
       />
-      {/* 典雅暗黑漸層與氛圍遮罩，保障介面所有文字、血條與技能極致清晰 */}
-      <div className="absolute inset-0 pointer-events-none z-0 bg-gradient-to-b from-[#141210]/60 via-transparent to-[#141210]/85" />
+
+      {/* 地形專屬氣候與大氣色調遮罩 (水網微瀾 / 密林翠嶂 / 山嶽危巖 / 平原沃野) */}
+      <div 
+        className="absolute inset-0 pointer-events-none transition-all duration-1000 ease-in-out z-0"
+        style={{
+          background: terrainAtmo.tintOverlay
+        }}
+      />
+
+      {/* 典雅暗黑漸層與邊緣暗角遮罩，保障介面所有文字、血條與技能極致清晰 */}
+      <div className="absolute inset-0 pointer-events-none z-0 bg-gradient-to-b from-[#141210]/70 via-transparent to-[#141210]/90" />
+
+      {/* 戰場地勢移轉浮動通告橫幅 */}
+      {terrainShiftBanner && (
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-40 px-4 py-2 rounded-xl bg-[#1c1611]/95 border-2 shadow-2xl flex items-center gap-2.5 animate-bounce backdrop-blur-md"
+          style={{
+            borderColor: terrainAtmo.themeColor,
+            boxShadow: `0 0 20px ${terrainAtmo.glowColor}`
+          }}
+        >
+          <span className="text-2xl">{terrainShiftBanner.symbol}</span>
+          <div className="flex flex-col">
+            <span className="font-black text-xs sm:text-sm text-amber-300">
+              {terrainShiftBanner.text}
+            </span>
+            <span className="text-[10px] text-stone-300">
+              {terrainShiftBanner.advantage}
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* 1. 頂部狀態列 (手機與電腦皆全時顯示：戰場地點、天數、地形、兩軍兵糧、情報按鈕) */}
       <div className="bg-[#1f1a16]/95 border-b border-[#3b3128] px-2 py-1 sm:px-2.5 sm:py-1.5 z-30 shadow-md flex flex-col gap-0.5 sm:gap-1 shrink-0 backdrop-blur-[2px]">
@@ -2171,10 +2214,15 @@ export default function BattleView5v5({
             <span className="px-1.5 py-0.5 rounded bg-amber-500 text-stone-950 font-black text-[10px] sm:text-xs flex items-center gap-1 shrink-0 shadow">
               📅 {battleState.day || 1}/30 天
             </span>
-            {/* 地形標籤 - 手機端全時清晰可見且可點擊開啟地勢圖 */}
+            {/* 地形標籤 - 依當前地形即時動態發光，手機端全時清晰可見且可點擊開啟地勢圖 */}
             <button
               onClick={() => setShowTerrainMatrixModal(true)}
-              className="px-2 py-0.5 rounded bg-amber-950/80 hover:bg-amber-900 border border-amber-600/70 text-[11px] font-black text-amber-300 flex items-center gap-1 shrink-0 cursor-pointer active:scale-95 transition-all shadow"
+              className="px-2 py-0.5 rounded border text-[11px] font-black flex items-center gap-1 shrink-0 cursor-pointer active:scale-95 transition-all shadow"
+              style={{
+                backgroundColor: `${terrainAtmo.themeColor}33`,
+                borderColor: terrainAtmo.themeColor,
+                color: '#fef08a'
+              }}
               title="點擊檢視地形與陣形相剋全鑑"
             >
               <span>{terrainInfo?.symbol || '🏞️'}</span>
@@ -2286,10 +2334,8 @@ export default function BattleView5v5({
         </div>
       </div>
 
-      {/* 2. 核心 5 vs 5 戰場區域 */}
-      <div className="flex-1 min-h-0 flex flex-col relative px-1 py-0.5 sm:px-4 sm:py-2 z-10" style={{
-        background: 'radial-gradient(ellipse at 50% 30%, rgba(38, 31, 26, 0.45) 0%, rgba(20, 18, 16, 0.75) 100%)'
-      }}>
+      {/* 2. 核心 5 vs 5 戰場區域 (半透明背景讓底層動態地形圖清晰顯現，營造臨場戰陣氛圍) */}
+      <div className="flex-1 min-h-0 flex flex-col relative px-1 py-0.5 sm:px-4 sm:py-2 z-10 backdrop-blur-[1px] bg-[#141210]/35 border-y border-[#3d3126]/40">
         {/* 對峙陣容區 (5 列並排) */}
         <div className="flex-1 flex gap-1 sm:gap-4 overflow-hidden relative">
           {/* 左列：我軍 (5 人，陣亡自動依序遞補) */}
