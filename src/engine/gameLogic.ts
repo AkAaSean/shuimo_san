@@ -8,7 +8,7 @@ import { handleRulerDecapitation } from './rulerSuccessionLogic';
 import { SCENARIOS } from '../data/scenarios';
 import { HIDDEN_TALENTS } from '../data/talents';
 import { PROVINCE_BASE_CONFIGS } from '../data/provinceBaseConfig';
-import { getScenarioRulerMultiplier, calculateStartingGeneralTroops } from '../data/sangokushiConfig';
+import { getScenarioRulerMultiplier, calculateStartingGeneralTroops, HISTORICAL_SCENARIO_TARGET_OVERRIDES } from '../data/sangokushiConfig';
 import { getInitialGeneralLoyalty, getGeneralAmbition } from '../data/historicalLoyalty';
 import { 
   getProvinceTierRules, 
@@ -579,6 +579,106 @@ export function initGame(scenarioIndex: number, playerRulerName: string): GameSt
     }
   });
 
+  // 4.9 劇本歷史專屬目標值調配 (Target Presets for Specific Scenario Rulers)
+  if (scenario) {
+    const scenarioOverrides = HISTORICAL_SCENARIO_TARGET_OVERRIDES[scenarioIndex];
+    if (scenarioOverrides) {
+      scenario.rulers.forEach(ruler => {
+        const override = scenarioOverrides[ruler.name];
+        if (!override) return;
+
+        // 金錢微調
+        if (override.gold !== undefined && ruler.provinces.length > 0) {
+          const currentTotalGold = ruler.provinces.reduce((sum, pid) => sum + (provincesData[pid]?.gold || 0), 0);
+          if (currentTotalGold > 0) {
+            let allocated = 0;
+            ruler.provinces.forEach((pid, idx) => {
+              const p = provincesData[pid];
+              if (idx === ruler.provinces.length - 1) {
+                p.gold = override.gold! - allocated;
+              } else {
+                const share = Math.round((p.gold / currentTotalGold) * override.gold!);
+                p.gold = share;
+                allocated += share;
+              }
+            });
+          } else {
+            const capitalId = ruler.provinces[0];
+            if (provincesData[capitalId]) {
+              provincesData[capitalId].gold = override.gold;
+            }
+          }
+        }
+
+        // 糧食微調
+        if (override.food !== undefined && ruler.provinces.length > 0) {
+          const currentTotalFood = ruler.provinces.reduce((sum, pid) => sum + (provincesData[pid]?.food || 0), 0);
+          if (currentTotalFood > 0) {
+            let allocated = 0;
+            ruler.provinces.forEach((pid, idx) => {
+              const p = provincesData[pid];
+              if (idx === ruler.provinces.length - 1) {
+                p.food = override.food! - allocated;
+              } else {
+                const share = Math.round((p.food / currentTotalFood) * override.food!);
+                p.food = share;
+                allocated += share;
+              }
+            });
+          } else {
+            const capitalId = ruler.provinces[0];
+            if (provincesData[capitalId]) {
+              provincesData[capitalId].food = override.food;
+            }
+          }
+        }
+
+        // 勢力總兵力微調
+        if (override.totalTroops !== undefined) {
+          const rulerGenerals = Object.values(generalsData).filter(
+            g => g.provinceId && ruler.provinces.includes(g.provinceId) && !g.isWild
+          );
+          if (rulerGenerals.length > 0) {
+            const currentTotalTroops = rulerGenerals.reduce((sum, g) => sum + (g.soldiers || 0), 0);
+            if (currentTotalTroops > 0) {
+              rulerGenerals.forEach(g => {
+                const raw = (g.soldiers / currentTotalTroops) * override.totalTroops!;
+                const clamped = Math.max(100, Math.min(g.maxTroops, Math.round(raw / 50) * 50));
+                g.soldiers = clamped;
+              });
+
+              let actualTotal = rulerGenerals.reduce((sum, g) => sum + g.soldiers, 0);
+              let diff = override.totalTroops - actualTotal;
+
+              if (diff !== 0) {
+                const sortedGens = [...rulerGenerals].sort((a, b) => {
+                  if (diff > 0) {
+                    return (b.maxTroops - b.soldiers) - (a.maxTroops - a.soldiers);
+                  } else {
+                    return (b.soldiers - 100) - (a.soldiers - 100);
+                  }
+                });
+
+                for (const g of sortedGens) {
+                  if (diff === 0) break;
+                  if (diff > 0) {
+                    const add = Math.min(diff, g.maxTroops - g.soldiers);
+                    g.soldiers += add;
+                    diff -= add;
+                  } else {
+                    const sub = Math.min(-diff, g.soldiers - 100);
+                    g.soldiers -= sub;
+                    diff += sub;
+                  }
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+  }
+
   // Find player's primary starting province
   const playerRulerConfig = scenario?.rulers.find(r => r.name === playerRulerName);
   const initialPlayerProvinceId = playerRulerConfig && playerRulerConfig.provinces.length > 0
@@ -947,11 +1047,7 @@ export function executeCommand(state: GameState, provinceId: number, category: s
         attackerReinforceProvinceId
       } = payload;
       const currentList = newState.pendingBattles || (newState.pendingBattle ? [newState.pendingBattle] : []);
-
-      // 已經被攻擊的城市，不能再由其他城市發起二次進攻
-      if (currentList.some(b => b.targetProvinceId === targetProvinceId)) {
-        return state;
-      }
+      const isTargetAlreadyInQueue = currentList.some(b => b.targetProvinceId === targetProvinceId);
 
       if (Array.isArray(attackingGeneralNames) && attackingGeneralNames.length > 0) {
         const attackerGeneralOrigins: Record<string, number> = {};
@@ -1097,7 +1193,9 @@ export function executeCommand(state: GameState, provinceId: number, category: s
           defenderPrimaryProvinceId: targetProvinceId,
           defenderReinforceProvinceId,
           defenderGeneralOrigins,
-          defenderResourcesDeducted
+          defenderResourcesDeducted,
+          isSequential: isTargetAlreadyInQueue,
+          sequentialTag: isTargetAlreadyInQueue ? "🔥【車輪戰/多路攻勢】" : undefined
         };
 
         const updatedList = [...currentList, newBattlePlan];
@@ -3595,6 +3693,29 @@ function executeRulerStrategicAI(newState: GameState, rulerName: string) {
     const targetName = provinces.find(p => p.id === target.targetId)?.name || '未知';
     if (!newState.monthlyEvents) newState.monthlyEvents = [];
 
+    // --- ⚔️ Case 2 野戰遭遇戰檢測 (兩軍互攻對手城池) ---
+    const existingCrossAttack = (newState.pendingBattles || []).find(
+      p => p.attackerProvinceId === target.targetId && p.targetProvinceId === attackOrigins[0].pState.id
+    ) || (newState.pendingDefenses || []).find(
+      p => p.attackerProvinceId === target.targetId && p.targetProvinceId === attackOrigins[0].pState.id
+    );
+
+    if (existingCrossAttack) {
+      existingCrossAttack.isFieldEncounter = true;
+      existingCrossAttack.encounterTitle = `⚔️【野戰遭遇戰】${rulerName}軍 與 ${enemyRuler === newState.rulerName ? '我軍' : enemyRuler + '軍'} 於邊境狹路相逢！`;
+      newState.monthlyEvents.push(
+        `⚔️【野戰遭遇戰】${rulerName}軍 攻打 ${targetName} 途中，與敵軍出擊大軍在邊境狹路相逢，爆發野戰決戰！`
+      );
+      continue; // 已合併為野戰遭遇戰，不再重複生成獨立攻城戰
+    }
+
+    // --- 🔥 Case 1 車輪戰與戰火蔓延檢測 (多方攻打同城) ---
+    const isTargetAlreadyAttacked = (newState.pendingBattles || []).some(
+      p => p.targetProvinceId === target.targetId
+    ) || (newState.pendingDefenses || []).some(
+      p => p.targetProvinceId === target.targetId
+    );
+
     // 若被進攻方為玩家主公，所有守城部署與援軍調度全權交由玩家在【緊急軍情】防禦面板中決定
     if (enemyRuler === newState.rulerName) {
       const attackerGeneralOrigins: Record<string, number> = {};
@@ -3618,13 +3739,54 @@ function executeRulerStrategicAI(newState: GameState, rulerName: string) {
         resourcesDeducted: attackerResourcesDeducted,
         defenderResourcesDeducted: {},
         attackerGeneralOrigins,
-        defenderGeneralOrigins
+        defenderGeneralOrigins,
+        isSequential: isTargetAlreadyAttacked,
+        sequentialTag: isTargetAlreadyAttacked ? "🔥【車輪戰/戰火蔓延】" : undefined
       };
 
       if (!newState.pendingDefenses) newState.pendingDefenses = [];
       newState.pendingDefenses.push(defensePlan);
-      newState.monthlyEvents.push("🚨【緊急軍情】" + rulerName + "軍 向我方 " + targetName + " 發起了猛烈攻勢！請主公定奪！");
+      
+      if (isTargetAlreadyAttacked) {
+        newState.monthlyEvents.push("🔥【車輪戰急報】" + rulerName + "軍 亦發兵進犯我方 " + targetName + "！該城面臨多方車輪大戰！");
+      } else {
+        newState.monthlyEvents.push("🚨【緊急軍情】" + rulerName + "軍 向我方 " + targetName + " 發起了猛烈攻勢！請主公定奪！");
+      }
       break;
+    }
+
+    // 若玩家正在攻打該城，且 AI 也攻打該城，則將 AI 攻勢排入車輪戰佇列，待玩家首戰結束後連環展開
+    if (isTargetAlreadyAttacked && (newState.pendingBattles || []).some(p => p.targetProvinceId === target.targetId)) {
+      const attackerGeneralOrigins: Record<string, number> = {};
+      attackGenerals.forEach(g => attackerGeneralOrigins[g.name] = g.provinceId);
+
+      const defenderGeneralOrigins: Record<string, number> = {};
+      enemyGenerals.forEach(g => defenderGeneralOrigins[g.name] = target.targetId);
+
+      const seqPlan: PendingBattlePlan = {
+        id: "seq_" + Date.now() + "_" + Math.random(),
+        isDefense: false,
+        attackerRuler: rulerName,
+        defenderRuler: enemyRuler,
+        targetProvinceId: target.targetId,
+        attackerProvinceId: attackOrigins[0].pState.id,
+        attackerReinforceProvinceId: attackOrigins.length > 1 ? attackOrigins[1].pState.id : null,
+        attackingGenerals: attackGenerals.map(g => g.name),
+        defendingGenerals: enemyGenerals.map(g => g.name),
+        attackerGold: 0,
+        attackerFood: reqFood,
+        resourcesDeducted: attackerResourcesDeducted,
+        defenderResourcesDeducted: {},
+        attackerGeneralOrigins,
+        defenderGeneralOrigins,
+        isSequential: true,
+        sequentialTag: "🔥【車輪戰/戰火蔓延】"
+      };
+
+      if (!newState.pendingBattles) newState.pendingBattles = [];
+      newState.pendingBattles.push(seqPlan);
+      newState.monthlyEvents.push("🔥【戰火蔓延】" + rulerName + "軍 亦率軍強攻 " + enemyRuler + " 的 " + targetName + "！該城爆發多方車輪大戰！");
+      continue;
     }
 
     // 若被進攻方為電腦 AI 勢力，則由 AI 演算判斷是否調動鄰近城池或同盟援軍

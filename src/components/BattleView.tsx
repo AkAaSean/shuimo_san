@@ -28,7 +28,7 @@ import { Shield, Sparkles, Swords, Zap, X, Info } from 'lucide-react';
 interface BattleViewProps {
   gameState: GameState;
   onExitBattle: () => void;
-  onResolveBattle: (winner: 'attacker' | 'defender') => void;
+  onResolveBattle: (winner: 'attacker' | 'defender', finalResult?: any) => void;
 }
 
 export default function BattleView({ gameState, onExitBattle, onResolveBattle }: BattleViewProps) {

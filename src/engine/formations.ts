@@ -13,7 +13,7 @@ export interface TerrainDetail {
   advantageSummary: string;
 }
 
-export function getTerrainBackgroundUrl(terrain?: string): string {
+export function getTerrainBackgroundUrl(terrain?: string, provinceId?: number): string {
   // Normalize path string: use relative path for Vite and subpath compatibility
   switch (terrain) {
     case '水上':
@@ -36,6 +36,12 @@ export function getTerrainBackgroundUrl(terrain?: string): string {
     case '關隘':
     case '關卡':
     case '太守府':
+      if (provinceId && [20, 26, 40, 42].includes(provinceId)) {
+        return './assets/city3.jpg';
+      }
+      if (provinceId && [3, 5, 6, 9, 14, 17, 18, 23, 24, 25, 30, 32, 33].includes(provinceId)) {
+        return './assets/city2.jpg';
+      }
       return './assets/city.jpg';
     case '平地':
     case '平原':
@@ -1125,7 +1131,17 @@ export const HISTORICAL_GENERAL_FORMATIONS: Record<string, string[]> = {
   '衛茲': ['鶴翼'],
   '鮑信': ['鋒矢','雁行','魚鱗'],
   '鮑韜': ['魚鱗'],
-  '張超': ['魚鱗']
+  '張超': ['魚鱗'],
+  '貂蟬': ['鶴翼','雁行','方圓'],
+  '大喬': ['雁行','水陣','鶴翼'],
+  '小喬': ['雁行','水陣','鶴翼'],
+  '孫尚香': ['錐行','雁行','魚鱗'],
+  '蔡文姬': ['雁行','方圓','鶴翼'],
+  '甄姬': ['鶴翼','方圓','水陣'],
+  '王異': ['鋒矢','錐行','方圓'],
+  '關銀屏': ['魚鱗','錐行','鋒矢'],
+  '張星彩': ['方圓','魚鱗','錐行'],
+  '辛憲英': ['方圓','雁行','鶴翼']
 };
 
 export function getGeneralAvailableFormations(general: {

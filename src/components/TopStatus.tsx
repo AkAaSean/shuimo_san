@@ -10,7 +10,14 @@ interface TopStatusProps {
   onOpenAIDebug?: () => void;
 }
 
-export default function TopStatus({ gameState, onRest, onToggleFullscreen, isFullscreen, onOpenManual, onOpenAIDebug }: TopStatusProps) {
+export default function TopStatus({
+  gameState,
+  onRest,
+  onToggleFullscreen,
+  isFullscreen,
+  onOpenManual,
+  onOpenAIDebug
+}: TopStatusProps) {
   // Calculate ruler total gold and food
   const rulerProvinces = Object.values(gameState.provincesData).filter(p => p.rulerName === gameState.rulerName);
   const totalGold = rulerProvinces.reduce((sum, p) => sum + p.gold, 0);
@@ -31,7 +38,7 @@ export default function TopStatus({ gameState, onRest, onToggleFullscreen, isFul
         <div className="flex justify-between items-center text-sm font-bold text-stone-800">
           <span>{`[${getEraString(gameState.year)}${gameState.month}月${gameState.season}]`}</span>
           
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 relative">
             {onOpenAIDebug && (
               <button
                 onClick={onOpenAIDebug}

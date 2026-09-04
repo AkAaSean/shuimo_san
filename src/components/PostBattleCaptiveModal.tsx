@@ -64,7 +64,7 @@ export const PostBattleCaptiveModal: React.FC<PostBattleCaptiveModalProps> = ({
   }
 
   const captiveGen = generalsData[currentCaptiveInfo.generalName];
-  const playerGen = (Object.values(generalsData) as GeneralState[]).find(g => g.name === playerRulerName);
+  const playerGen = (Object.values(generalsData) as GeneralState[]).find(g => g && g.name === playerRulerName);
 
   const isFactionEliminated = !!(currentCaptiveInfo.isFactionEliminated || currentCaptiveInfo.isEliminatedRuler);
   const isRulerSelf = !!(currentCaptiveInfo.isRulerSelf || currentCaptiveInfo.generalName === currentCaptiveInfo.defeatedRuler);

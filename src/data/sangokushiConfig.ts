@@ -7,6 +7,40 @@ import { CityType } from './provinceBaseConfig';
  * 光榮三國志風格 (Koei Sangokushi) 開局資源與兵力精密調配模型
  */
 
+export interface ScenarioTargetOverrides {
+  gold?: number;
+  food?: number;
+  totalTroops?: number;
+}
+
+/**
+ * 各劇本歷史指定數值微調 (Target Presets)
+ */
+export const HISTORICAL_SCENARIO_TARGET_OVERRIDES: Record<number, Record<string, ScenarioTargetOverrides>> = {
+  // 第1時代 (189年中平六年: 董卓專政，曹操舉兵)
+  0: {
+    '袁紹': { gold: 5500 },
+    '袁術': { gold: 5000 },
+    '曹操': { gold: 1300 },
+    '孫堅': { gold: 1300 },
+  },
+  // 第2時代 (195年興平二年: 呂布弒董卓，李傕敗呂布)
+  1: {
+    '劉備': { totalTroops: 6500 },
+    '楊奉': { gold: 1000 },
+  },
+  // 第三時代 (201年建安六年: 曹操敗袁紹，劉備投荊州)
+  2: {
+    '袁紹': { food: 250000 },
+    '曹操': { food: 200000 },
+  },
+  // 第五時代 (215年建安二十年: 劉備收蜀，張魯降曹操)
+  4: {
+    '劉備': { totalTroops: 75000, food: 400000 },
+    '孫權': { totalTroops: 75000, food: 450000 },
+  }
+};
+
 export interface ScenarioRulerMultiplier {
   goldMult: number;
   foodMult: number;

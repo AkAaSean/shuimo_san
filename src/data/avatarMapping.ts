@@ -184,7 +184,6 @@ export const GENERAL_AVATAR_MAP: Record<string, string> = {
 
   // === 群雄陣營 (Others / Non-Wei-Shu-Wu) ===
   '呂布': './assets/avatars/others_0_3.png',
-  '貂蟬': './assets/avatars/wu_1_2.png',
   '高順': './assets/avatars/others_0_4.png',
   '陳宮': './assets/avatars/patch2_0_0.png',
   '臧霸': './assets/avatars/others_0_4.png',
@@ -382,6 +381,18 @@ export const GENERAL_AVATAR_MAP: Record<string, string> = {
   '李豐': './assets/avatars/others_1_4.png',
   '梁綱': './assets/avatars/others_1_4.png',
   '韓胤': './assets/avatars/others_2_2.png',
+
+  // === 三國女性名將 (Female Generals) ===
+  '貂蟬': './assets/avatars/girl_0_0.png',
+  '大喬': './assets/avatars/girl_0_1.png',
+  '小喬': './assets/avatars/girl_0_2.png',
+  '孫尚香': './assets/avatars/girl_0_3.png',
+  '蔡文姬': './assets/avatars/girl_0_4.png',
+  '甄姬': './assets/avatars/girl_1_0.png',
+  '王異': './assets/avatars/girl_1_1.png',
+  '關銀屏': './assets/avatars/girl_1_2.png',
+  '張星彩': './assets/avatars/girl_1_3.png',
+  '辛憲英': './assets/avatars/girl_1_4.png',
 };
 
 // 取得武將頭像，未特別登錄者依所屬陣營/字首產生合理的預設頭像

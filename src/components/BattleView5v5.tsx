@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { GeneralAvatar } from "./GeneralAvatar";
 import { GameState, BattleUnit, BattleUnitStatus, CombatLogEntry, FormationTerrainType } from '../types';
 import { getGeneralAvailableSkills, getGeneralPassives, BATTLE_SKILLS } from '../engine/skills';
-import { getSkillQuote } from '../engine/skillQuotes';
+import { getSkillQuote, getRivalryQuote, getSituationalQuote } from '../engine/skillQuotes';
 import { 
   FORMATIONS, 
   getFormationInfo, 
@@ -46,7 +46,16 @@ import {
 interface BattleViewProps {
   key?: string | number;
   gameState: GameState;
-  onResolveBattle: (winner: 'attacker' | 'defender') => void;
+  onResolveBattle: (
+    winner: 'attacker' | 'defender',
+    finalResult?: {
+      units?: { generalName: string; troops: number }[];
+      attackerFood?: number;
+      defenderFood?: number;
+      attackerGold?: number;
+      defenderGold?: number;
+    }
+  ) => void;
   onExit: () => void;
   onUpdateDefenseDeployment?: (params: {
     defendingGenerals: string[];
@@ -166,6 +175,14 @@ export default function BattleView5v5({
     const quote = getSkillQuote(generalName, skillName, genData);
     setActiveSpeech({ unitId, generalName, skillName, quote });
     addLog(`💬【${generalName}】號令：『${quote}』`, 'info');
+    setTimeout(() => {
+      setActiveSpeech(prev => (prev?.unitId === unitId ? null : prev));
+    }, 3200);
+  };
+
+  const triggerCustomSpeech = (unitId: string, generalName: string, titleLabel: string, quote: string) => {
+    setActiveSpeech({ unitId, generalName, skillName: titleLabel, quote });
+    addLog(`💬【${generalName}】對白：『${quote}』`, 'info');
     setTimeout(() => {
       setActiveSpeech(prev => (prev?.unitId === unitId ? null : prev));
     }, 3200);
@@ -726,6 +743,23 @@ export default function BattleView5v5({
     addLog(`⚔️ 【${activeUnit.generalName}】(${activeUnit.formation}陣) ${terrainNote} 揮軍猛攻 ${targetUnit.generalName} ${isCrit ? '💥(暴擊!)' : ''}，造成 ${damage} 傷害！`, 'attack');
     triggerDamagePopup(targetId, `-${damage}`, isCrit);
     triggerMeleeVFX(activeUnit, targetId);
+
+    // 觸發歷史宿敵、破陣大捷與背水一戰動態台詞
+    const targetRemainingTroops = Math.max(0, targetUnit.troops - damage);
+    const rivalryQuote = getRivalryQuote(activeUnit.generalName, targetUnit.generalName);
+
+    if (rivalryQuote) {
+      triggerCustomSpeech(activeUnit.id, activeUnit.generalName, '宿敵交鋒', rivalryQuote);
+    } else if (targetRemainingTroops <= 0) {
+      const killQuote = getSituationalQuote(activeUnit.generalName, 'kill');
+      triggerCustomSpeech(activeUnit.id, activeUnit.generalName, '破陣大捷', killQuote);
+    } else {
+      const maxTargetTroops = gameState.generalsData[targetUnit.generalName]?.soldiers || targetUnit.maxTroops || 1000;
+      if (targetRemainingTroops < maxTargetTroops * 0.25) {
+        const lowHealthQuote = getSituationalQuote(targetUnit.generalName, 'low_health');
+        triggerCustomSpeech(targetUnit.id, targetUnit.generalName, '背水一戰', lowHealthQuote);
+      }
+    }
 
     let newUnits = battleState.units.map((u: any) => {
       if (u.id === targetId) {
@@ -2072,6 +2106,10 @@ export default function BattleView5v5({
     return () => clearTimeout(timer);
   }, [activeUnitId, battleOutcome, isDefenseSetupPhase, isPreBattleFormation, isDefense, battleState]);
 
+  if (!battle || !gameState.activeBattle) {
+    return null;
+  }
+
   // 階段 1: 防守城池援軍調度 (需求 1 & 5)
   if (isDefense && isDefenseSetupPhase && battle) {
     return (
@@ -2183,6 +2221,15 @@ export default function BattleView5v5({
       <div className="absolute inset-0 pointer-events-none z-0 bg-gradient-to-b from-[#141210]/70 via-transparent to-[#141210]/90" />
 
       {/* 戰場地勢移轉浮動通告橫幅 */}
+      {gameState.activeBattle?.encounterTitle && (
+        <div className="absolute top-14 left-1/2 -translate-x-1/2 z-40 px-4 py-2 rounded-xl bg-[#1c1611]/95 border-2 border-amber-500/80 shadow-2xl flex items-center gap-2 animate-bounce backdrop-blur-md">
+          <span className="text-xl">🚨</span>
+          <span className="font-black text-xs sm:text-sm text-amber-300">
+            {gameState.activeBattle.encounterTitle}
+          </span>
+        </div>
+      )}
+
       {terrainShiftBanner && (
         <div className="absolute top-16 left-1/2 -translate-x-1/2 z-40 px-4 py-2 rounded-xl bg-[#1c1611]/95 border-2 shadow-2xl flex items-center gap-2.5 animate-bounce backdrop-blur-md"
           style={{
@@ -2214,6 +2261,16 @@ export default function BattleView5v5({
             <span className="px-1.5 py-0.5 rounded bg-amber-500 text-stone-950 font-black text-[10px] sm:text-xs flex items-center gap-1 shrink-0 shadow">
               📅 {battleState.day || 1}/30 天
             </span>
+            {gameState.activeBattle?.isFieldEncounter && (
+              <span className="px-1.5 py-0.5 rounded bg-rose-600 text-amber-200 font-black text-[10px] sm:text-xs flex items-center gap-1 shrink-0 border border-rose-400 animate-pulse shadow">
+                ⚔️ 野戰遭遇戰
+              </span>
+            )}
+            {gameState.activeBattle?.isSequential && (
+              <span className="px-1.5 py-0.5 rounded bg-amber-600 text-amber-100 font-black text-[10px] sm:text-xs flex items-center gap-1 shrink-0 border border-amber-300 animate-pulse shadow">
+                🔥 車輪戰
+              </span>
+            )}
             {/* 地形標籤 - 依當前地形即時動態發光，手機端全時清晰可見且可點擊開啟地勢圖 */}
             <button
               onClick={() => setShowTerrainMatrixModal(true)}
@@ -2596,7 +2653,19 @@ export default function BattleView5v5({
             </div>
 
             <button
-              onClick={() => onResolveBattle(battleOutcome.winner)}
+              onClick={() => {
+                const finalUnits = (battleState?.units || []).map((u: any) => ({
+                  generalName: u.generalName,
+                  troops: Math.max(0, Math.floor(u.troops || 0))
+                }));
+                onResolveBattle(battleOutcome.winner, {
+                  units: finalUnits,
+                  attackerFood: Math.max(0, Math.floor(battleState?.attackerFood || 0)),
+                  defenderFood: Math.max(0, Math.floor(battleState?.defenderFood || 0)),
+                  attackerGold: battle?.attackerGold ?? 0,
+                  defenderGold: gameState.provincesData[battle?.targetProvinceId || 1]?.gold ?? 0
+                });
+              }}
               className="w-full py-3 rounded-xl font-black text-sm sm:text-base border-2 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-stone-950 border-amber-300 shadow-lg cursor-pointer active:scale-95 transition-all"
             >
               {battleOutcome.isWin ? '👑 凱旋進駐（確認）' : '🛡️ 收拾殘部・班師回城（確認）'}

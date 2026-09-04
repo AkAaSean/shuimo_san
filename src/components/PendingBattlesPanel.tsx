@@ -103,14 +103,24 @@ export default function PendingBattlesPanel({ gameState, onCancelBattle }: Pendi
                     className="p-2.5 border border-stone-400 bg-white rounded shadow-sm text-xs flex flex-col gap-1.5"
                   >
                     {/* Title & Target */}
-                    <div className="flex justify-between items-center border-b border-stone-200 pb-1">
-                      <div>
+                    <div className="flex justify-between items-center border-b border-stone-200 pb-1 flex-wrap gap-1">
+                      <div className="flex items-center gap-1 flex-wrap">
                         <span className="font-black text-sm text-[#991b1b]">
                           #{idx + 1} 攻打【{targetProvInfo?.name || '未知城池'}】
                         </span>
-                        <span className="text-[11px] text-stone-500 font-bold ml-1">
+                        <span className="text-[11px] text-stone-500 font-bold">
                           ({plan.targetProvinceId}郡)
                         </span>
+                        {plan.isFieldEncounter && (
+                          <span className="bg-rose-700 text-amber-200 text-[10px] px-1.5 py-0.2 rounded font-black border border-rose-400 animate-pulse shadow">
+                            ⚔️ 野戰遭遇戰
+                          </span>
+                        )}
+                        {plan.isSequential && (
+                          <span className="bg-amber-700 text-amber-100 text-[10px] px-1.5 py-0.2 rounded font-black border border-amber-300 animate-pulse shadow">
+                            🔥 車輪戰
+                          </span>
+                        )}
                       </div>
 
                       <button

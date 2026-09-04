@@ -148,6 +148,10 @@ export interface PendingBattlePlan {
   defenderReinforceProvinceId?: number | null; // 守方援軍城池
   defenderGeneralOrigins?: Record<string, number>; // 守方武將歸屬城池 ID
   defenderResourcesDeducted?: Record<number, { gold: number; food: number }>; // 守方援軍城池扣除之金糧
+  isSequential?: boolean; // 車輪戰/戰火蔓延 (Case 1)
+  sequentialTag?: string; // e.g. "🔥【車輪戰/戰火蔓延】"
+  isFieldEncounter?: boolean; // 邊境野戰遭遇戰 (Case 2)
+  encounterTitle?: string; // e.g. "⚔️【野戰遭遇戰】兩軍狹路相逢！"
 }
 
 export interface GameState {
@@ -187,6 +191,10 @@ export interface GameState {
     defenderReinforceProvinceId?: number | null;
     defenderGeneralOrigins?: Record<string, number>;
     defenderResourcesDeducted?: Record<number, { gold: number; food: number }>;
+    isSequential?: boolean;
+    sequentialTag?: string;
+    isFieldEncounter?: boolean;
+    encounterTitle?: string;
   } | null;
   pendingBattles?: PendingBattlePlan[];
   pendingDefenses?: PendingBattlePlan[];

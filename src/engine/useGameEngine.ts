@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { GameState, ProvinceState, GeneralState, FormationTerrainType } from '../types';
+import { provinces } from '../data/provinces';
 import { initGame, advanceTime, executeCommand } from './gameLogic';
 import { calculateFormationTerrainCombatModifier } from './formations';
 import { getGeneralItemBonus } from '../data/items';
@@ -153,17 +154,42 @@ export function useGameEngine(initialScenario: number, initialRuler: string, ini
     setGameState(prev => executeCommand(prev, provinceId, category, action, generalName, payload));
   }, []);
 
-  const resolveBattle = useCallback((winner: 'attacker' | 'defender') => {
+  const resolveBattle = useCallback((
+    winner: 'attacker' | 'defender',
+    finalResult?: {
+      units?: { generalName: string; troops: number }[];
+      attackerFood?: number;
+      defenderFood?: number;
+      attackerGold?: number;
+      defenderGold?: number;
+    }
+  ) => {
     setGameState(prev => {
       const battle = prev.activeBattle;
-      if (!battle) return { ...prev, view: 'map' };
+      if (!battle || !prev.provincesData[battle.targetProvinceId]) {
+        return { ...prev, activeBattle: null, pendingBattles: [], pendingDefenses: [], view: 'map' };
+      }
 
       const baseState = { ...prev, provincesData: { ...prev.provincesData }, generalsData: { ...prev.generalsData } };
-      const targetProv = { ...baseState.provincesData[battle.targetProvinceId] };
+      const targetProvRaw = baseState.provincesData[battle.targetProvinceId];
+      if (!targetProvRaw) {
+        return { ...prev, activeBattle: null, pendingBattles: [], pendingDefenses: [], view: 'map' };
+      }
+      const targetProv = { ...targetProvRaw };
       const primaryAtkCityId = battle.attackerProvinceId;
       const reinforceAtkCityId = battle.attackerReinforceProvinceId;
       const defReinforceCityId = battle.defenderReinforceProvinceId;
       const isDefense = battle.isDefense;
+
+      // 建立戰場結束時各將領的實際殘餘兵力對照表
+      const unitTroopsMap: Record<string, number> = {};
+      if (finalResult?.units) {
+        finalResult.units.forEach(u => {
+          if (u.generalName) {
+            unitTroopsMap[u.generalName] = Math.max(0, Math.floor(u.troops));
+          }
+        });
+      }
 
       const winnerRuler = winner === 'attacker'
         ? (isDefense ? battle.attackerRuler! : prev.rulerName)
@@ -180,21 +206,25 @@ export function useGameEngine(initialScenario: number, initialRuler: string, ini
         // --- 1. 攻方勝利 (破城) ---
         targetProv.rulerName = winnerRuler;
         
-        // 金糧戰後處理：接管守方城池 60% 金糧，其餘 40% 戰火損耗
+        // 金糧戰後處理：接管守方城池 60% 金糧 (40% 戰火損耗)
         const oldGold = targetProv.gold;
         const oldFood = targetProv.food;
+        const finalDefFood = finalResult?.defenderFood ?? oldFood;
         targetProv.gold = Math.floor(oldGold * 0.6);
-        targetProv.food = Math.floor(oldFood * 0.6);
+        targetProv.food = Math.floor(finalDefFood * 0.6);
 
-        // 隨軍攜帶錢糧移入新城池 (主進攻城池)
+        // 攻方隨軍剩餘未消耗軍糧與軍費全部注入新城池
+        const finalAtkFood = finalResult?.attackerFood ?? (battle.resourcesDeducted?.[primaryAtkCityId]?.food ?? 0);
+        const finalAtkGold = finalResult?.attackerGold ?? (battle.resourcesDeducted?.[primaryAtkCityId]?.gold ?? 0);
+        targetProv.food += finalAtkFood;
+        targetProv.gold += finalAtkGold;
+
+        // 若有攻方援軍城池隨軍扣款，剩餘物資返還原援軍城池
         if (battle.resourcesDeducted) {
           Object.entries(battle.resourcesDeducted).forEach(([pIdStr, resVal]) => {
             const res = resVal as { gold: number; food: number };
             const pId = Number(pIdStr);
-            if (pId === primaryAtkCityId) {
-              targetProv.gold += res.gold;
-              targetProv.food += res.food;
-            } else if (baseState.provincesData[pId]) {
+            if (pId !== primaryAtkCityId && baseState.provincesData[pId]) {
               baseState.provincesData[pId].gold += res.gold;
               baseState.provincesData[pId].food += res.food;
             }
@@ -207,38 +237,35 @@ export function useGameEngine(initialScenario: number, initialRuler: string, ini
         targetProv.commerce = Math.max(10, Math.floor((targetProv.commerce || 50) * 0.8));
         targetProv.isAutonomous = false;
 
-        // 攻擊方將領進駐
+        // 攻擊方將領進駐新城池，並精準更新戰後真實殘餘兵力
         battle.attackingGenerals.forEach(gName => {
           const gen = baseState.generalsData[gName];
           if (gen) {
             const originCity = battle.attackerGeneralOrigins?.[gName] ?? primaryAtkCityId;
-            if (originCity === primaryAtkCityId) {
-              baseState.generalsData[gName] = {
-                ...gen,
-                provinceId: battle.targetProvinceId,
-                hasActed: true
-              };
-            } else if (reinforceAtkCityId && originCity === reinforceAtkCityId) {
-              baseState.generalsData[gName] = {
-                ...gen,
-                provinceId: reinforceAtkCityId,
-                hasActed: true
-              };
-            }
+            const destCity = (originCity === primaryAtkCityId) ? battle.targetProvinceId : (reinforceAtkCityId || originCity);
+            const finalTroops = unitTroopsMap[gName] !== undefined ? unitTroopsMap[gName] : gen.soldiers;
+            baseState.generalsData[gName] = {
+              ...gen,
+              provinceId: destCity,
+              hasActed: true,
+              soldiers: Math.max(0, finalTroops)
+            };
           }
         });
 
         // 檢查敗方是否滅國 (被攻陷後在全地圖是否已無任何城池)
-        const remainingDefCities = (Object.values(baseState.provincesData) as ProvinceState[]).filter(p => p.id !== battle.targetProvinceId && p.rulerName === defeatedRuler);
+        const remainingDefCities = (Object.values(baseState.provincesData) as ProvinceState[]).filter(p => p && p.id !== battle.targetProvinceId && p.rulerName === defeatedRuler);
         const isEliminated = remainingDefCities.length === 0;
         isFactionEliminated = isEliminated;
         const isIsolated = isCityIsolated(battle.targetProvinceId, defeatedRuler, baseState.provincesData);
 
-        // 處理敵方守將 (與援軍) 的俘虜與逃脫
+        // 處理敵方守將 (與援軍) 的俘虜、逃脫與戰後兵力
         battle.defendingGenerals.forEach(gName => {
           const gen = baseState.generalsData[gName];
           if (gen) {
             const defOrigin = battle.defenderGeneralOrigins?.[gName] ?? battle.targetProvinceId;
+            const finalTroops = unitTroopsMap[gName] !== undefined ? unitTroopsMap[gName] : Math.floor(gen.soldiers * 0.5);
+
             if (defOrigin === battle.targetProvinceId) {
               // 守城本陣武將判定俘虜
               const rate = calculateCaptiveRate(gen, true, isIsolated, isEliminated);
@@ -258,7 +285,7 @@ export function useGameEngine(initialScenario: number, initialRuler: string, ini
                   };
                 } else {
                   // AI 勝，自動決策處置俘虜
-                  const winnerGen = (Object.values(baseState.generalsData) as GeneralState[]).find(g => g.name === winnerRuler) || null;
+                  const winnerGen = (Object.values(baseState.generalsData) as GeneralState[]).find(g => g && g.name === winnerRuler) || null;
                   const decision = processAICaptiveDecision(gen, winnerRuler, winnerGen, battle.targetProvinceId, isEliminated, gName === defeatedRuler, defeatedRuler);
 
                   if (decision.action === 'recruit') {
@@ -272,21 +299,21 @@ export function useGameEngine(initialScenario: number, initialRuler: string, ini
                   }
                 }
               } else {
-                // 逃脫退為在野或逃回殘存城池
+                // 逃脫退為在野或逃回殘存城池，更新殘兵
                 baseState.generalsData[gName] = {
                   ...gen,
                   isWild: isEliminated,
                   provinceId: isEliminated ? null : (remainingDefCities[0]?.id || battle.targetProvinceId),
-                  soldiers: 0,
+                  soldiers: Math.max(0, finalTroops),
                   loyalty: Math.max(0, gen.loyalty - 20)
                 };
               }
             } else if (defReinforceCityId && defOrigin === defReinforceCityId) {
-              // 敵方援軍退回原城池 (折損半數兵馬)
+              // 敵方援軍退回原城池，保留戰後殘兵
               baseState.generalsData[gName] = {
                 ...gen,
                 provinceId: defReinforceCityId,
-                soldiers: Math.floor(gen.soldiers * 0.5)
+                soldiers: Math.max(0, finalTroops)
               };
             }
           }
@@ -306,49 +333,65 @@ export function useGameEngine(initialScenario: number, initialRuler: string, ini
 
         let victoryMsg = isDefense 
           ? `敵軍攻勢太猛，我軍無力回天，【${targetProv.name}】已落入敵方手中...` 
-          : `我軍英勇善戰，成功攻破【${targetProv.name}】！大獲全勝並接管該城 60% 資糧（隨軍糧餉完全收歸）！`;
+          : `我軍英勇善戰，成功攻破【${targetProv.name}】！大獲全勝並接管該城資糧（隨軍剩餘糧餉全數收歸新城）！`;
 
         if (isEliminated) {
           victoryMsg += ` 敵方勢力【${defeatedRuler}】就此滅亡！城內將領悉數被俘！`;
         }
 
-        baseState.lastActionResult = {
-          action: isDefense ? '守城失敗' : '攻城勝利',
-          title: isDefense ? '💀 城池陷落' : (isEliminated ? '👑 滅國大捷：天下一統之階！' : '🔥 攻城大捷：破城奪地！'),
-          message: victoryMsg,
-          type: isDefense ? 'failure' : 'success'
-        };
+        if (battle.isFieldEncounter) {
+          baseState.lastActionResult = {
+            action: '野戰勝捷',
+            title: '⚔️ 野戰大捷：破陣奪城！',
+            message: `我軍在邊境野戰中擊潰敵軍主力，隨即乘勝追擊攻克【${targetProv.name}】！`,
+            type: 'success'
+          };
+        } else {
+          baseState.lastActionResult = {
+            action: isDefense ? '守城失敗' : '攻城勝利',
+            title: isDefense ? '💀 城池陷落' : (isEliminated ? '👑 滅國大捷：天下一統之階！' : '🔥 攻城大捷：破城奪地！'),
+            message: victoryMsg,
+            type: isDefense ? 'failure' : 'success'
+          };
+        }
 
       } else {
         // --- 2. 守方勝利 (擊退攻方) ---
-        // 繳獲攻方隨軍攜帶錢糧之 60%
+        const finalDefFood = finalResult?.defenderFood ?? targetProv.food;
+        const finalAtkFood = finalResult?.attackerFood ?? (battle.resourcesDeducted?.[primaryAtkCityId]?.food ?? 0);
+        const finalAtkGold = finalResult?.attackerGold ?? (battle.resourcesDeducted?.[primaryAtkCityId]?.gold ?? 0);
+
+        // 繳獲攻方隨軍剩餘攜帶錢糧之 50% 為戰利品，其餘 50% 攜回原城
+        const lootedFood = Math.floor(finalAtkFood * 0.5);
+        const lootedGold = Math.floor(finalAtkGold * 0.5);
+
+        targetProv.food = finalDefFood + lootedFood;
+        targetProv.gold = targetProv.gold + lootedGold;
+
+        // 剩餘 50% 隨軍物資由敗退攻方攜回原城
+        if (baseState.provincesData[primaryAtkCityId]) {
+          baseState.provincesData[primaryAtkCityId].food += (finalAtkFood - lootedFood);
+          baseState.provincesData[primaryAtkCityId].gold += (finalAtkGold - lootedGold);
+        }
+
+        // 攻方援軍城池隨軍扣款返還
         if (battle.resourcesDeducted) {
           Object.entries(battle.resourcesDeducted).forEach(([pIdStr, resVal]) => {
             const res = resVal as { gold: number; food: number };
             const pId = Number(pIdStr);
-            if (pId === primaryAtkCityId) {
-              const lootedGold = Math.floor(res.gold * 0.6);
-              const lootedFood = Math.floor(res.food * 0.6);
-              targetProv.gold += lootedGold;
-              targetProv.food += lootedFood;
-
-              // 剩餘 40% 攜回原城
-              if (baseState.provincesData[pId]) {
-                baseState.provincesData[pId].gold += (res.gold - lootedGold);
-                baseState.provincesData[pId].food += (res.food - lootedFood);
-              }
-            } else if (baseState.provincesData[pId]) {
+            if (pId !== primaryAtkCityId && baseState.provincesData[pId]) {
               baseState.provincesData[pId].gold += res.gold;
               baseState.provincesData[pId].food += res.food;
             }
           });
         }
 
-        // 敗退攻擊方將領判定俘虜
+        // 敗退攻擊方將領更新殘兵與俘虜判定
         battle.attackingGenerals.forEach(gName => {
           const gen = baseState.generalsData[gName];
           if (gen) {
             const originCity = battle.attackerGeneralOrigins?.[gName] ?? primaryAtkCityId;
+            const finalTroops = unitTroopsMap[gName] !== undefined ? unitTroopsMap[gName] : Math.floor(gen.soldiers * 0.4);
             const rate = calculateCaptiveRate(gen, false, false, false);
             const isCaptured = Math.random() < rate;
 
@@ -364,7 +407,7 @@ export function useGameEngine(initialScenario: number, initialRuler: string, ini
                   soldiers: 0
                 };
               } else {
-                const winnerGen = (Object.values(baseState.generalsData) as GeneralState[]).find(g => g.name === winnerRuler) || null;
+                const winnerGen = (Object.values(baseState.generalsData) as GeneralState[]).find(g => g && g.name === winnerRuler) || null;
                 const decision = processAICaptiveDecision(gen, winnerRuler, winnerGen, battle.targetProvinceId, false, gName === defeatedRuler, defeatedRuler);
 
                 if (decision.action === 'recruit') {
@@ -381,21 +424,25 @@ export function useGameEngine(initialScenario: number, initialRuler: string, ini
               baseState.generalsData[gName] = {
                 ...gen,
                 provinceId: originCity,
-                soldiers: Math.floor(gen.soldiers * 0.4),
+                soldiers: Math.max(0, finalTroops),
                 hasActed: true
               };
             }
           }
         });
 
-        // 守方將領歸位
+        // 守方將領歸位並保持戰後殘兵
         battle.defendingGenerals.forEach(gName => {
           const gen = baseState.generalsData[gName];
           if (gen) {
             const defOrigin = battle.defenderGeneralOrigins?.[gName] ?? battle.targetProvinceId;
-            if (defReinforceCityId && defOrigin === defReinforceCityId) {
-              baseState.generalsData[gName] = { ...gen, provinceId: defReinforceCityId };
-            }
+            const defCity = (defReinforceCityId && defOrigin === defReinforceCityId) ? defReinforceCityId : battle.targetProvinceId;
+            const finalTroops = unitTroopsMap[gName] !== undefined ? unitTroopsMap[gName] : gen.soldiers;
+            baseState.generalsData[gName] = {
+              ...gen,
+              provinceId: defCity,
+              soldiers: Math.max(0, finalTroops)
+            };
           }
         });
 
@@ -411,14 +458,33 @@ export function useGameEngine(initialScenario: number, initialRuler: string, ini
           });
         }
 
-        baseState.lastActionResult = {
-          action: isDefense ? '守城勝利' : '攻城失敗',
-          title: isDefense ? '🛡️ 防守成功：固若金湯！' : '❌ 攻城失利：鳴金收兵',
-          message: isDefense 
-             ? `我軍將士用命，成功擊退了敵軍進犯並繳獲敵軍 60% 隨軍糧餉！【${targetProv.name}】安然無恙！` 
-             : `敵軍防守嚴密，我軍久攻不下，各路兵馬只好撤回原城...`,
-          type: isDefense ? 'success' : 'failure'
-        };
+        if (battle.isFieldEncounter) {
+          const counterCityName = baseState.provincesData[primaryAtkCityId]?.name || '敵城';
+          if (winnerRuler === prev.rulerName) {
+            baseState.lastActionResult = {
+              action: '野戰勝捷',
+              title: '⚔️ 野戰反擊大捷：破敵奪城！',
+              message: `我軍在邊境野戰中殲滅來犯敵軍主力，並乘勝反攻奪取了【${counterCityName}】！`,
+              type: 'success'
+            };
+          } else {
+            baseState.lastActionResult = {
+              action: '野戰失利',
+              title: '⚔️ 野戰失利：敵軍反擊破城！',
+              message: `我軍在邊境野戰中不幸潰敗，敵軍乘勝反攻奪取了我方城池【${counterCityName}】...`,
+              type: 'failure'
+            };
+          }
+        } else {
+          baseState.lastActionResult = {
+            action: isDefense ? '守城勝利' : '攻城失敗',
+            title: isDefense ? '🛡️ 防守成功：固若金湯！' : '❌ 攻城失利：鳴金收兵',
+            message: isDefense 
+               ? `我軍將士用命，成功擊退了敵軍進犯並繳獲敵軍 50% 隨軍糧餉！【${targetProv.name}】安然無恙！` 
+               : `敵軍防守嚴密，我軍久攻不下，各路兵馬帶領殘部撤回原城...`,
+            type: isDefense ? 'success' : 'failure'
+          };
+        }
       }
 
       // 如果玩家勝利且生擒俘虜，存入 pendingCaptives
@@ -436,7 +502,7 @@ export function useGameEngine(initialScenario: number, initialRuler: string, ini
 
       baseState.provincesData[targetProv.id] = targetProv;
       
-      // 檢查是否還有後續排定之戰役
+      // 檢查是否還有後續排定之戰役 (Case 1 車輪戰與戰火蔓延動態更新)
       let remainingBattles = baseState.pendingBattles || [];
       let isNextDefense = false;
       
@@ -446,7 +512,34 @@ export function useGameEngine(initialScenario: number, initialRuler: string, ini
       }
       
       if (remainingBattles.length > 0) {
-        const [nextBattle, ...rest] = remainingBattles;
+        const [nextBattleRaw, ...rest] = remainingBattles;
+        let nextBattle = { ...nextBattleRaw };
+
+        // 🔥 Case 1: 車輪戰與戰火蔓延動態更新
+        if (nextBattle.targetProvinceId === battle.targetProvinceId) {
+          const currentCityOwner = baseState.provincesData[battle.targetProvinceId]?.rulerName || winnerRuler;
+          
+          // 收集目前位於該城池且存活、未被俘虜的守備將領 (包含剛贏得第一戰之駐將)
+          const currentDefGens = (Object.values(baseState.generalsData) as GeneralState[])
+            .filter(g => g && g.provinceId === battle.targetProvinceId && g.soldiers > 0 && !g.isWild && !g.isCaptive)
+            .map(g => g.name);
+
+          nextBattle.defenderRuler = currentCityOwner;
+          if (currentDefGens.length > 0) {
+            nextBattle.defendingGenerals = currentDefGens;
+          }
+          nextBattle.isSequential = true;
+          nextBattle.sequentialTag = "🔥【車輪戰/戰火蔓延】";
+
+          if (currentCityOwner === prev.rulerName) {
+            nextBattle.isDefense = true;
+            isNextDefense = true;
+            nextBattle.encounterTitle = `🔥【車輪戰急報】敵軍【${nextBattle.attackerRuler || '敵勢力'}】趁我軍剛攻克城池立足未穩，急襲而來！殘部需就地禦敵！`;
+          } else {
+            nextBattle.isDefense = false;
+            nextBattle.encounterTitle = `🔥【戰火蔓延】城池連環車輪大戰開打！`;
+          }
+        }
         
         const atkStrategist = getBestStrategistForBattle(
           nextBattle.attackerStrategist,
@@ -481,7 +574,11 @@ export function useGameEngine(initialScenario: number, initialRuler: string, ini
             defenderPrimaryProvinceId: nextBattle.defenderPrimaryProvinceId,
             defenderReinforceProvinceId: nextBattle.defenderReinforceProvinceId,
             defenderGeneralOrigins: nextBattle.defenderGeneralOrigins,
-            defenderResourcesDeducted: nextBattle.defenderResourcesDeducted
+            defenderResourcesDeducted: nextBattle.defenderResourcesDeducted,
+            isSequential: nextBattle.isSequential,
+            sequentialTag: nextBattle.sequentialTag,
+            isFieldEncounter: nextBattle.isFieldEncounter,
+            encounterTitle: nextBattle.encounterTitle
           },
           pendingBattles: isNextDefense ? [] : rest,
           pendingDefenses: isNextDefense ? rest : baseState.pendingDefenses,
@@ -507,7 +604,7 @@ export function useGameEngine(initialScenario: number, initialRuler: string, ini
           return {
             ...nextMonthState,
             lastActionResult: baseState.lastActionResult,
-            view: 'map'
+            view: nextMonthState.activeBattle ? 'battle' : 'map'
           };
       }
     });
@@ -525,7 +622,7 @@ export function useGameEngine(initialScenario: number, initialRuler: string, ini
       const gen = baseState.generalsData[generalName];
       if (!gen) return prev;
 
-      const playerRulerGen = (Object.values(baseState.generalsData) as GeneralState[]).find(g => g.name === prev.rulerName) || null;
+      const playerRulerGen = (Object.values(baseState.generalsData) as GeneralState[]).find(g => g && g.name === prev.rulerName) || null;
       const playerCha = playerRulerGen?.cha || 80;
 
       if (action === 'recruit') {
@@ -760,6 +857,129 @@ export function useGameEngine(initialScenario: number, initialRuler: string, ini
     });
   }, []);
 
+  const triggerTestScenarioCase1 = useCallback(() => {
+    setGameState(prev => {
+      const allProvinces = Object.values(prev.provincesData) as ProvinceState[];
+      const playerProvinces = allProvinces.filter(p => p.rulerName === prev.rulerName);
+      const enemyProvinces = allProvinces.filter(p => p.rulerName && p.rulerName !== prev.rulerName);
+
+      const playerProv = playerProvinces[0] || allProvinces[0];
+      const targetProv = enemyProvinces[0] || allProvinces[1] || allProvinces[0];
+      const thirdProv = enemyProvinces[1] || playerProvinces[1] || targetProv;
+
+      const playerGens = (Object.values(prev.generalsData) as GeneralState[])
+        .filter(g => g.provinceId === playerProv.id && g.soldiers > 0 && !g.isWild && !g.isCaptive)
+        .map(g => g.name);
+      const targetGens = (Object.values(prev.generalsData) as GeneralState[])
+        .filter(g => g.provinceId === targetProv.id && g.soldiers > 0 && !g.isWild && !g.isCaptive)
+        .map(g => g.name);
+      const thirdGens = (Object.values(prev.generalsData) as GeneralState[])
+        .filter(g => g.provinceId === thirdProv.id && g.soldiers > 0 && !g.isWild && !g.isCaptive)
+        .map(g => g.name);
+
+      const atkGens1 = playerGens.slice(0, 3).length > 0 ? playerGens.slice(0, 3) : ['關羽', '張飛'];
+      const defGens1 = targetGens.slice(0, 3).length > 0 ? targetGens.slice(0, 3) : ['夏侯惇', '曹仁'];
+      const atkGens2 = thirdGens.slice(0, 3).length > 0 ? thirdGens.slice(0, 3) : ['周瑜', '陸遜'];
+
+      const targetProvName = provinces.find(p => p.id === targetProv.id)?.name || '城池';
+
+      const battle1 = {
+        id: 'test_c1_1_' + Date.now(),
+        isDefense: false,
+        attackerRuler: prev.rulerName,
+        defenderRuler: targetProv.rulerName || '敵勢力',
+        targetProvinceId: targetProv.id,
+        attackerProvinceId: playerProv.id,
+        attackingGenerals: atkGens1,
+        defendingGenerals: defGens1,
+        attackerGold: 100,
+        attackerFood: 500,
+        resourcesDeducted: {},
+        defenderResourcesDeducted: {},
+        attackerGeneralOrigins: {},
+        defenderGeneralOrigins: {},
+        isSequential: true,
+        sequentialTag: '🔥【車輪戰/第一波強攻】',
+        encounterTitle: `🔥【車輪戰/第一波】我軍進攻【${targetProvName}】！第二波敵軍正同步逼近！`
+      };
+
+      const battle2 = {
+        id: 'test_c1_2_' + Date.now(),
+        isDefense: false,
+        attackerRuler: thirdProv.rulerName || '孫權',
+        defenderRuler: targetProv.rulerName || '敵勢力',
+        targetProvinceId: targetProv.id,
+        attackerProvinceId: thirdProv.id,
+        attackingGenerals: atkGens2,
+        defendingGenerals: defGens1,
+        attackerGold: 100,
+        attackerFood: 500,
+        resourcesDeducted: {},
+        defenderResourcesDeducted: {},
+        attackerGeneralOrigins: {},
+        defenderGeneralOrigins: {},
+        isSequential: true,
+        sequentialTag: '🔥【車輪戰/第二波連環強攻】'
+      };
+
+      return {
+        ...prev,
+        activeBattle: battle1,
+        pendingBattles: [battle2],
+        pendingDefenses: []
+      };
+    });
+  }, []);
+
+  const triggerTestScenarioCase2 = useCallback(() => {
+    setGameState(prev => {
+      const allProvinces = Object.values(prev.provincesData) as ProvinceState[];
+      const playerProvinces = allProvinces.filter(p => p.rulerName === prev.rulerName);
+      const enemyProvinces = allProvinces.filter(p => p.rulerName && p.rulerName !== prev.rulerName);
+
+      const playerProv = playerProvinces[0] || allProvinces[0];
+      const targetProv = enemyProvinces[0] || allProvinces[1] || allProvinces[0];
+
+      const playerGens = (Object.values(prev.generalsData) as GeneralState[])
+        .filter(g => g.provinceId === playerProv.id && g.soldiers > 0 && !g.isWild && !g.isCaptive)
+        .map(g => g.name);
+      const targetGens = (Object.values(prev.generalsData) as GeneralState[])
+        .filter(g => g.provinceId === targetProv.id && g.soldiers > 0 && !g.isWild && !g.isCaptive)
+        .map(g => g.name);
+
+      const atkGens = playerGens.slice(0, 3).length > 0 ? playerGens.slice(0, 3) : ['趙雲', '黃忠'];
+      const defGens = targetGens.slice(0, 3).length > 0 ? targetGens.slice(0, 3) : ['張遼', '徐晃'];
+
+      const targetProvName = provinces.find(p => p.id === targetProv.id)?.name || '城池';
+
+      const fieldBattle = {
+        id: 'test_c2_' + Date.now(),
+        isDefense: false,
+        attackerRuler: prev.rulerName,
+        defenderRuler: targetProv.rulerName || '敵勢力',
+        targetProvinceId: targetProv.id,
+        attackerProvinceId: playerProv.id,
+        attackingGenerals: atkGens,
+        defendingGenerals: defGens,
+        attackerGold: 100,
+        attackerFood: 500,
+        resourcesDeducted: {},
+        defenderResourcesDeducted: {},
+        attackerGeneralOrigins: {},
+        defenderGeneralOrigins: {},
+        isFieldEncounter: true,
+        encounterTitle: `⚔️【野戰遭遇戰】我軍進攻【${targetProvName}】途中，與敵軍大軍在邊境狹路相逢！`
+      };
+
+      return {
+        ...prev,
+        activeBattle: fieldBattle,
+        pendingBattles: [],
+        pendingDefenses: []
+      };
+    });
+  }, []);
+
   return {
     gameState,
     actions: {
@@ -776,6 +996,8 @@ export function useGameEngine(initialScenario: number, initialRuler: string, ini
       clearActionResult,
       clearMonthlyEvents,
       respondDiplomacyOffer,
+      triggerTestScenarioCase1,
+      triggerTestScenarioCase2,
       loadGameState,
       resetGame
     }
