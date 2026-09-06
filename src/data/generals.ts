@@ -5923,8 +5923,7 @@ export const generals: General[] = [
       "-"
     ],
     "formations": ["鶴翼", "雁行", "方圓"],
-    "skills": ["疑兵", "偽報", "挑釁", "激勵", "解策"]
-  },
+    },
   {
     "name": "大喬",
     "role": "一般",
@@ -5943,8 +5942,7 @@ export const generals: General[] = [
       "-"
     ],
     "formations": ["雁行", "水陣", "鶴翼"],
-    "skills": ["治傷", "援軍", "激勵", "解策"]
-  },
+    },
   {
     "name": "小喬",
     "role": "一般",
@@ -5963,8 +5961,7 @@ export const generals: General[] = [
       "-"
     ],
     "formations": ["雁行", "水陣", "鶴翼"],
-    "skills": ["火計", "水攻", "激勵", "治傷"]
-  },
+    },
   {
     "name": "孫尚香",
     "role": "將軍",
@@ -5983,8 +5980,7 @@ export const generals: General[] = [
       21
     ],
     "formations": ["錐行", "雁行", "魚鱗"],
-    "skills": ["火矢", "亂射", "連突", "奮戰"]
-  },
+    },
   {
     "name": "蔡文姬",
     "role": "軍師",
@@ -6003,8 +5999,7 @@ export const generals: General[] = [
       15
     ],
     "formations": ["雁行", "方圓", "鶴翼"],
-    "skills": ["治傷", "援軍", "解策", "激勵", "疑兵"]
-  },
+    },
   {
     "name": "甄姬",
     "role": "一般",
@@ -6023,8 +6018,7 @@ export const generals: General[] = [
       "-"
     ],
     "formations": ["鶴翼", "方圓", "水陣"],
-    "skills": ["治傷", "激勵", "疑兵", "挑釁", "水攻"]
-  },
+    },
   {
     "name": "王異",
     "role": "將軍",
@@ -6043,8 +6037,7 @@ export const generals: General[] = [
       16
     ],
     "formations": ["鋒矢", "錐行", "方圓"],
-    "skills": ["落石", "山崩", "疑兵", "解策", "連突"]
-  },
+    },
   {
     "name": "關銀屏",
     "role": "將軍",
@@ -6063,8 +6056,7 @@ export const generals: General[] = [
       36
     ],
     "formations": ["魚鱗", "錐行", "鋒矢"],
-    "skills": ["連突", "貫通", "橫掃", "奮戰"]
-  },
+    },
   {
     "name": "張星彩",
     "role": "將軍",
@@ -6083,8 +6075,7 @@ export const generals: General[] = [
       36
     ],
     "formations": ["方圓", "魚鱗", "錐行"],
-    "skills": ["鐵壁衝撞", "橫掃", "激勵", "治傷", "奮戰"]
-  },
+    },
   {
     "name": "辛憲英",
     "role": "軍師",
@@ -6103,6 +6094,5 @@ export const generals: General[] = [
       15
     ],
     "formations": ["方圓", "雁行", "鶴翼"],
-    "skills": ["疑兵", "偽報", "解策", "落石", "激勵"]
-  }
+    }
 ];

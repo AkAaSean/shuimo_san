@@ -35,15 +35,18 @@ export interface Province {
   floodGrowthRate: number;
   terrain?: FormationTerrainType;
   terrainRatio?: TerrainRatio;
+  isPass?: boolean;
 }
 
 export interface BattleSkill {
   name: string;
   cost: number; // 體力消耗
-  category: '特殊攻擊' | '計謀';
+  category: '特殊攻擊' | '計謀' | '專屬奧義';
   desc: string;
   condition?: string;
   target?: '單體' | '相鄰' | '全體' | '自己';
+  isUltimate?: boolean;
+  exclusiveGeneral?: string;
 }
 
 export type PassiveSkillId = '沉著' | '反計' | '無雙' | '奮發' | '回射' | '騎射' | '藤甲';
@@ -93,6 +96,7 @@ export interface ProvinceState {
   isAutonomous?: boolean; // 郡縣自治標記
   autonomyPolicy?: AutonomyPolicy; // 自治方針：balanced(均衡發展) | agriculture(農墾積糧) | commerce(商貿富邑) | military(軍備擴張) | disaster(防汛固本)
   hasDraftedThisMonth?: boolean; // 本月是否已執行過徵兵 (每城每月限一次)
+  isPass?: boolean; // 是否為戰略關隘要塞
 }
 
 export interface GeneralState {
@@ -339,6 +343,9 @@ export interface BattleUnit {
   morale?: number; // 士氣 (0 ~ 100)
   training?: number; // 訓練度 (0 ~ 100)
   status?: BattleUnitStatus; // 狀態：正常 / 混亂 / 著火 / 恐慌 / 鼓舞 / 防禦
+  poisonTurns?: number; // 劇毒瘴氣剩餘回合數 (賈詡奧義：每回合扣除 8% 兵力與 15 體力)
+  invincibleTurns?: number; // 龍膽無敵閃避剩餘回合數 (趙雲奧義：無視並閃避所有傷害)
+  stealthTurns?: number; // 匿跡潛行 (呂蒙奧義：下一次攻擊必中且無法被反擊)
   hasActed?: boolean; // 本日是否已行動
   hasMovedThisTurn?: boolean; // 本回合是否已移動 (每回合限移動一次)
   attackBuff?: number; // 夾擊激發之攻擊力加成 (如無雙激發)

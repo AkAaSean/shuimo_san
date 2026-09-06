@@ -31,11 +31,18 @@ export function getTerrainBackgroundUrl(terrain?: string, provinceId?: number): 
     case '險山':
     case '峽谷':
       return './assets/mountain.jpg';
-    case '城池':
-    case '城郭':
     case '關隘':
     case '關卡':
+      return './assets/gate.jpg';
+    case '城池':
+    case '城郭':
     case '太守府':
+      if (provinceId && provinceId >= 101) {
+        return './assets/gate.jpg';
+      }
+      if (provinceId && [15, 16].includes(provinceId)) {
+        return './assets/king_city.jpg';
+      }
       if (provinceId && [20, 26, 40, 42].includes(provinceId)) {
         return './assets/city3.jpg';
       }

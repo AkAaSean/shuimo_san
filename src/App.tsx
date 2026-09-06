@@ -29,7 +29,7 @@ import { RulerSuccessionModal } from './components/RulerSuccessionModal';
 import { GameOverModal } from './components/GameOverModal';
 import { DiplomacyOfferModal } from './components/DiplomacyOfferModal';
 import { useGameEngine } from './engine/useGameEngine';
-import { GameState, ProvinceState } from './types';
+import { GameState, ProvinceState, GeneralState } from './types';
 import { provinces } from './data/provinces';
 
 function GameApp({
@@ -371,6 +371,7 @@ function GameApp({
                 onSelectProvince={actions.selectProvince}
                 onClearSelection={actions.clearSelection}
                 provincesData={gameState.provincesData}
+                month={gameState.month}
               />
               
               {/* 左側浮動區：選中的城池資訊與出征軍務標籤 */}
@@ -505,8 +506,13 @@ function GameApp({
                   }
                 );
                 actions.setView('map');
-                const targetCityName = provinces.find(p => p.id === targetProvinceId)?.name || '敵城';
-                showToast(`⚔️ 已排定進軍【${targetCityName}】！全軍將於本月『休息』時正式發動進攻！`);
+                const targetDefGens = (Object.values(gameState.generalsData) as GeneralState[]).filter(g => g && g.provinceId === targetProvinceId && !g.isWild);
+                const targetCityName = provinces.find(p => p.id === targetProvinceId)?.name || '城池';
+                if (targetDefGens.length === 0) {
+                  showToast(`🏰【${targetCityName}】無人駐守，我軍兵不血刃已直接佔領進駐！`);
+                } else {
+                  showToast(`⚔️ 已排定進軍【${targetCityName}】！全軍將於本月『休息』時正式發動進攻！`);
+                }
               }}
             />
           </motion.div>

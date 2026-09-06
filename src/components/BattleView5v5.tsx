@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { GeneralAvatar } from "./GeneralAvatar";
 import { GameState, BattleUnit, BattleUnitStatus, CombatLogEntry, FormationTerrainType } from '../types';
-import { getGeneralAvailableSkills, getGeneralPassives, BATTLE_SKILLS } from '../engine/skills';
+import { getGeneralAvailableSkills, getGeneralPassives, BATTLE_SKILLS, isUltimateSkill } from '../engine/skills';
+import { executeUltimateSkill } from '../engine/ultimateSkillResolver';
 import { getSkillQuote, getRivalryQuote, getSituationalQuote } from '../engine/skillQuotes';
 import { 
   FORMATIONS, 
@@ -34,6 +35,7 @@ import {
   Sparkles, 
   Wheat, 
   BookOpen,
+  Compass,
   Users,
   ListOrdered,
   Info,
@@ -145,10 +147,12 @@ export default function BattleView5v5({
       targetUnitIds,
       isAoe,
       quote,
-      duration: 1200
+      duration: isUltimateSkill(skillName) ? 1700 : 1200
     });
 
-    if (['無雙', '山崩', '業火', '水龍計', '橫掃', '鐵壁衝撞'].includes(skillName)) {
+    if (isUltimateSkill(skillName)) {
+      triggerScreenShake('heavy');
+    } else if (['無雙', '山崩', '業火', '水龍計', '橫掃', '鐵壁衝撞'].includes(skillName)) {
       triggerScreenShake('heavy');
     } else {
       triggerScreenShake('light');
@@ -197,11 +201,16 @@ export default function BattleView5v5({
 
   // 技能類型判定輔助函數
   const isAllySkill = (skillName?: string | null) => {
-    return skillName === '治傷' || skillName === '解策' || skillName === '激勵' || skillName === '援軍';
+    return skillName === '治傷' || skillName === '解策' || skillName === '激勵' || skillName === '援軍'
+      || skillName === '短歌行・天下歸心' || skillName === '八陣圖・奇門遁甲' || skillName === '拔矢啖睛・剛烈';
   };
 
   const isAoeSkill = (skillName?: string | null) => {
-    return skillName === '亂射' || skillName === '業火' || skillName === '水龍計' || skillName === '山崩' || skillName === '偽報' || skillName === '援軍';
+    return skillName === '亂射' || skillName === '業火' || skillName === '水龍計' || skillName === '山崩' || skillName === '偽報' || skillName === '援軍'
+      || skillName === '鬼神・天下無雙' || skillName === '火燒赤壁・連環' || skillName === '夷陵烈焰・連營'
+      || skillName === '八陣圖・奇門遁甲' || skillName === '當陽怒吼・斷橋' || skillName === '短歌行・天下歸心'
+      || skillName === '鷹視狼顧・奪魄' || skillName === '遺計定遼東・十勝' || skillName === '毒士亂武・萬劫'
+      || skillName === '七進七出・龍膽' || skillName === '白衣渡江・奇襲' || skillName === '閉月・連環美人計';
   };
 
   // 初始化戰場基礎數據
@@ -257,9 +266,12 @@ export default function BattleView5v5({
       day: 1
     });
 
+    const isPass = Boolean(targetProvObj?.isPass || gameState.provincesData[battle.targetProvinceId]?.isPass);
+    const passNotice = isPass ? ' 🏯【要塞天險】：防守方部隊戰時獲得 +15% 基礎防禦加成！' : '';
+
     const initLogs = [{ 
       id: 'init', 
-      text: `⚔️ 大軍壓境！決戰【${targetProvObj?.name || '城池'}】（第 1 天，${terrainDetail?.symbol || '🌾'}${battlefieldTerrain}地形：${terrainDetail?.name || ''}）！`, 
+      text: `⚔️ 大軍壓境！決戰【${targetProvObj?.name || '城池'}】（第 1 天，${terrainDetail?.symbol || '🌾'}${battlefieldTerrain}地形：${terrainDetail?.name || ''}）！${passNotice}`, 
       type: 'info', 
       timestamp: Date.now() 
     }];
@@ -373,7 +385,7 @@ export default function BattleView5v5({
         row: idx,
         isCommander: idx === 0,
         formation: chosenForm,
-        skills: gen.skills || getGeneralAvailableSkills(gen),
+        skills: getGeneralAvailableSkills(gen),
         stamina: 100,
         morale: (gen as any).morale ?? 100,
         training: gen.training ?? 80,
@@ -397,7 +409,7 @@ export default function BattleView5v5({
         row: idx,
         isCommander: idx === 0,
         formation: chosenForm,
-        skills: gen.skills || getGeneralAvailableSkills(gen),
+        skills: getGeneralAvailableSkills(gen),
         stamina: 100,
         morale: (gen as any).morale ?? 100,
         training: gen.training ?? 80,
@@ -453,7 +465,7 @@ export default function BattleView5v5({
               troops: gen.soldiers,
               maxTroops: gen.soldiers,
               formation: form,
-              skills: gen.skills || getGeneralAvailableSkills(gen),
+              skills: getGeneralAvailableSkills(gen),
               stamina: 100,
               morale: (gen as any).morale ?? 100,
               training: gen.training ?? 80,
@@ -479,7 +491,7 @@ export default function BattleView5v5({
               troops: gen.soldiers,
               maxTroops: gen.soldiers,
               formation: form,
-              skills: gen.skills || getGeneralAvailableSkills(gen),
+              skills: getGeneralAvailableSkills(gen),
               stamina: 100,
               morale: (gen as any).morale ?? 100,
               training: gen.training ?? 80,
@@ -591,6 +603,40 @@ export default function BattleView5v5({
       const atkStarving = newAtkFood <= 0;
       const defStarving = newDefFood <= 0;
 
+      // 當有一方糧草罄盡且士氣歸零時判定戰敗 (餓死/潰敗)
+      const atkMoraleZero = aliveAttackers.every(u => (u.morale ?? 100) <= 0);
+      const defMoraleZero = aliveDefenders.every(u => (u.morale ?? 100) <= 0);
+      
+      if (atkStarving && atkMoraleZero) {
+        addLog(isDefense ? '🏆 敵軍糧草耗盡且全軍士氣潰散，敵方大軍不戰而逃！守城大捷！' : '💀 我方大軍糧草耗盡且全軍士氣潰散，引發大規模兵變逃亡！攻城失敗！', 'event');
+        setTimeout(() => {
+          setBattleOutcome({
+            winner: 'defender',
+            title: isDefense ? '斷糧潰敗・不戰而勝' : '糧盡援絕・兵變潰退',
+            message: isDefense 
+              ? `敵軍糧道斷絕，士氣徹底崩潰，殘軍不戰而逃！【${battleState?.provinceName || '本城'}】安然無恙！`
+              : `我方遠征軍糧草耗盡，軍心渙散引發兵變，只得倉皇撤軍！`,
+            isWin: isDefense
+          });
+        }, 500);
+        return;
+      }
+      
+      if (defStarving && defMoraleZero) {
+        addLog(isDefense ? '💀 我方守城部隊糧草耗盡且全軍士氣潰散，開城投降...' : '🏆 敵軍城內糧草耗盡且全軍士氣潰散，開城投降！破城大捷！', 'event');
+        setTimeout(() => {
+          setBattleOutcome({
+            winner: 'attacker',
+            title: isDefense ? '糧盡援絕・開城投降' : '斷糧潰敗・不戰而勝',
+            message: isDefense 
+              ? `我方守軍糧食罄盡，全軍毫無戰意，城池宣告陷落！`
+              : `敵軍守將糧食罄盡，軍心徹底崩潰，被迫開城投降！【${battleState?.provinceName || '城池'}】已平定！`,
+            isWin: !isDefense
+          });
+        }, 500);
+        return;
+      }
+
       const updatedUnitsWithMorale = finalUnits.map(u => {
         let m = u.morale ?? 100;
         let t = u.troops;
@@ -633,16 +679,131 @@ export default function BattleView5v5({
         addLog(isDefense ? `⚠️ 我方守軍糧草罄盡！部隊缺糧恐慌，全軍士氣大跌 15 點並出現逃兵！` : `⚠️ 敵方守軍糧草罄盡！部隊缺糧恐慌，敵軍士氣大跌 15 點並出現逃兵！`, 'strategy');
       }
 
+      // 每日軍師隨軍督戰光環判定 (方案 B：軍師必須在場上 5 人陣容中且存活，全軍每日自動恢復 5~10 體力)
+      const scenarioIndex = gameState.currentScenario || 0;
+      let finalUnitsWithAura = updatedUnitsWithMorale;
+
+      // 攻方軍師光環
+      if (battleState.attackerStrategist) {
+        const atkStratName = battleState.attackerStrategist;
+        const atkStratUnit = finalUnitsWithAura.find(u => u.isAttacker && u.generalName === atkStratName && u.troops > 0);
+        if (atkStratUnit) {
+          const genData = gameState.generalsData[atkStratName];
+          const itemBonus = genData ? getGeneralItemBonus(genData.name, scenarioIndex) : { intBonus: 0, strBonus: 0 };
+          const totalInt = (genData?.int || 50) + itemBonus.intBonus;
+          if (totalInt >= 80) {
+            // 體力恢復量 5 ~ 10 點 (依智力線性擴展：80智力=5點，100智力=10點)
+            const recoverAmount = Math.min(10, Math.max(5, 5 + Math.floor((totalInt - 80) / 4)));
+            let boostedCount = 0;
+            finalUnitsWithAura = finalUnitsWithAura.map(u => {
+              if (u.isAttacker && u.troops > 0 && u.stamina < 100) {
+                boostedCount++;
+                return { ...u, stamina: Math.min(100, u.stamina + recoverAmount) };
+              }
+              return u;
+            });
+            const isPlayerAtk = isDefense ? false : true;
+            addLog(
+              `✨【軍師督戰光環】攻方軍師【${atkStratName}】(智力 ${totalInt}) 臨陣指揮調息，攻方全軍每日體力恢復 +${recoverAmount} 點！`,
+              isPlayerAtk ? 'passive' : 'info'
+            );
+          }
+        } else {
+          // 軍師未在場上或已潰退
+          const stratInRoster = finalUnitsWithAura.find(u => u.isAttacker && u.generalName === atkStratName);
+          if (stratInRoster && stratInRoster.troops <= 0) {
+            addLog(`⚠️ 攻方軍師【${atkStratName}】部隊已潰退離場，軍師督戰光環中斷！`, 'strategy');
+          }
+        }
+      }
+
+      // 守方軍師光環
+      if (battleState.defenderStrategist) {
+        const defStratName = battleState.defenderStrategist;
+        const defStratUnit = finalUnitsWithAura.find(u => !u.isAttacker && u.generalName === defStratName && u.troops > 0);
+        if (defStratUnit) {
+          const genData = gameState.generalsData[defStratName];
+          const itemBonus = genData ? getGeneralItemBonus(genData.name, scenarioIndex) : { intBonus: 0, strBonus: 0 };
+          const totalInt = (genData?.int || 50) + itemBonus.intBonus;
+          if (totalInt >= 80) {
+            const recoverAmount = Math.min(10, Math.max(5, 5 + Math.floor((totalInt - 80) / 4)));
+            let boostedCount = 0;
+            finalUnitsWithAura = finalUnitsWithAura.map(u => {
+              if (!u.isAttacker && u.troops > 0 && u.stamina < 100) {
+                boostedCount++;
+                return { ...u, stamina: Math.min(100, u.stamina + recoverAmount) };
+              }
+              return u;
+            });
+            const isPlayerDef = isDefense ? true : false;
+            addLog(
+              `✨【軍師督戰光環】守方軍師【${defStratName}】(智力 ${totalInt}) 臨陣指揮調息，守方全軍每日體力恢復 +${recoverAmount} 點！`,
+              isPlayerDef ? 'passive' : 'info'
+            );
+          }
+        } else {
+          // 軍師未在場上或已潰退
+          const stratInRoster = finalUnitsWithAura.find(u => !u.isAttacker && u.generalName === defStratName);
+          if (stratInRoster && stratInRoster.troops <= 0) {
+            addLog(`⚠️ 守方軍師【${defStratName}】部隊已潰退離場，軍師督戰光環中斷！`, 'strategy');
+          }
+        }
+      }
+
+      // 劇毒瘴氣每日結算 (賈詡奧義：每回合扣除 8% 最大兵力與 15 體力，持續 3 回合)
+      finalUnitsWithAura = finalUnitsWithAura.map(u => {
+        if (u.poisonTurns && u.poisonTurns > 0 && u.troops > 0) {
+          const maxHp = gameState.generalsData[u.generalName]?.soldiers || u.maxTroops || 1000;
+          const poisonDmg = Math.max(25, Math.floor(maxHp * 0.08));
+          const newTroops = Math.max(1, u.troops - poisonDmg);
+          const newStamina = Math.max(0, (u.stamina ?? 100) - 15);
+          const remaining = u.poisonTurns - 1;
+          triggerDamagePopup(u.id, `☠️瘴氣 -${poisonDmg}`, true);
+          addLog(`☠️💨【劇毒瘴氣發作】${u.generalName} 部隊遭受劇毒侵蝕，損失 ${poisonDmg} 兵力、15 體力！(瘴氣剩餘 ${remaining} 天)`, 'strategy');
+          return {
+            ...u,
+            troops: newTroops,
+            stamina: newStamina,
+            poisonTurns: remaining
+          };
+        }
+        return u;
+      });
+
+      // 趙雲無敵閃避每日結算
+      finalUnitsWithAura = finalUnitsWithAura.map(u => {
+        if (u.invincibleTurns && u.invincibleTurns > 0) {
+          const remaining = u.invincibleTurns - 1;
+          if (remaining === 0) {
+            addLog(`🛡️【${u.generalName}】的【龍膽・無敵閃避】狀態已解除。`, 'info');
+          }
+          return { ...u, invincibleTurns: remaining };
+        }
+        return u;
+      });
+
+      // 呂蒙匿跡潛行每日結算
+      finalUnitsWithAura = finalUnitsWithAura.map(u => {
+        if (u.stealthTurns && u.stealthTurns > 0) {
+          const remaining = u.stealthTurns - 1;
+          if (remaining === 0) {
+            addLog(`🌫️【${u.generalName}】的【匿跡潛行】狀態已結束，身形重新顯露於戰場。`, 'info');
+          }
+          return { ...u, stealthTurns: remaining };
+        }
+        return u;
+      });
+
       setBattleState((prev: any) => ({
         ...prev,
         day: nextDay,
         terrain: nextTerrain,
         attackerFood: newAtkFood,
         defenderFood: newDefFood,
-        units: updatedUnitsWithMorale
+        units: finalUnitsWithAura
       }));
 
-      generateTurnQueue(updatedUnitsWithMorale, nextTerrain);
+      generateTurnQueue(finalUnitsWithAura, nextTerrain);
     } else {
       const nextActiveId = nextQueue[0];
       const scenarioIndex = gameState.currentScenario || 0;
@@ -715,7 +876,13 @@ export default function BattleView5v5({
     const atkTroopFactor = 0.35 + 0.65 * Math.sqrt(atkTroopRatio);
 
     const baseDamage = Math.floor((atkGen.str * atkMultiplier) * atkTroopFactor * (Math.random() * 0.2 + 0.9) * 4);
-    const defense = Math.floor((defGen.hp * defMultiplier) * 2);
+
+    // 關卡要塞駐軍特性：防守方單位戰時增加 15% 基礎防守力
+    const targetProvObj = provinces.find(p => Number(p.id) === Number(battle?.targetProvinceId));
+    const isPassFortress = Boolean(targetProvObj?.isPass || gameState.provincesData[battle?.targetProvinceId || 0]?.isPass);
+    const passDefenseBonus = (isPassFortress && targetUnit.side === 'def') ? 1.15 : 1.0;
+
+    const defense = Math.floor((defGen.hp * defMultiplier * passDefenseBonus) * 2);
     let damage = Math.max(20, baseDamage - defense);
     
     // 狀態修正 (防禦減傷 35%, 混亂增傷 25%, 鼓舞攻擊+25%, 恐慌攻擊-25%)
@@ -726,22 +893,37 @@ export default function BattleView5v5({
     if (targetUnit.status === 'confused') statusMod *= 1.25;
     damage = Math.floor(damage * statusMod);
 
+    // 白衣渡江・奇襲 匿跡潛行判定 (無效化目標防禦與反擊)
+    const isStealthAttack = activeUnit.stealthTurns && activeUnit.stealthTurns > 0;
+    if (isStealthAttack) {
+      damage = Math.floor(damage * 1.5); // 必定造成極大傷害
+    }
+
     // 鋒矢 / 暴擊判定
     const atkTerrainEffect = getFormationTerrainEffect(activeUnit.formation || '', battlefieldTerrain);
     let critChance = activeUnit.formation === '鋒矢' ? 0.30 : 0.15;
     if (atkTerrainEffect.rating === 'S') critChance += 0.10;
+    if (isStealthAttack) critChance = 1.0; // 匿跡潛行必定暴擊
     const isCrit = Math.random() < critChance;
-    if (isCrit) damage = Math.floor(damage * 1.5);
+    if (isCrit && !isStealthAttack) damage = Math.floor(damage * 1.5);
 
-    let terrainNote = '';
-    if (atkTerrainEffect.rating === 'S') {
-      terrainNote = `(${TERRAIN_DETAILS[battlefieldTerrain]?.symbol}${atkTerrainEffect.tag})`;
-    } else if (atkTerrainEffect.rating === 'D') {
-      terrainNote = `(受阻於${battlefieldTerrain})`;
+    // 龍膽無敵閃避判定 (趙雲奧義：無視並閃避所有傷害)
+    if (targetUnit.invincibleTurns && targetUnit.invincibleTurns > 0) {
+      damage = 0;
+      addLog(`🐉💨【龍膽無敵・身若游龍！】${targetUnit.generalName} 施展龍膽身法化作殘影，令【${activeUnit.generalName}】的猛攻完全落空，毫髮無傷！`, 'passive');
+      triggerDamagePopup(targetId, `⚡龍膽閃避!`, true);
+    } else {
+      let terrainNote = '';
+      if (atkTerrainEffect.rating === 'S') {
+        terrainNote = `(${TERRAIN_DETAILS[battlefieldTerrain]?.symbol}${atkTerrainEffect.tag})`;
+      } else if (atkTerrainEffect.rating === 'D') {
+        terrainNote = `(受阻於${battlefieldTerrain})`;
+      }
+
+      const prefix = isStealthAttack ? '🌫️🗡️【匿跡突襲！】' : '⚔️ ';
+      addLog(`${prefix}【${activeUnit.generalName}】(${activeUnit.formation}陣) ${terrainNote} 揮軍猛攻 ${targetUnit.generalName} ${isCrit ? '💥(暴擊!)' : ''}，造成 ${damage} 傷害！`, 'attack');
+      triggerDamagePopup(targetId, `-${damage}`, isCrit);
     }
-
-    addLog(`⚔️ 【${activeUnit.generalName}】(${activeUnit.formation}陣) ${terrainNote} 揮軍猛攻 ${targetUnit.generalName} ${isCrit ? '💥(暴擊!)' : ''}，造成 ${damage} 傷害！`, 'attack');
-    triggerDamagePopup(targetId, `-${damage}`, isCrit);
     triggerMeleeVFX(activeUnit, targetId);
 
     // 觸發歷史宿敵、破陣大捷與背水一戰動態台詞
@@ -766,7 +948,11 @@ export default function BattleView5v5({
         return { ...u, troops: Math.max(0, u.troops - damage) };
       }
       if (u.id === activeUnitId) {
-        return { ...u, hasActed: true };
+        return { 
+          ...u, 
+          hasActed: true, 
+          stealthTurns: u.stealthTurns ? Math.max(0, u.stealthTurns - 1) : 0 
+        };
       }
       return u;
     });
@@ -814,6 +1000,56 @@ export default function BattleView5v5({
 
     let updatedUnits = [...battleState.units];
 
+    // ====== 0. 專屬傳奇終極奧義 (Ultimate Skills) ======
+    if (isUltimateSkill(currentSkill)) {
+      const ultResult = executeUltimateSkill(
+        activeUnit,
+        currentSkill,
+        targetUnit ? targetUnit.id : null,
+        battleState.units,
+        gameState,
+        battlefieldTerrain,
+        { attackerFood: battleState.attackerFood || 3000, defenderFood: battleState.defenderFood || 5000 }
+      );
+      if (ultResult) {
+        ultResult.logs.forEach(l => addLog(l.message, l.type));
+        ultResult.popups.forEach(p => triggerDamagePopup(p.unitId, p.text, p.isCrit));
+        if (ultResult.foodChange) {
+          setBattleState((prev: any) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              attackerFood: Math.max(0, (prev.attackerFood || 0) + ultResult.foodChange!.deltaAttacker),
+              defenderFood: Math.max(0, (prev.defenderFood || 0) + ultResult.foodChange!.deltaDefender)
+            };
+          });
+        }
+        setTargetingMode(null);
+        setSelectedSkill(null);
+        advanceTurn(ultResult.updatedUnits, turnQueue);
+        return;
+      }
+    }
+
+    // 龍膽無敵閃避判定：若目標擁有無敵閃避狀態且為敵對單體技能，完全閃避
+    if (!isAllySkill(currentSkill) && !isAoeSkill(currentSkill) && targetUnit && targetUnit.invincibleTurns && targetUnit.invincibleTurns > 0) {
+      addLog(`🐉💨【龍膽無敵・身若游龍！】${targetUnit.generalName} 展開龍膽閃避身法，身如驚鴻！徹底閃避並格擋了【${activeUnit.generalName}】的戰法【${currentSkill}】，毫髮無傷！`, 'passive');
+      triggerDamagePopup(targetUnit.id, `⚡龍膽閃避!`, true);
+      const newUnits = battleState.units.map((u: any) => {
+        if (u.id === activeUnitId) return { 
+          ...u, 
+          stamina: Math.max(0, u.stamina - skillDef.cost), 
+          hasActed: true,
+          stealthTurns: u.stealthTurns ? Math.max(0, u.stealthTurns - 1) : 0
+        };
+        return u;
+      });
+      setTargetingMode(null);
+      setSelectedSkill(null);
+      advanceTurn(newUnits, turnQueue);
+      return;
+    }
+
     // ====== 1. 計謀系：友軍增益與治療 ======
     if (currentSkill === '治傷') {
       if (!targetUnit) return;
@@ -830,7 +1066,12 @@ export default function BattleView5v5({
           return { ...u, troops: newTroops, morale: Math.min(120, (u.morale ?? 100) + 10) };
         }
         if (u.id === activeUnitId && u.id !== targetUnit.id) {
-          return { ...u, stamina: Math.max(0, (u.stamina ?? 100) - skillDef.cost), hasActed: true };
+          return { 
+            ...u, 
+            stamina: Math.max(0, (u.stamina ?? 100) - skillDef.cost), 
+            hasActed: true,
+            stealthTurns: u.stealthTurns ? Math.max(0, u.stealthTurns - 1) : 0
+          };
         }
         if (u.id === activeUnitId && u.id === targetUnit.id) {
           return { 
@@ -838,7 +1079,8 @@ export default function BattleView5v5({
             troops: newTroops, 
             morale: Math.min(120, (u.morale ?? 100) + 10), 
             stamina: Math.max(0, (u.stamina ?? 100) - skillDef.cost), 
-            hasActed: true 
+            hasActed: true,
+            stealthTurns: u.stealthTurns ? Math.max(0, u.stealthTurns - 1) : 0
           };
         }
         return u;
@@ -858,7 +1100,8 @@ export default function BattleView5v5({
             troops: newT, 
             morale: Math.min(120, (u.morale ?? 100) + 10),
             stamina: isCaster ? Math.max(0, (u.stamina ?? 100) - skillDef.cost) : (u.stamina ?? 100),
-            hasActed: isCaster ? true : u.hasActed
+            hasActed: isCaster ? true : u.hasActed,
+            stealthTurns: isCaster && u.stealthTurns ? Math.max(0, u.stealthTurns - 1) : (u.stealthTurns || 0)
           };
         }
         return u;
@@ -873,14 +1116,20 @@ export default function BattleView5v5({
           return { ...u, status: 'normal', stamina: Math.min(100, (u.stamina ?? 100) + 30) };
         }
         if (u.id === activeUnitId && u.id !== targetUnit.id) {
-          return { ...u, stamina: Math.max(0, (u.stamina ?? 100) - skillDef.cost), hasActed: true };
+          return { 
+            ...u, 
+            stamina: Math.max(0, (u.stamina ?? 100) - skillDef.cost), 
+            hasActed: true,
+            stealthTurns: u.stealthTurns ? Math.max(0, u.stealthTurns - 1) : 0
+          };
         }
         if (u.id === activeUnitId && u.id === targetUnit.id) {
           return { 
             ...u, 
             status: 'normal', 
             stamina: Math.min(100, Math.max(0, (u.stamina ?? 100) - skillDef.cost) + 30), 
-            hasActed: true 
+            hasActed: true,
+            stealthTurns: u.stealthTurns ? Math.max(0, u.stealthTurns - 1) : 0
           };
         }
         return u;
@@ -895,7 +1144,12 @@ export default function BattleView5v5({
           return { ...u, status: 'moraled', stamina: Math.min(100, (u.stamina ?? 100) + 35), morale: Math.min(120, (u.morale ?? 100) + 15) };
         }
         if (u.id === activeUnitId && u.id !== finalTarget.id) {
-          return { ...u, stamina: Math.max(0, (u.stamina ?? 100) - skillDef.cost), hasActed: true };
+          return { 
+            ...u, 
+            stamina: Math.max(0, (u.stamina ?? 100) - skillDef.cost), 
+            hasActed: true,
+            stealthTurns: u.stealthTurns ? Math.max(0, u.stealthTurns - 1) : 0
+          };
         }
         if (u.id === activeUnitId && u.id === finalTarget.id) {
           return { 
@@ -903,7 +1157,8 @@ export default function BattleView5v5({
             status: 'moraled', 
             stamina: Math.min(100, Math.max(0, (u.stamina ?? 100) - skillDef.cost) + 35), 
             morale: Math.min(120, (u.morale ?? 100) + 15), 
-            hasActed: true 
+            hasActed: true,
+            stealthTurns: u.stealthTurns ? Math.max(0, u.stealthTurns - 1) : 0
           };
         }
         return u;
@@ -1146,7 +1401,12 @@ export default function BattleView5v5({
           };
         }
         if (u.id === activeUnitId) {
-          return { ...u, stamina: Math.max(0, u.stamina - skillDef.cost), hasActed: true };
+          return { 
+            ...u, 
+            stamina: Math.max(0, u.stamina - skillDef.cost), 
+            hasActed: true,
+            stealthTurns: u.stealthTurns ? Math.max(0, u.stealthTurns - 1) : 0
+          };
         }
         return u;
       });
@@ -1171,7 +1431,8 @@ export default function BattleView5v5({
           ...u,
           status: 'defending',
           stamina: Math.min(100, u.stamina + 25),
-          hasActed: true
+          hasActed: true,
+          stealthTurns: u.stealthTurns ? Math.max(0, u.stealthTurns - 1) : 0
         };
       }
       return u;
@@ -1194,7 +1455,8 @@ export default function BattleView5v5({
           ...u,
           formation: formationName,
           stamina: Math.max(0, u.stamina - 15),
-          hasActed: true
+          hasActed: true,
+          stealthTurns: u.stealthTurns ? Math.max(0, u.stealthTurns - 1) : 0
         };
       }
       return u;
@@ -1384,7 +1646,8 @@ export default function BattleView5v5({
                 ...u,
                 formation: bestForm,
                 stamina: Math.max(0, u.stamina - 15),
-                hasActed: true
+                hasActed: true,
+                stealthTurns: u.stealthTurns ? Math.max(0, u.stealthTurns - 1) : 0
               };
             }
             return u;
@@ -1425,6 +1688,9 @@ export default function BattleView5v5({
       if (target.status === 'burning') score += 20;
       if (target.status === 'panicked') score += 30;
       if (target.status === 'defending') score -= 45; // 防禦狀態減傷35%，AI 優先避開硬骨頭
+      
+      // AI 迴避無敵狀態目標
+      if (target.invincibleTurns && target.invincibleTurns > 0) score -= 200; 
 
       // (C) 高威脅目標壓制 (抑制敵方軍師與主力輸出)
       if (tGen.int >= 85) score += 40; // 優先集火或控場敵軍師
@@ -1449,7 +1715,13 @@ export default function BattleView5v5({
       addLog(`🛡️ 敵將【${actingUnit.generalName}】審時度勢，全軍結陣持盾進入【防禦】狀態，體力恢復 25 點！`, 'passive');
       const newUnits = battleState.units.map((u: any) => {
         if (u.id === actingUnit.id) {
-          return { ...u, status: 'defending', stamina: Math.min(100, u.stamina + 25), hasActed: true };
+          return { 
+            ...u, 
+            status: 'defending', 
+            stamina: Math.min(100, u.stamina + 25), 
+            hasActed: true,
+            stealthTurns: u.stealthTurns ? Math.max(0, u.stealthTurns - 1) : 0
+          };
         }
         return u;
       });
@@ -1555,6 +1827,21 @@ export default function BattleView5v5({
           if (targetUnit.status === 'normal') w += 45;
         } else if (skill === '火矢') {
           if (targetUnit.status !== 'burning') w += 45;
+        } else if (isUltimateSkill(skill)) {
+          if ((actingUnit.stamina ?? 100) >= 70) {
+            w += 150; // 專屬奧義具有最高優先戰術權重
+            if (skill === '八陣圖・奇門遁甲' && (allyUnits.some((u: any) => u.troops < u.maxTroops * 0.65) || allyUnits.some((u: any) => u.status && u.status !== 'normal'))) {
+              w += 50;
+            } else if (skill === '武聖・單刀赴會' && targetUnit && targetUnit.troops <= (targetUnit.maxTroops || 1000) * 0.45) {
+              w += 60; // 斬殺線
+            } else if (skill === '火燒赤壁・連環' && (battlefieldTerrain === '水上' || battlefieldTerrain === '密林')) {
+              w += 50;
+            } else if (skill === '鬼神・天下無雙') {
+              w += 50;
+            }
+          } else {
+            w = 0; // 體力未滿 70 點無法釋放
+          }
         } else {
           w += 30;
         }
@@ -1592,6 +1879,35 @@ export default function BattleView5v5({
       const aiMaxTroops = gameState.generalsData[actingUnit.generalName]?.soldiers || actingUnit.maxTroops || 1000;
       const aiTroopRatio = Math.max(0.01, Math.min(1.0, actingUnit.troops / aiMaxTroops));
       const aiTroopFactor = 0.35 + 0.65 * Math.sqrt(aiTroopRatio);
+
+      // 0. 專屬傳奇終極奧義 (Ultimate Skills)
+      if (isUltimateSkill(skillToUse)) {
+        const ultResult = executeUltimateSkill(
+          actingUnit,
+          skillToUse,
+          targetUnit ? targetUnit.id : null,
+          battleState.units,
+          gameState,
+          battlefieldTerrain,
+          { attackerFood: battleState.attackerFood || 3000, defenderFood: battleState.defenderFood || 5000 }
+        );
+        if (ultResult) {
+          ultResult.logs.forEach(l => addLog(l.message, l.type));
+          ultResult.popups.forEach(p => triggerDamagePopup(p.unitId, p.text, p.isCrit));
+          if (ultResult.foodChange) {
+            setBattleState((prev: any) => {
+              if (!prev) return prev;
+              return {
+                ...prev,
+                attackerFood: Math.max(0, (prev.attackerFood || 0) + ultResult.foodChange!.deltaAttacker),
+                defenderFood: Math.max(0, (prev.defenderFood || 0) + ultResult.foodChange!.deltaDefender)
+              };
+            });
+          }
+          advanceTurn(ultResult.updatedUnits, turnQueue);
+          return;
+        }
+      }
 
       // 1. 友軍治療與增益類
       if (skillToUse === '治傷') {
@@ -1695,7 +2011,12 @@ export default function BattleView5v5({
               status: willBurn ? 'burning' : u.status
             };
           }
-          if (u.id === actingUnit.id) return { ...u, stamina: Math.max(0, u.stamina - skillDef.cost), hasActed: true };
+          if (u.id === actingUnit.id) return { 
+            ...u, 
+            stamina: Math.max(0, u.stamina - skillDef.cost), 
+            hasActed: true,
+            stealthTurns: u.stealthTurns ? Math.max(0, u.stealthTurns - 1) : 0
+          };
           return u;
         });
         advanceTurn(newUnits, turnQueue);
@@ -1711,7 +2032,12 @@ export default function BattleView5v5({
             triggerDamagePopup(u.id, `-${dmg}`, true);
             return { ...u, troops: Math.max(0, u.troops - dmg), morale: Math.max(0, (u.morale ?? 100) - 12) };
           }
-          if (u.id === actingUnit.id) return { ...u, stamina: Math.max(0, u.stamina - skillDef.cost), hasActed: true };
+          if (u.id === actingUnit.id) return { 
+            ...u, 
+            stamina: Math.max(0, u.stamina - skillDef.cost), 
+            hasActed: true,
+            stealthTurns: u.stealthTurns ? Math.max(0, u.stealthTurns - 1) : 0
+          };
           return u;
         });
         advanceTurn(newUnits, turnQueue);
@@ -1727,7 +2053,12 @@ export default function BattleView5v5({
             triggerDamagePopup(u.id, `-${dmg}`, true);
             return { ...u, troops: Math.max(0, u.troops - dmg), morale: Math.max(0, (u.morale ?? 100) - 15) };
           }
-          if (u.id === actingUnit.id) return { ...u, stamina: Math.max(0, u.stamina - skillDef.cost), hasActed: true };
+          if (u.id === actingUnit.id) return { 
+            ...u, 
+            stamina: Math.max(0, u.stamina - skillDef.cost), 
+            hasActed: true,
+            stealthTurns: u.stealthTurns ? Math.max(0, u.stealthTurns - 1) : 0
+          };
           return u;
         });
         advanceTurn(newUnits, turnQueue);
@@ -1746,7 +2077,12 @@ export default function BattleView5v5({
               status: willPanic ? 'panicked' : u.status
             };
           }
-          if (u.id === actingUnit.id) return { ...u, stamina: Math.max(0, u.stamina - skillDef.cost), hasActed: true };
+          if (u.id === actingUnit.id) return { 
+            ...u, 
+            stamina: Math.max(0, u.stamina - skillDef.cost), 
+            hasActed: true,
+            stealthTurns: u.stealthTurns ? Math.max(0, u.stealthTurns - 1) : 0
+          };
           return u;
         });
         advanceTurn(newUnits, turnQueue);
@@ -1761,7 +2097,12 @@ export default function BattleView5v5({
             triggerDamagePopup(u.id, `-${dmg}`, false);
             return { ...u, troops: Math.max(0, u.troops - dmg) };
           }
-          if (u.id === actingUnit.id) return { ...u, stamina: Math.max(0, u.stamina - skillDef.cost), hasActed: true };
+          if (u.id === actingUnit.id) return { 
+            ...u, 
+            stamina: Math.max(0, u.stamina - skillDef.cost), 
+            hasActed: true,
+            stealthTurns: u.stealthTurns ? Math.max(0, u.stealthTurns - 1) : 0
+          };
           return u;
         });
         advanceTurn(newUnits, turnQueue);
@@ -1786,7 +2127,12 @@ export default function BattleView5v5({
         const newUnits = battleState.units.map((u: any) => {
           if (u.id === targetUnit.id) return { ...u, troops: Math.max(0, u.troops - mainDmg) };
           if (splashUnit && u.id === splashUnit.id) return { ...u, troops: Math.max(0, u.troops - splashDmg) };
-          if (u.id === actingUnit.id) return { ...u, stamina: Math.max(0, u.stamina - skillDef.cost), hasActed: true };
+          if (u.id === actingUnit.id) return { 
+            ...u, 
+            stamina: Math.max(0, u.stamina - skillDef.cost), 
+            hasActed: true,
+            stealthTurns: u.stealthTurns ? Math.max(0, u.stealthTurns - 1) : 0
+          };
           return u;
         });
         advanceTurn(newUnits, turnQueue);
@@ -1795,6 +2141,24 @@ export default function BattleView5v5({
 
       // 3. 單體技能
       const defGen = gameState.generalsData[targetUnit.generalName] || { str: 50, int: 50, hp: 50 };
+      
+      // 龍膽無敵閃避判定：若目標擁有無敵閃避狀態且為對立單體技能，完全閃避
+      if (targetUnit.invincibleTurns && targetUnit.invincibleTurns > 0) {
+        addLog(`🐉💨【龍膽無敵・身若游龍！】我方 ${targetUnit.generalName} 展開龍膽閃避身法，身如驚鴻！徹底閃避並格擋了敵將【${actingUnit.generalName}】的戰法【${skillToUse}】，毫髮無傷！`, 'passive');
+        triggerDamagePopup(targetUnit.id, `⚡龍膽閃避!`, true);
+        const newUnits = battleState.units.map((u: any) => {
+          if (u.id === actingUnit.id) return { 
+            ...u, 
+            stamina: Math.max(0, u.stamina - skillDef.cost), 
+            hasActed: true,
+            stealthTurns: u.stealthTurns ? Math.max(0, u.stealthTurns - 1) : 0
+          };
+          return u;
+        });
+        advanceTurn(newUnits, turnQueue);
+        return;
+      }
+
       let skillDamage = 0;
       let newEnemyTargetStatus = targetUnit.status || 'normal';
       let moraleLoss = 5;
@@ -1895,7 +2259,12 @@ export default function BattleView5v5({
           };
         }
         if (u.id === actingUnit.id) {
-          return { ...u, stamina: Math.max(0, u.stamina - (skillDef?.cost || 20)), hasActed: true };
+          return { 
+            ...u, 
+            stamina: Math.max(0, u.stamina - (skillDef?.cost || 20)), 
+            hasActed: true,
+            stealthTurns: u.stealthTurns ? Math.max(0, u.stealthTurns - 1) : 0
+          };
         }
         return u;
       });
@@ -1937,7 +2306,13 @@ export default function BattleView5v5({
     const aiTroopFactor = 0.35 + 0.65 * Math.sqrt(aiTroopRatio);
 
     const baseDamage = Math.floor((gen.str * atkMultiplier) * aiTroopFactor * (Math.random() * 0.2 + 0.9) * 4);
-    const defense = Math.floor((defGen.hp * defMultiplier) * 2);
+
+    // 關卡要塞駐軍特性：防守方單位戰時增加 15% 基礎防守力
+    const targetProvObj = provinces.find(p => Number(p.id) === Number(battle?.targetProvinceId));
+    const isPassFortress = Boolean(targetProvObj?.isPass || gameState.provincesData[battle?.targetProvinceId || 0]?.isPass);
+    const passDefenseBonus = (isPassFortress && targetUnit.side === 'def') ? 1.15 : 1.0;
+
+    const defense = Math.floor((defGen.hp * defMultiplier * passDefenseBonus) * 2);
     let damage = Math.max(20, baseDamage - defense);
 
     // 狀態修正
@@ -1948,21 +2323,36 @@ export default function BattleView5v5({
     if (targetUnit.status === 'confused') statusMod *= 1.25;
     damage = Math.floor(damage * statusMod);
 
+    // 白衣渡江・奇襲 匿跡潛行判定 (無效化目標防禦與反擊)
+    const isStealthAttack = actingUnit.stealthTurns && actingUnit.stealthTurns > 0;
+    if (isStealthAttack) {
+      damage = Math.floor(damage * 1.5); // 必定造成極大傷害
+    }
+
     const atkTerrainEffect = getFormationTerrainEffect(actingUnit.formation || '', battlefieldTerrain);
     let critChance = actingUnit.formation === '鋒矢' ? 0.30 : 0.15;
     if (atkTerrainEffect.rating === 'S') critChance += 0.10;
+    if (isStealthAttack) critChance = 1.0; // 匿跡潛行必定暴擊
     const isCrit = Math.random() < critChance;
-    if (isCrit) damage = Math.floor(damage * 1.5);
+    if (isCrit && !isStealthAttack) damage = Math.floor(damage * 1.5);
 
-    let terrainNote = '';
-    if (atkTerrainEffect.rating === 'S') {
-      terrainNote = `(${TERRAIN_DETAILS[battlefieldTerrain]?.symbol}${atkTerrainEffect.tag})`;
-    } else if (atkTerrainEffect.rating === 'D') {
-      terrainNote = `(受阻於${battlefieldTerrain})`;
+    // 龍膽無敵閃避判定 (趙雲奧義：無視並閃避所有傷害)
+    if (targetUnit.invincibleTurns && targetUnit.invincibleTurns > 0) {
+      damage = 0;
+      addLog(`🐉💨【龍膽無敵・身若游龍！】我方 ${targetUnit.generalName} 施展龍膽身法化作殘影，令敵將【${actingUnit.generalName}】的猛攻完全落空，毫髮無傷！`, 'passive');
+      triggerDamagePopup(targetUnit.id, `⚡龍膽閃避!`, true);
+    } else {
+      let terrainNote = '';
+      if (atkTerrainEffect.rating === 'S') {
+        terrainNote = `(${TERRAIN_DETAILS[battlefieldTerrain]?.symbol}${atkTerrainEffect.tag})`;
+      } else if (atkTerrainEffect.rating === 'D') {
+        terrainNote = `(受阻於${battlefieldTerrain})`;
+      }
+
+      const prefix = isStealthAttack ? '🌫️🗡️【匿跡突襲！】' : '⚔️ ';
+      addLog(`${prefix}敵將【${actingUnit.generalName}】(${actingUnit.formation}陣) ${terrainNote} 揮軍猛攻我方 ${targetUnit.generalName} ${isCrit ? '💥(暴擊!)' : ''}，造成 ${damage} 傷害！`, 'attack');
+      triggerDamagePopup(targetUnit.id, `-${damage}`, isCrit);
     }
-
-    addLog(`⚔️ 敵將【${actingUnit.generalName}】(${actingUnit.formation}陣) ${terrainNote} 揮軍猛攻我方 ${targetUnit.generalName} ${isCrit ? '💥(暴擊!)' : ''}，造成 ${damage} 傷害！`, 'attack');
-    triggerDamagePopup(targetUnit.id, `-${damage}`, isCrit);
     triggerMeleeVFX(actingUnit, targetUnit.id);
 
     const newUnits = battleState.units.map((u: any) => {
@@ -1970,7 +2360,11 @@ export default function BattleView5v5({
         return { ...u, troops: Math.max(0, u.troops - damage) };
       }
       if (u.id === actingUnit.id) {
-        return { ...u, hasActed: true };
+        return { 
+          ...u, 
+          hasActed: true,
+          stealthTurns: u.stealthTurns ? Math.max(0, u.stealthTurns - 1) : 0
+        };
       }
       return u;
     });
@@ -2196,6 +2590,28 @@ export default function BattleView5v5({
   const playerFood = isDefense ? battleState.defenderFood : battleState.attackerFood;
   const enemyFood = isDefense ? battleState.attackerFood : battleState.defenderFood;
 
+  const currentScenario = gameState.currentScenario || 0;
+  const playerStratName = isDefense ? battleState.defenderStrategist : battleState.attackerStrategist;
+  const enemyStratName = isDefense ? battleState.attackerStrategist : battleState.defenderStrategist;
+
+  const playerStratUnit = playerStratName ? playerUnits.find((u: any) => u.generalName === playerStratName) : null;
+  const enemyStratUnit = enemyStratName ? enemyUnits.find((u: any) => u.generalName === enemyStratName) : null;
+
+  const playerStratGen = playerStratName ? gameState.generalsData[playerStratName] : null;
+  const enemyStratGen = enemyStratName ? gameState.generalsData[enemyStratName] : null;
+
+  const playerStratIntBonus = playerStratName ? getGeneralItemBonus(playerStratName, currentScenario).intBonus : 0;
+  const enemyStratIntBonus = enemyStratName ? getGeneralItemBonus(enemyStratName, currentScenario).intBonus : 0;
+
+  const playerStratTotalInt = playerStratGen ? (playerStratGen.int + playerStratIntBonus) : 0;
+  const enemyStratTotalInt = enemyStratGen ? (enemyStratGen.int + enemyStratIntBonus) : 0;
+
+  const isPlayerAuraActive = Boolean(playerStratUnit && playerStratUnit.troops > 0 && playerStratTotalInt >= 80);
+  const isEnemyAuraActive = Boolean(enemyStratUnit && enemyStratUnit.troops > 0 && enemyStratTotalInt >= 80);
+
+  const playerAuraRecover = isPlayerAuraActive ? Math.min(10, Math.max(5, 5 + Math.floor((playerStratTotalInt - 80) / 4))) : 0;
+  const enemyAuraRecover = isEnemyAuraActive ? Math.min(10, Math.max(5, 5 + Math.floor((enemyStratTotalInt - 80) / 4))) : 0;
+
   return (
     <div className={`absolute inset-0 z-50 flex flex-col font-serif select-none bg-[#141210] text-stone-200 overflow-hidden ${screenShake ? 'animate-battle-shake' : ''}`}>
       {/* 戰場即時動態地形底圖 (水上: river.jpg / 密林: forest.jpg / 平原: plain.jpg / 山嶽: mountain.jpg / 城池: city.jpg) */}
@@ -2285,6 +2701,28 @@ export default function BattleView5v5({
               <span>{terrainInfo?.symbol || '🏞️'}</span>
               <span>地形:【{battlefieldTerrain}】</span>
             </button>
+
+            {/* 我軍軍師狀態快速徽章 */}
+            {playerStratName && (
+              <span 
+                className={`text-[10px] sm:text-xs font-black px-1.5 py-0.5 rounded border flex items-center gap-1 shrink-0 shadow ${
+                  isPlayerAuraActive 
+                    ? 'bg-amber-950/80 text-amber-300 border-amber-500/70' 
+                    : 'bg-stone-900/80 text-stone-400 border-stone-700 opacity-60'
+                }`}
+                title={isPlayerAuraActive ? `我方軍師督戰中：每日全軍體力恢復 +${playerAuraRecover}` : `軍師【${playerStratName}】光環中斷 (部隊潰退或不在場上)`}
+              >
+                <Compass className={`w-3 h-3 ${isPlayerAuraActive ? 'text-amber-400 animate-spin-slow' : 'text-stone-500'}`} />
+                <span>我方軍師: {playerStratName}</span>
+                {isPlayerAuraActive ? (
+                  <span className="text-[9px] text-emerald-300 font-sans font-bold bg-emerald-950/80 px-1 py-0.2 rounded border border-emerald-600/50">
+                    +${playerAuraRecover}體/日
+                  </span>
+                ) : (
+                  <span className="text-[9px] text-stone-400">已中斷</span>
+                )}
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-1 sm:gap-1.5">
@@ -2411,6 +2849,9 @@ export default function BattleView5v5({
                 gameState={gameState}
                 battlefieldTerrain={battlefieldTerrain}
                 isActive={activeUnitId === u.id}
+                isStrategist={u.generalName === playerStratName}
+                isAuraActive={u.generalName === playerStratName && isPlayerAuraActive}
+                auraBonus={playerAuraRecover}
                 isTargetable={targetingMode === 'skill' && isAllySkill(selectedSkill) && u.troops > 0}
                 floatingText={damageFloatingText?.targetId === u.id ? damageFloatingText : null}
                 speech={activeSpeech?.unitId === u.id ? activeSpeech : null}
@@ -2446,6 +2887,9 @@ export default function BattleView5v5({
                 gameState={gameState}
                 battlefieldTerrain={battlefieldTerrain}
                 isActive={activeUnitId === u.id}
+                isStrategist={u.generalName === enemyStratName}
+                isAuraActive={u.generalName === enemyStratName && isEnemyAuraActive}
+                auraBonus={enemyAuraRecover}
                 isTargetable={(targetingMode === 'melee' || (targetingMode === 'skill' && !isAllySkill(selectedSkill))) && u.troops > 0}
                 floatingText={damageFloatingText?.targetId === u.id ? damageFloatingText : null}
                 speech={activeSpeech?.unitId === u.id ? activeSpeech : null}
@@ -2586,6 +3030,7 @@ export default function BattleView5v5({
                 const canAfford = activeUnit.stamina >= skillDef.cost;
                 const isAoe = isAoeSkill(s);
                 const isAlly = isAllySkill(s);
+                const isUlt = isUltimateSkill(s);
 
                 return (
                   <button
@@ -2602,14 +3047,25 @@ export default function BattleView5v5({
                       }
                     }}
                     className={`p-3 rounded-xl border text-left flex flex-col gap-1 transition-all ${
-                      canAfford 
-                        ? 'border-amber-500/60 bg-[#2b221a] hover:bg-[#3d3025] hover:border-amber-400 text-stone-100 cursor-pointer active:scale-98 shadow-md' 
-                        : 'border-[#382e25] bg-[#171310] text-stone-600 opacity-50 cursor-not-allowed'
+                      isUlt
+                        ? canAfford
+                          ? 'border-amber-300 bg-gradient-to-r from-[#3d2511] via-[#2a1a0d] to-[#3d2511] hover:border-yellow-200 ring-1 ring-yellow-400/80 shadow-[0_0_15px_rgba(245,158,11,0.3)] text-amber-100 cursor-pointer active:scale-98'
+                          : 'border-amber-900/60 bg-[#1e1510] text-stone-600 opacity-60 cursor-not-allowed'
+                        : canAfford 
+                          ? 'border-amber-500/60 bg-[#2b221a] hover:bg-[#3d3025] hover:border-amber-400 text-stone-100 cursor-pointer active:scale-98 shadow-md' 
+                          : 'border-[#382e25] bg-[#171310] text-stone-600 opacity-50 cursor-not-allowed'
                     }`}
                   >
                     <div className="flex justify-between items-center">
                       <div className="flex items-center gap-1.5">
-                        <span className="font-black text-sm text-amber-300">{skillDef.name}</span>
+                        <span className={`font-black text-sm ${isUlt ? 'text-yellow-300 font-serif' : 'text-amber-300'}`}>
+                          {isUlt ? `🌟 ${skillDef.name}` : skillDef.name}
+                        </span>
+                        {isUlt && (
+                          <span className="text-[9px] px-1.5 py-0.2 rounded font-black bg-gradient-to-r from-amber-500 to-yellow-400 text-stone-950 shadow-xs">
+                            傳奇奧義
+                          </span>
+                        )}
                         <span className={`text-[9px] px-1 py-0.2 rounded font-bold ${
                           isAoe ? 'bg-purple-900 text-purple-200 border border-purple-600' :
                           isAlly ? 'bg-emerald-900 text-emerald-200 border border-emerald-600' :
@@ -2619,12 +3075,21 @@ export default function BattleView5v5({
                         </span>
                       </div>
                       <span className={`text-[10px] px-1.5 py-0.2 rounded font-black border ${
-                        canAfford ? 'bg-amber-950 border-amber-600 text-amber-300' : 'bg-stone-900 border-stone-800 text-stone-600'
+                        isUlt
+                          ? canAfford 
+                            ? 'bg-amber-500 text-stone-950 border-yellow-200 shadow-sm'
+                            : 'bg-stone-900 border-stone-800 text-stone-600'
+                          : canAfford 
+                            ? 'bg-amber-950 border-amber-600 text-amber-300' 
+                            : 'bg-stone-900 border-stone-800 text-stone-600'
                       }`}>
-                        消耗 SP: {skillDef.cost}
+                        {isUlt ? `耗體力: ${skillDef.cost}` : `消耗 SP: ${skillDef.cost}`}
                       </span>
                     </div>
-                    <p className="text-xs text-stone-300 leading-snug">{skillDef.desc}</p>
+                    <p className={`text-xs leading-snug ${isUlt ? 'text-amber-200/90 font-medium' : 'text-stone-300'}`}>{skillDef.desc}</p>
+                    {isUlt && !canAfford && (
+                      <span className="text-[10px] text-red-400 font-bold mt-0.5">⚠️ 當前體力不足 (需 {skillDef.cost} 點，不可連續釋放)</span>
+                    )}
                   </button>
                 );
               })}
@@ -2849,14 +3314,22 @@ export default function BattleView5v5({
                       {playerUnits.map((u: BattleUnit) => {
                         const gen = gameState.generalsData[u.generalName] || { str: 50, int: 50, hp: 50 };
                         const terrainEff = getFormationTerrainEffect(u.formation || '', battlefieldTerrain);
+                        const isStrat = u.generalName === playerStratName;
                         return (
                           <div key={u.id} className="p-2.5 rounded-xl border border-sky-900/70 bg-[#16212b] flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2 min-w-0">
                               <GeneralAvatar name={u.generalName} size={36} className="rounded-full shrink-0" />
                               <div className="flex flex-col min-w-0">
-                                <div className="flex items-center gap-1">
+                                <div className="flex items-center gap-1 flex-wrap">
                                   <span className="font-black text-xs sm:text-sm text-stone-100 truncate">{u.generalName}</span>
                                   <span className="text-[9px] bg-sky-950 text-sky-300 border border-sky-700 px-1 rounded font-bold">首發</span>
+                                  {isStrat && (
+                                    <span className={`text-[9px] px-1 rounded font-bold border flex items-center gap-0.5 ${
+                                      isPlayerAuraActive ? 'bg-amber-950 text-amber-300 border-amber-500' : 'bg-stone-900 text-stone-400 border-stone-700'
+                                    }`}>
+                                      📜軍師 {isPlayerAuraActive ? `(+${playerAuraRecover}體/日)` : '(已中斷)'}
+                                    </span>
+                                  )}
                                   {u.isCommander && <Crown className="w-3.5 h-3.5 text-amber-400" />}
                                 </div>
                                 <span className="text-[10px] text-stone-300">
@@ -2911,14 +3384,22 @@ export default function BattleView5v5({
                       {enemyUnits.map((u: BattleUnit) => {
                         const gen = gameState.generalsData[u.generalName] || { str: 50, int: 50, hp: 50 };
                         const terrainEff = getFormationTerrainEffect(u.formation || '', battlefieldTerrain);
+                        const isStrat = u.generalName === enemyStratName;
                         return (
                           <div key={u.id} className="p-2.5 rounded-xl border border-rose-900/70 bg-[#261515] flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2 min-w-0">
                               <GeneralAvatar name={u.generalName} size={36} className="rounded-full shrink-0" />
                               <div className="flex flex-col min-w-0">
-                                <div className="flex items-center gap-1">
+                                <div className="flex items-center gap-1 flex-wrap">
                                   <span className="font-black text-xs sm:text-sm text-stone-100 truncate">{u.generalName}</span>
                                   <span className="text-[9px] bg-rose-950 text-rose-300 border border-rose-700 px-1 rounded font-bold">首發</span>
+                                  {isStrat && (
+                                    <span className={`text-[9px] px-1 rounded font-bold border flex items-center gap-0.5 ${
+                                      isEnemyAuraActive ? 'bg-amber-950 text-amber-300 border-amber-500' : 'bg-stone-900 text-stone-400 border-stone-700'
+                                    }`}>
+                                      📜軍師 {isEnemyAuraActive ? `(+${enemyAuraRecover}體/日)` : '(已中斷)'}
+                                    </span>
+                                  )}
                                   {u.isCommander && <Crown className="w-3.5 h-3.5 text-amber-400" />}
                                 </div>
                                 <span className="text-[10px] text-stone-300">
@@ -2985,6 +3466,9 @@ function CompactUnitStrip({
   gameState,
   battlefieldTerrain,
   isActive,
+  isStrategist,
+  isAuraActive,
+  auraBonus,
   isTargetable,
   floatingText,
   speech,
@@ -2996,6 +3480,9 @@ function CompactUnitStrip({
   gameState: GameState;
   battlefieldTerrain: FormationTerrainType;
   isActive: boolean;
+  isStrategist?: boolean;
+  isAuraActive?: boolean;
+  auraBonus?: number;
   isTargetable: boolean;
   floatingText: any;
   speech?: { unitId: string; generalName: string; skillName: string; quote: string } | null;
@@ -3051,6 +3538,32 @@ function CompactUnitStrip({
     }
   };
 
+  const getCustomBadge = (unit: BattleUnit) => {
+    const badges = [];
+    if (unit.invincibleTurns && unit.invincibleTurns > 0) {
+      badges.push(
+        <span key="invincible" className="px-1 py-0.2 rounded bg-sky-300 text-sky-950 border border-sky-100 text-[9px] font-black flex items-center gap-0.5 animate-pulse shadow">
+          🐉 無敵閃避
+        </span>
+      );
+    }
+    if (unit.stealthTurns && unit.stealthTurns > 0) {
+      badges.push(
+        <span key="stealth" className="px-1 py-0.2 rounded bg-stone-900/90 text-stone-400 border border-stone-700 text-[9px] font-black flex items-center gap-0.5 shadow">
+          🌫️ 匿跡潛行
+        </span>
+      );
+    }
+    if (unit.poisonTurns && unit.poisonTurns > 0) {
+      badges.push(
+        <span key="poison" className="px-1 py-0.2 rounded bg-emerald-900/90 text-emerald-200 border border-emerald-500 text-[9px] font-black flex items-center gap-0.5 animate-pulse shadow">
+          ☠️ 劇毒瘴氣
+        </span>
+      );
+    }
+    return badges;
+  };
+
   return (
     <div
       onClick={onSelect}
@@ -3075,6 +3588,18 @@ function CompactUnitStrip({
             <span className="font-black text-[11px] sm:text-xs text-stone-100 truncate max-w-[65px] xs:max-w-[85px] sm:max-w-none leading-tight">
               {unit.generalName}
             </span>
+            {isStrategist && (
+              <span className={`text-[8px] sm:text-[9px] px-0.5 py-0.1 rounded font-black border shrink-0 flex items-center gap-0.5 ${
+                isAuraActive 
+                  ? 'bg-amber-950 text-amber-300 border-amber-500 shadow animate-pulse' 
+                  : 'bg-stone-900 text-stone-400 border-stone-700 opacity-60'
+              }`}>
+                <span>📜軍師</span>
+                {isAuraActive && auraBonus && (
+                  <span className="text-[7px] text-emerald-300">+{auraBonus}體</span>
+                )}
+              </span>
+            )}
             <span className={`text-[8px] sm:text-[9px] px-0.5 py-0.1 sm:px-1 sm:py-0.2 rounded font-black border shrink-0 ${
               terrainCompat.rating === 'S' ? 'bg-amber-500 text-stone-950 border-amber-300' :
               terrainCompat.rating === 'A' ? 'bg-emerald-800 text-emerald-100 border-emerald-500' :
@@ -3084,6 +3609,8 @@ function CompactUnitStrip({
             </span>
             {/* 特殊異常狀態徽章 */}
             {unit.status && unit.status !== 'normal' && getStatusBadge(unit.status)}
+            {/* 特殊自定義徽章 (無敵/匿跡/中毒) */}
+            {getCustomBadge(unit)}
           </div>
 
           {/* 兵力 HP 條 */}

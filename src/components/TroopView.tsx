@@ -19,20 +19,24 @@ interface TroopViewProps {
 }
 
 export default function TroopView({ gameState, initialAction, onExit, onExecute }: TroopViewProps) {
-  // Normalize tab names
-  const normalizedInitialTab = initialAction === '調整兵力' ? '編制兵力' : (initialAction || '徵兵');
-  const [activeTab, setActiveTab] = useState<'徵兵' | '訓練兵士' | '編制兵力'>(
-    ['徵兵', '訓練兵士', '編制兵力'].includes(normalizedInitialTab) 
-      ? (normalizedInitialTab as any) 
-      : '徵兵'
-  );
-
   const ownedProvinces = Object.values(gameState.provincesData).filter(p => p.rulerName === gameState.rulerName);
   const provinceId = gameState.selectedProvinceId !== null 
     ? gameState.selectedProvinceId 
     : (ownedProvinces.length > 0 ? ownedProvinces[0].id : 1);
     
   const province = gameState.provincesData[provinceId] || null;
+  const isPass = Boolean(province?.isPass);
+
+  // Normalize tab names (Passes cannot draft)
+  const defaultTab = isPass ? '訓練兵士' : '徵兵';
+  const normalizedInitialTab = initialAction === '調整兵力' ? '編制兵力' : (initialAction || defaultTab);
+  const [activeTab, setActiveTab] = useState<'徵兵' | '訓練兵士' | '編制兵力'>(
+    isPass && normalizedInitialTab === '徵兵'
+      ? '訓練兵士'
+      : ['徵兵', '訓練兵士', '編制兵力'].includes(normalizedInitialTab)
+        ? (normalizedInitialTab as any) 
+        : defaultTab
+  );
   const provinceBase = PROVINCE_BASE_CONFIGS[provinceId] || null;
   const provinceName = provinceBase?.name || `郡縣 ${provinceId}`;
   const tierRules = getProvinceTierRules(provinceId);
@@ -194,9 +198,9 @@ export default function TroopView({ gameState, initialAction, onExit, onExecute 
   const trainingForecastList = useMemo(() => {
     return generals.map(g => {
       const soldiers = g.soldiers || 0;
-      const curTraining = g.training || 50;
+      const curTraining = soldiers === 0 ? 0 : (g.training || 0);
       const gain = soldiers > 0 ? calculateTroopTrainingGain(instructorStr, soldiers, curTraining) : 0;
-      const nextTraining = Math.min(100, curTraining + gain);
+      const nextTraining = soldiers > 0 ? Math.min(100, curTraining + gain) : 0;
       return {
         general: g,
         soldiers,
@@ -386,19 +390,23 @@ export default function TroopView({ gameState, initialAction, onExit, onExecute 
       {/* Tab Switcher */}
       <nav className="bg-[#e7e3dc] border-b-2 border-[#1c1917] px-2 sm:px-4 py-1 flex gap-1.5 shrink-0 overflow-x-auto">
         {[
-          { id: '徵兵', label: '🚩 徵兵募卒' },
+          { id: '徵兵', label: isPass ? '🔒 關隘不可徵兵' : '🚩 徵兵募卒', disabled: isPass },
           { id: '訓練兵士', label: '⚔️ 訓練操演' },
           { id: '編制兵力', label: '📋 編制兵力' },
         ].map(tab => {
           const isActive = activeTab === tab.id;
+          const isDisabled = Boolean(tab.disabled);
           return (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
+              disabled={isDisabled}
+              onClick={() => !isDisabled && setActiveTab(tab.id as any)}
               className={`flex-1 max-w-xs px-2 sm:px-3 py-1.5 border-2 transition text-center sm:text-left shrink-0 ${
-                isActive
-                  ? 'bg-[#991b1b] text-white border-[#1c1917] shadow-sm'
-                  : 'bg-white/80 border-stone-400 text-stone-800 hover:bg-white'
+                isDisabled
+                  ? 'bg-stone-200/70 border-stone-300 text-stone-400 cursor-not-allowed'
+                  : isActive
+                    ? 'bg-[#991b1b] text-white border-[#1c1917] shadow-sm cursor-pointer'
+                    : 'bg-white/80 border-stone-400 text-stone-800 hover:bg-white cursor-pointer'
               }`}
             >
               <div className="text-xs sm:text-sm font-black whitespace-nowrap">{tab.label}</div>
@@ -406,6 +414,14 @@ export default function TroopView({ gameState, initialAction, onExit, onExecute 
           );
         })}
       </nav>
+
+      {/* Pass Banner Notice */}
+      {isPass && (
+        <div className="bg-amber-100/90 border-b border-amber-300 px-4 py-1.5 text-xs text-amber-950 font-bold flex items-center gap-2">
+          <span>🏯</span>
+          <span>【{provinceName}】為軍事要塞：腹地無常態戶籍民丁，不可徵兵。駐軍專注於軍士操練與兵力調整，且防守戰時享 15% 基礎防禦加成！</span>
+        </div>
+      )}
 
       {/* Main Content Area */}
       <main className="flex-1 overflow-y-auto p-2.5 sm:p-6 bg-[#f4f1ea]">
@@ -431,12 +447,13 @@ export default function TroopView({ gameState, initialAction, onExit, onExecute 
                 <span className="text-base shrink-0">💡</span>
                 <div className="flex-1 min-w-0">
                   <div className="font-bold text-sm text-amber-900 mb-1 break-words">
-                    徵兵法則：民力動員率、單次5000人上限與魅力軍費減免
+                    徵兵法則：民力動員率 (0.25%)、單次5,000人上限與魅力軍費減免
                   </div>
                   <div className="leading-relaxed break-words whitespace-normal space-y-1">
-                    <p>• <strong>人口規模動員率</strong>：人口越多單次可徵量越大（以超出底限人口之 8% 安全動員，單次上限封頂 <strong>5,000 人</strong>），嚴格保護人口不低於規模下限。</p>
-                    <p>• <strong>魅力節省軍資</strong>：魅力不限制招募人數，但主持募兵將領魅力越高，所耗金錢越低（例如劉備主持可節省逾 50% 金錢）。</p>
-                    <p>• <strong>全郡兵員統籌</strong>：決定徵召總數後，可自由將新兵分配至麾下各位武將部隊。</p>
+                    <p>• <strong>民力動員率 (0.25%)</strong>：每次徵兵以城池當前總人口之 <strong>0.25%</strong> 為安全動員額度（單次上限封頂 <strong>5,000 人</strong>），嚴格受都市規模最低人口底限保護，絕不竭澤而漁。</p>
+                    <p>• <strong>魅力節省軍資</strong>：魅力不限制招募人數，但主持募兵將領魅力越高，所耗金錢折扣越大（例如劉備、孫策主持可節省近 50% 金錢）。</p>
+                    <p>• <strong>全郡兵員統籌</strong>：決定徵召總數後，可自由將新兵分配至麾下各位武將部隊，每座城池每回合（每月）限徵召一次。</p>
+                    <p>• <strong>十月休養生息</strong>：每年十月秋收後，全郡戶籍會依民心、農商與治水結算自然增長 <strong>+0.6% ～ +1.2%</strong> 人口，休養生息。</p>
                   </div>
                 </div>
               </div>
@@ -509,7 +526,7 @@ export default function TroopView({ gameState, initialAction, onExit, onExecute 
                 </div>
                 <div className="text-xs text-stone-600">
                   本月可募上限：<strong className="text-[#991b1b] font-mono text-sm">{maxDraftLimit.toLocaleString()}</strong> 人
-                  <span className="text-[11px] text-stone-500 ml-1.5">(單次封頂 5,000人 / 人口盈餘 8% 安全動員)</span>
+                  <span className="text-[11px] text-stone-500 ml-1.5">(單次封頂 5,000人 / 當下人口 0.25% / 最低人口限制)</span>
                 </div>
               </div>
 
@@ -599,10 +616,10 @@ export default function TroopView({ gameState, initialAction, onExit, onExecute 
                   const nextTroops = currentTroops + addCount;
 
                   // Calculate projected training for this general
-                  const oldTraining = g.training || 50;
+                  const oldTraining = currentTroops === 0 ? 0 : (g.training || 0);
                   const projectedTraining = nextTroops > 0 
-                    ? Math.round((currentTroops * oldTraining + addCount * 35) / nextTroops) 
-                    : oldTraining;
+                    ? (currentTroops === 0 ? 35 : Math.round((currentTroops * oldTraining + addCount * 35) / nextTroops)) 
+                    : 0;
 
                   return (
                     <div
@@ -931,7 +948,7 @@ export default function TroopView({ gameState, initialAction, onExit, onExecute 
                   兵力調配法則
                 </div>
                 <div className="leading-relaxed break-words whitespace-normal space-y-1">
-                  <p>• 自由分配全郡現有總兵力至各將領部隊，一般將領上限 3,000 人，太守上限 4,000 人。</p>
+                  <p>• 自由分配全郡現有總兵力至各將領部隊：君主上限 5,000 人、太守上限 4,000 人、一般將領上限 3,000 人。</p>
                   <p>• 可使用快速配置鍵進行平均分配或集中精銳。</p>
                 </div>
               </div>

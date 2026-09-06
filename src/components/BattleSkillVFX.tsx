@@ -1,6 +1,8 @@
 import React, { useEffect, useRef } from 'react';
 import { GeneralAvatar } from './GeneralAvatar';
 import { GameState } from '../types';
+import { soundPlayer } from '../utils/sound';
+import { isUltimateSkill } from '../engine/skills';
 
 export interface BattleVFXEvent {
   id: string;
@@ -21,159 +23,6 @@ interface BattleSkillVFXProps {
   onVFXComplete?: () => void;
 }
 
-// ─── 瀏覽器原生 Web Audio API 合成音效引擎 (無需外載音訊檔) ───
-class SoundSynth {
-  private ctx: AudioContext | null = null;
-
-  private init() {
-    if (!this.ctx) {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      if (AudioCtx) {
-        this.ctx = new AudioCtx();
-      }
-    }
-    if (this.ctx && this.ctx.state === 'suspended') {
-      this.ctx.resume().catch(() => {});
-    }
-  }
-
-  play(type: string) {
-    try {
-      this.init();
-      if (!this.ctx) return;
-      const now = this.ctx.currentTime;
-
-      if (type === 'slash') {
-        // 普通斬擊音效 (快速白噪音+高頻滑降)
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(600, now);
-        osc.frequency.exponentialRampToValueAtTime(80, now + 0.15);
-        gain.gain.setValueAtTime(0.35, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start(now);
-        osc.stop(now + 0.15);
-      } else if (type === 'wushuang' || type === 'heavy_slash') {
-        // 無雙/極致重斬 (雙重金屬重擊 + 雷鳴低音)
-        const osc1 = this.ctx.createOscillator();
-        const osc2 = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc1.type = 'sawtooth';
-        osc2.type = 'square';
-        osc1.frequency.setValueAtTime(320, now);
-        osc1.frequency.exponentialRampToValueAtTime(40, now + 0.35);
-        osc2.frequency.setValueAtTime(800, now);
-        osc2.frequency.exponentialRampToValueAtTime(100, now + 0.25);
-        gain.gain.setValueAtTime(0.5, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
-        osc1.connect(gain);
-        osc2.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc1.start(now);
-        osc2.start(now);
-        osc1.stop(now + 0.4);
-        osc2.stop(now + 0.4);
-      } else if (type === 'fire') {
-        // 烈火燃燒與爆轟音
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(160, now);
-        osc.frequency.linearRampToValueAtTime(260, now + 0.2);
-        osc.frequency.exponentialRampToValueAtTime(50, now + 0.45);
-        gain.gain.setValueAtTime(0.4, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.45);
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start(now);
-        osc.stop(now + 0.45);
-      } else if (type === 'water') {
-        // 狂濤巨浪音
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(120, now);
-        osc.frequency.linearRampToValueAtTime(300, now + 0.25);
-        osc.frequency.exponentialRampToValueAtTime(80, now + 0.5);
-        gain.gain.setValueAtTime(0.4, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start(now);
-        osc.stop(now + 0.5);
-      } else if (type === 'rock') {
-        // 巨石崩落轟碎地鳴
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(100, now);
-        osc.frequency.exponentialRampToValueAtTime(30, now + 0.4);
-        gain.gain.setValueAtTime(0.6, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.45);
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start(now);
-        osc.stop(now + 0.45);
-      } else if (type === 'arrows') {
-        // 箭雨呼嘯
-        for (let i = 0; i < 4; i++) {
-          const osc = this.ctx.createOscillator();
-          const gain = this.ctx.createGain();
-          osc.type = 'sawtooth';
-          const t = now + i * 0.06;
-          osc.frequency.setValueAtTime(900 - i * 80, t);
-          osc.frequency.exponentialRampToValueAtTime(200, t + 0.12);
-          gain.gain.setValueAtTime(0.25, t);
-          gain.gain.exponentialRampToValueAtTime(0.01, t + 0.12);
-          osc.connect(gain);
-          gain.connect(this.ctx.destination);
-          osc.start(t);
-          osc.stop(t + 0.12);
-        }
-      } else if (type === 'heal') {
-        // 治癒甘霖和弦
-        [523.25, 659.25, 783.99, 1046.5].forEach((freq, i) => {
-          if (!this.ctx) return;
-          const osc = this.ctx.createOscillator();
-          const gain = this.ctx.createGain();
-          osc.type = 'sine';
-          const t = now + i * 0.08;
-          osc.frequency.setValueAtTime(freq, t);
-          gain.gain.setValueAtTime(0.2, t);
-          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
-          osc.connect(gain);
-          gain.connect(this.ctx.destination);
-          osc.start(t);
-          osc.stop(t + 0.35);
-        });
-      } else if (type === 'magic') {
-        // 奇策惑敵神秘咒文音
-        [440, 466.16, 523.25, 622.25].forEach((freq, i) => {
-          if (!this.ctx) return;
-          const osc = this.ctx.createOscillator();
-          const gain = this.ctx.createGain();
-          osc.type = 'triangle';
-          const t = now + i * 0.07;
-          osc.frequency.setValueAtTime(freq, t);
-          gain.gain.setValueAtTime(0.25, t);
-          gain.gain.exponentialRampToValueAtTime(0.01, t + 0.3);
-          osc.connect(gain);
-          gain.connect(this.ctx.destination);
-          osc.start(t);
-          osc.stop(t + 0.3);
-        });
-      }
-    } catch {
-      // 忽略音效異常
-    }
-  }
-}
-
-const soundPlayer = new SoundSynth();
-
 export default function BattleSkillVFX({
   vfxEvent,
   gameState,
@@ -184,6 +33,7 @@ export default function BattleSkillVFX({
   // 根據技能名稱分類特效主題
   const getSkillCategory = (skillName?: string) => {
     if (!skillName) return 'melee';
+    if (isUltimateSkill(skillName)) return 'ultimate';
     if (['火計', '業火', '火矢'].includes(skillName)) return 'fire';
     if (['水攻', '水龍計'].includes(skillName)) return 'water';
     if (['落石', '山崩'].includes(skillName)) return 'earth';
@@ -206,6 +56,7 @@ export default function BattleSkillVFX({
       soundPlayer.play('slash');
     } else {
       switch (currentCategory) {
+        case 'ultimate': soundPlayer.play('ultimate'); break;
         case 'fire': soundPlayer.play('fire'); break;
         case 'water': soundPlayer.play('water'); break;
         case 'earth': soundPlayer.play('rock'); break;
@@ -219,7 +70,7 @@ export default function BattleSkillVFX({
       }
     }
 
-    const duration = vfxEvent.duration || (vfxEvent.type === 'melee' ? 600 : 1200);
+    const duration = vfxEvent.duration || (vfxEvent.type === 'melee' ? 600 : currentCategory === 'ultimate' ? 1600 : 1200);
     const timer = setTimeout(() => {
       if (onVFXComplete) onVFXComplete();
     }, duration);
@@ -261,7 +112,24 @@ export default function BattleSkillVFX({
     const particles: Particle[] = [];
 
     // 初始化各種技能粒子
-    if (currentCategory === 'fire') {
+    if (currentCategory === 'ultimate') {
+      // 140個超震撼專屬奧義光子：神聖金芒、赤炎雷電、環形超新星擴散
+      for (let i = 0; i < 140; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = Math.random() * 18 + 6;
+        particles.push({
+          x: width * 0.5,
+          y: height * 0.5,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          size: Math.random() * 14 + 4,
+          color: Math.random() > 0.4 ? '#fde047' : Math.random() > 0.3 ? '#f59e0b' : Math.random() > 0.2 ? '#ef4444' : '#38bdf8',
+          alpha: 1,
+          life: 0,
+          maxLife: 55 + Math.random() * 30
+        });
+      }
+    } else if (currentCategory === 'fire') {
       // 火球與火星
       for (let i = 0; i < 90; i++) {
         particles.push({
@@ -402,7 +270,14 @@ export default function BattleSkillVFX({
       const cy = height * 0.5;
       const maxR = Math.max(10, width * 0.8);
 
-      if (currentCategory === 'fire') {
+      if (currentCategory === 'ultimate') {
+        const grad = ctx.createRadialGradient(cx, cy, 20, cx, cy, maxR * 1.2);
+        grad.addColorStop(0, `rgba(234, 179, 8, ${Math.max(0, 0.65 * (1 - progress))})`);
+        grad.addColorStop(0.3, `rgba(239, 68, 68, ${Math.max(0, 0.45 * (1 - progress))})`);
+        grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, width, height);
+      } else if (currentCategory === 'fire') {
         const grad = ctx.createRadialGradient(cx, cy, 10, cx, cy, maxR);
         grad.addColorStop(0, `rgba(239, 68, 68, ${Math.max(0, 0.35 * (1 - progress))})`);
         grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
@@ -429,7 +304,42 @@ export default function BattleSkillVFX({
       }
 
       // 2. 繪製幾何主特效 (如刀光、八卦陣、衝撞光波、巨浪、雷電)
-      if (currentCategory === 'wushuang') {
+      if (currentCategory === 'ultimate') {
+        // 雙重神威衝擊波圓環
+        ctx.save();
+        ctx.translate(cx, cy);
+        const waveRadius1 = Math.max(0.1, Math.min(width, height) * 0.70 * progress);
+        const waveRadius2 = Math.max(0.1, Math.min(width, height) * 1.0 * Math.max(0, progress - 0.15));
+
+        ctx.strokeStyle = `rgba(254, 240, 138, ${Math.max(0, 1 - progress)})`;
+        ctx.lineWidth = Math.max(0.5, 10 * (1 - progress));
+        ctx.shadowColor = '#eab308';
+        ctx.shadowBlur = 35;
+        ctx.beginPath();
+        ctx.arc(0, 0, waveRadius1, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.strokeStyle = `rgba(239, 68, 68, ${Math.max(0, 1 - progress)})`;
+        ctx.lineWidth = Math.max(0.5, 6 * (1 - progress));
+        ctx.shadowColor = '#ef4444';
+        ctx.shadowBlur = 25;
+        ctx.beginPath();
+        ctx.arc(0, 0, waveRadius2, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // 8條天地貫穿金芒神光
+        for (let a = 0; a < 8; a++) {
+          const ang = (a * Math.PI) / 4 + progress * 0.5;
+          const rayLen = Math.max(10, Math.max(width, height) * 0.85 * progress);
+          ctx.strokeStyle = `rgba(253, 224, 71, ${Math.max(0, 0.85 * (1 - progress))})`;
+          ctx.lineWidth = Math.max(0.5, 8 * (1 - progress));
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(Math.cos(ang) * rayLen, Math.sin(ang) * rayLen);
+          ctx.stroke();
+        }
+        ctx.restore();
+      } else if (currentCategory === 'wushuang') {
         // 金色十字無雙神斬
         ctx.save();
         ctx.translate(cx, cy);
@@ -573,6 +483,8 @@ export default function BattleSkillVFX({
   // 戰法橫幅背景色調
   const getBannerTheme = () => {
     switch (skillCategory) {
+      case 'ultimate':
+        return 'from-amber-950 via-yellow-900 to-amber-950 border-amber-300 text-yellow-100 shadow-[0_0_40px_rgba(245,158,11,0.95)] ring-2 ring-yellow-400';
       case 'fire':
         return 'from-amber-950 via-rose-900 to-amber-950 border-rose-500 text-rose-100 shadow-rose-900/80';
       case 'water':
@@ -592,6 +504,29 @@ export default function BattleSkillVFX({
 
   const getSkillIcon = (sName?: string) => {
     if (!sName) return '⚔️';
+    // 20大專屬終極奧義圖標
+    if (sName === '武聖・單刀赴會') return '🐉';
+    if (sName === '當陽怒吼・斷橋') return '🦁';
+    if (sName === '七進七出・龍膽') return '⚡';
+    if (sName === '八陣圖・奇門遁甲') return '☯️';
+    if (sName === '神威・西涼鐵騎') return '🐎';
+    if (sName === '神射・百步穿楊') return '🎯';
+    if (sName === '短歌行・天下歸心') return '👑';
+    if (sName === '鷹視狼顧・奪魄') return '🦅';
+    if (sName === '威震逍遙津・疾風') return '🌪️';
+    if (sName === '遺計定遼東・十勝') return '📜';
+    if (sName === '裸衣・虎痴狂怒') return '🐯';
+    if (sName === '拔矢啖睛・剛烈') return '👁️';
+    if (sName === '火燒赤壁・連環') return '🔥';
+    if (sName === '夷陵烈焰・連營') return '💥';
+    if (sName === '錦帆夜襲・百騎') return '⛵';
+    if (sName === '神亭連珠・封喉') return '🏹';
+    if (sName === '白衣渡江・奇襲') return '🌫️';
+    if (sName === '鬼神・天下無雙') return '👹';
+    if (sName === '閉月・連環美人計') return '🌙';
+    if (sName === '毒士亂武・萬劫') return '☠️';
+
+    // 常規戰法圖標
     if (['火計', '業火', '火矢'].includes(sName)) return '🔥';
     if (['水攻', '水龍計'].includes(sName)) return '🌊';
     if (['落石', '山崩'].includes(sName)) return '⛰️';
@@ -613,7 +548,9 @@ export default function BattleSkillVFX({
       {/* 2. 螢幕高光瞬間閃爍 (Flash Overlay) */}
       <div 
         className={`absolute inset-0 transition-opacity duration-300 pointer-events-none ${
-          skillCategory === 'fire' 
+          skillCategory === 'ultimate'
+            ? 'bg-amber-400/35'
+            : skillCategory === 'fire' 
             ? 'bg-rose-500/20' 
             : skillCategory === 'water'
             ? 'bg-sky-500/20'
@@ -631,26 +568,34 @@ export default function BattleSkillVFX({
       {isSkill && (
         <div className="relative z-20 w-full max-w-2xl px-3 animate-in fade-in zoom-in slide-in-from-left duration-300">
           {/* 金芒速度線裝飾背景 */}
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-amber-400/20 to-transparent -skew-y-1 scale-105 blur-sm" />
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-amber-400/25 to-transparent -skew-y-1 scale-105 blur-sm" />
 
           {/* 橫幅主體 */}
           <div className={`relative bg-gradient-to-r ${getBannerTheme()} border-y-2 sm:border-2 sm:rounded-2xl px-3 sm:px-6 py-2 sm:py-3 shadow-2xl flex items-center justify-between gap-2.5 sm:gap-4 overflow-hidden`}>
             
             {/* 左側：武將頭像與姓名陣營 */}
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-              <div className="relative w-12 h-12 sm:w-16 sm:h-16 rounded-full border-2 border-amber-400 overflow-hidden shadow-lg bg-stone-900 shrink-0 ring-2 ring-amber-500/50">
+              <div className={`relative w-12 h-12 sm:w-16 sm:h-16 rounded-full border-2 ${
+                skillCategory === 'ultimate' ? 'border-yellow-300 ring-4 ring-yellow-400 ring-offset-2 ring-offset-black animate-pulse' : 'border-amber-400 ring-2 ring-amber-500/50'
+              } overflow-hidden shadow-lg bg-stone-900 shrink-0`}>
                 <GeneralAvatar
                   name={vfxEvent.casterName}
                   size={64}
                   className="w-full h-full object-cover"
                 />
               </div>
-              <div className="flex flex-col">
-                <span className={`text-[10px] sm:text-xs font-bold px-1.5 py-0.5 rounded w-fit ${
-                  vfxEvent.isCasterEnemy ? 'bg-rose-950/80 text-rose-300 border border-rose-600/60' : 'bg-sky-950/80 text-sky-300 border border-sky-600/60'
-                }`}>
-                  {vfxEvent.isCasterEnemy ? '敵方發動' : '我方發動'}
-                </span>
+              <div className="flex flex-col gap-0.5">
+                {skillCategory === 'ultimate' ? (
+                  <span className="text-[10px] sm:text-xs font-black px-2 py-0.5 rounded bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-400 text-stone-950 border border-yellow-100 shadow font-serif animate-pulse tracking-wide w-fit">
+                    🌟 傳奇專屬奧義 (耗體70)
+                  </span>
+                ) : (
+                  <span className={`text-[10px] sm:text-xs font-bold px-1.5 py-0.5 rounded w-fit ${
+                    vfxEvent.isCasterEnemy ? 'bg-rose-950/80 text-rose-300 border border-rose-600/60' : 'bg-sky-950/80 text-sky-300 border border-sky-600/60'
+                  }`}>
+                    {vfxEvent.isCasterEnemy ? '敵方發動' : '我方發動'}
+                  </span>
+                )}
                 <span className="text-base sm:text-lg font-black text-amber-200 font-serif tracking-wide drop-shadow truncate max-w-[90px] sm:max-w-[130px]">
                   {vfxEvent.casterName}
                 </span>

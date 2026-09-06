@@ -34,6 +34,7 @@ export default function ProvinceCard({ provinceId, gameState, onClose }: Provinc
         : '無';
 
   const tierRules = getProvinceTierRules(provinceId);
+  const isPass = Boolean(province.isPass || state.isPass);
 
   const estimatedGold = getEstimatedAnnualGold(state);
   const estimatedFood = getEstimatedAnnualFood(state);
@@ -78,84 +79,151 @@ export default function ProvinceCard({ provinceId, gameState, onClose }: Provinc
       </div>
 
       {/* Ruler & Governor & Autonomy info */}
-      <div className="text-[10px] sm:text-[10.5px] font-bold text-stone-800 flex flex-col gap-0.5 mb-1 bg-stone-200/80 px-1 py-1 rounded border border-stone-300">
-        <div className="flex justify-between items-center">
-          <span className="text-stone-600 font-normal">君主:</span>
-          <span className="text-red-800 font-bold truncate max-w-[95px]">{state.rulerName || '無主'}</span>
+      {isPass ? (
+        <>
+          {/* Pass Fortress Banner with gate.jpg */}
+          <div className="relative rounded overflow-hidden mb-1 h-12 w-full border border-amber-800/40">
+            <img 
+              src="./assets/gate.jpg" 
+              alt="要塞" 
+              className="w-full h-full object-cover object-center"
+              referrerPolicy="no-referrer"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent flex items-end px-1.5 py-0.5 justify-between">
+              <span className="text-amber-200 text-[9.5px] font-bold drop-shadow">
+                🏯 天險要塞 · 咽喉重地
+              </span>
+              <span className="text-[8.5px] bg-red-800/90 text-white font-bold px-1 rounded border border-red-500">
+                上限 10 隊
+              </span>
+            </div>
+          </div>
+
+          <div className="text-[10px] sm:text-[10.5px] font-bold text-stone-800 flex flex-col gap-0.5 mb-1 bg-amber-50/80 px-1.5 py-1 rounded border border-amber-300">
+            <div className="flex justify-between items-center">
+              <span className="text-stone-600 font-normal">所屬勢力:</span>
+              <span className="text-red-800 font-bold truncate max-w-[95px]">{state.rulerName || '無主要塞'}</span>
+            </div>
+            <div className="flex justify-between items-center border-t border-amber-200 pt-0.5">
+              <span className="text-stone-600 font-normal">要塞體制:</span>
+              <span className="text-amber-900 font-bold">軍事要塞 (無太守)</span>
+            </div>
+            <div className="flex justify-between items-center border-t border-amber-200 pt-0.5">
+              <span className="text-stone-600 font-normal">天險特性:</span>
+              <span className="bg-amber-700 text-white text-[9px] px-1 py-0.2 rounded font-bold">
+                免除農商·無天災
+              </span>
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="text-[10px] sm:text-[10.5px] font-bold text-stone-800 flex flex-col gap-0.5 mb-1 bg-stone-200/80 px-1 py-1 rounded border border-stone-300">
+          <div className="flex justify-between items-center">
+            <span className="text-stone-600 font-normal">君主:</span>
+            <span className="text-red-800 font-bold truncate max-w-[95px]">{state.rulerName || '無主'}</span>
+          </div>
+          <div className="flex justify-between items-center border-t border-stone-300/60 pt-0.5">
+            <span className="text-stone-600 font-normal">太守:</span>
+            <span className="text-amber-900 font-bold truncate max-w-[95px]">{governorDisplay}</span>
+          </div>
+          <div className="flex justify-between items-center border-t border-stone-300/60 pt-0.5">
+            <span className="text-stone-600 font-normal">治理:</span>
+            {state.isAutonomous ? (
+              <span className="bg-amber-700 text-white text-[9px] px-1 py-0.2 rounded font-bold shadow-xs">
+                自治中
+              </span>
+            ) : (
+              <span className="bg-stone-600 text-stone-100 text-[9px] px-1 py-0.2 rounded font-bold">
+                直轄
+              </span>
+            )}
+          </div>
         </div>
-        <div className="flex justify-between items-center border-t border-stone-300/60 pt-0.5">
-          <span className="text-stone-600 font-normal">太守:</span>
-          <span className="text-amber-900 font-bold truncate max-w-[95px]">{governorDisplay}</span>
-        </div>
-        <div className="flex justify-between items-center border-t border-stone-300/60 pt-0.5">
-          <span className="text-stone-600 font-normal">治理:</span>
-          {state.isAutonomous ? (
-            <span className="bg-amber-700 text-white text-[9px] px-1 py-0.2 rounded font-bold shadow-xs">
-              自治中
-            </span>
-          ) : (
-            <span className="bg-stone-600 text-stone-100 text-[9px] px-1 py-0.2 rounded font-bold">
-              直轄
-            </span>
-          )}
-        </div>
-      </div>
+      )}
       
       {/* Stats Compact Grid */}
-      <div className="grid grid-cols-2 gap-x-1 gap-y-0.5 text-[10px] leading-tight text-stone-800">
-        <div className="flex justify-between items-center">
-          <span className="text-stone-600">金:</span> 
-          <div className="flex items-center gap-0.5 text-right">
-            <span className="font-bold text-amber-900">{state.gold}</span>
-            <span className="text-[8px] text-amber-700">(+{estimatedGold})</span>
+      {isPass ? (
+        <div className="grid grid-cols-2 gap-x-1 gap-y-1 text-[10px] leading-tight text-stone-800">
+          <div className="flex justify-between items-center bg-stone-50 px-1 py-0.5 rounded border border-stone-200">
+            <span className="text-stone-600">金錢:</span> 
+            <span className="font-bold text-amber-900">{state.gold.toLocaleString()}</span>
+          </div>
+          <div className="flex justify-between items-center bg-stone-50 px-1 py-0.5 rounded border border-stone-200">
+            <span className="text-stone-600">軍糧:</span> 
+            <span className="font-bold text-emerald-900">{state.food.toLocaleString()}</span>
+          </div>
+          <div className="flex justify-between col-span-2 text-[9.5px] bg-rose-50/70 px-1 py-0.5 rounded border border-rose-200">
+            <span className="text-stone-600">月度軍糧消耗:</span>
+            <span className="font-bold text-rose-700">-{monthlyFoodConsumption}/月</span>
+          </div>
+          <div className="flex justify-between items-center col-span-2">
+            <span className="text-stone-600">駐軍編制:</span> 
+            <span className="font-bold text-stone-800">{stationedGeneralsCount} / 10 隊</span>
+          </div>
+          <div className="flex justify-between col-span-2 border-t border-stone-300 pt-1">
+            <span className="text-stone-600">總守軍:</span> 
+            <span className="font-bold text-rose-800 text-xs">{totalSoldiers.toLocaleString()} 人</span>
+          </div>
+          <div className="col-span-2 text-[9px] text-amber-900 font-bold bg-amber-100/60 p-1 rounded border border-amber-300 text-center">
+            🛡️ 扼守咽喉 · 防守享 +15% 天險護防
           </div>
         </div>
-        <div className="flex justify-between items-center">
-          <span className="text-stone-600">糧:</span> 
-          <div className="flex items-center gap-0.5 text-right">
-            <span className="font-bold text-emerald-900">{state.food}</span>
-            <span className="text-[8px] text-emerald-700">(+{estimatedFood})</span>
+      ) : (
+        <div className="grid grid-cols-2 gap-x-1 gap-y-0.5 text-[10px] leading-tight text-stone-800">
+          <div className="flex justify-between items-center">
+            <span className="text-stone-600">金:</span> 
+            <div className="flex items-center gap-0.5 text-right">
+              <span className="font-bold text-amber-900">{state.gold}</span>
+              <span className="text-[8px] text-amber-700">(+{estimatedGold})</span>
+            </div>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-stone-600">糧:</span> 
+            <div className="flex items-center gap-0.5 text-right">
+              <span className="font-bold text-emerald-900">{state.food}</span>
+              <span className="text-[8px] text-emerald-700">(+{estimatedFood})</span>
+            </div>
+          </div>
+          <div className="flex justify-between col-span-2 border-b border-stone-300 pb-0.5 mb-0.5 text-[9.5px]">
+            <span className="text-stone-600">軍糧消耗:</span>
+            <span className="font-bold text-rose-700">-{monthlyFoodConsumption}/月</span>
+          </div>
+          
+          <div className="flex justify-between col-span-2">
+            <span className="text-stone-600">土地:</span> 
+            <span className="font-bold text-amber-800">{state.value} / {tierRules.maxDev}</span>
+          </div>
+
+          <div className="flex justify-between col-span-2">
+            <span className="text-stone-600">商業:</span> 
+            <span className="font-bold text-sky-800">{state.commerce || 0} / {tierRules.maxCommerce}</span>
+          </div>
+
+          <div className="flex justify-between">
+            <span className="text-stone-600">防災:</span> 
+            <span className="font-bold text-blue-800">{100 - state.flood}%</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-stone-600">民忠:</span> 
+            <span className="font-bold">{state.loyalty}</span>
+          </div>
+
+          <div className="flex justify-between col-span-2">
+            <span className="text-stone-600">人口:</span> 
+            <span className="font-bold">{state.population.toLocaleString()}</span>
+          </div>
+
+          <div className="flex justify-between col-span-2 border-t border-stone-300 pt-0.5 mt-0.5">
+            <span className="text-stone-600">兵士:</span> 
+            <span className="font-bold text-rose-800 text-xs">{totalSoldiers.toLocaleString()}</span>
+          </div>
+
+          <div className="flex justify-between col-span-2 text-[10px] text-stone-600">
+            <span>駐留將領:</span>
+            <span className="font-bold text-stone-800">{stationedGeneralsCount} 人</span>
           </div>
         </div>
-        <div className="flex justify-between col-span-2 border-b border-stone-300 pb-0.5 mb-0.5 text-[9.5px]">
-          <span className="text-stone-600">軍糧消耗:</span>
-          <span className="font-bold text-rose-700">-{monthlyFoodConsumption}/月</span>
-        </div>
-        
-        <div className="flex justify-between col-span-2">
-          <span className="text-stone-600">土地:</span> 
-          <span className="font-bold text-amber-800">{state.value} / {tierRules.maxDev}</span>
-        </div>
-
-        <div className="flex justify-between col-span-2">
-          <span className="text-stone-600">商業:</span> 
-          <span className="font-bold text-sky-800">{state.commerce || 0} / {tierRules.maxCommerce}</span>
-        </div>
-
-        <div className="flex justify-between">
-          <span className="text-stone-600">防災:</span> 
-          <span className="font-bold text-blue-800">{100 - state.flood}%</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-stone-600">民忠:</span> 
-          <span className="font-bold">{state.loyalty}</span>
-        </div>
-
-        <div className="flex justify-between col-span-2">
-          <span className="text-stone-600">人口:</span> 
-          <span className="font-bold">{state.population.toLocaleString()}</span>
-        </div>
-
-        <div className="flex justify-between col-span-2 border-t border-stone-300 pt-0.5 mt-0.5">
-          <span className="text-stone-600">兵士:</span> 
-          <span className="font-bold text-rose-800 text-xs">{totalSoldiers.toLocaleString()}</span>
-        </div>
-
-        <div className="flex justify-between col-span-2 text-[10px] text-stone-600">
-          <span>駐留將領:</span>
-          <span className="font-bold text-stone-800">{stationedGeneralsCount} 人</span>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

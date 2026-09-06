@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { GameState } from '../types';
 import { provinces } from '../data/provinces';
 import { getGeneralItemBonus } from '../data/items';
@@ -27,7 +27,10 @@ export default function MilitaryMoveView({ gameState, onExit, onConfirmMove }: M
         id,
         info: provinces.find(p => p.id === id),
         state: gameState.provincesData[id]
-      })).filter(cp => cp.state?.rulerName === gameState.rulerName)
+      })).filter(cp => 
+        cp.state?.rulerName === gameState.rulerName || 
+        (cp.info?.isPass && (cp.state?.rulerName === null || (cp.state?.soldiers || 0) === 0))
+      )
     : [];
 
   const [targetProvinceId, setTargetProvinceId] = useState<number | null>(
@@ -35,6 +38,18 @@ export default function MilitaryMoveView({ gameState, onExit, onConfirmMove }: M
   );
 
   const [selectedGenerals, setSelectedGenerals] = useState<Record<string, boolean>>({});
+  const selectedCount = Object.values(selectedGenerals).filter(Boolean).length;
+
+  const targetProvObj = connectedProvinces.find(cp => cp.id === targetProvinceId);
+  const isTargetPass = Boolean(targetProvObj?.info?.isPass || targetProvObj?.state?.isPass);
+  const targetCurrentStationed = useMemo(() => {
+    if (!targetProvinceId) return 0;
+    return Object.values(gameState.generalsData).filter(
+      g => g.provinceId === targetProvinceId && !g.isWild && !selectedGenerals[g.name]
+    ).length;
+  }, [targetProvinceId, gameState.generalsData, selectedGenerals]);
+
+  const isExceedingPassLimit = isTargetPass && (targetCurrentStationed + selectedCount > 10);
 
   if (!currentProv || !currentProvInfo) {
     return (
@@ -61,7 +76,6 @@ export default function MilitaryMoveView({ gameState, onExit, onConfirmMove }: M
     }));
   };
 
-  const selectedCount = Object.values(selectedGenerals).filter(Boolean).length;
   const selectedNames = Object.keys(selectedGenerals).filter(k => selectedGenerals[k]);
 
   const handleExecute = () => {
@@ -111,8 +125,14 @@ export default function MilitaryMoveView({ gameState, onExit, onConfirmMove }: M
                       }`}
                     >
                       <div className="flex items-center justify-between">
-                        <div className="font-black text-sm text-stone-900">
-                          {cp.info?.name} ({cp.id}郡)
+                        <div className="font-black text-sm text-stone-900 flex items-center gap-1.5">
+                          <span>{cp.info?.name}</span>
+                          <span className="text-xs text-stone-500">({cp.id}郡)</span>
+                          {cp.info?.isPass && (
+                            <span className="text-[10px] bg-red-900 text-red-100 font-bold px-1.5 py-0.2 rounded">
+                              要塞
+                            </span>
+                          )}
                         </div>
                         {cp.state?.isAutonomous && (
                           <span className="text-[10px] bg-amber-100 text-amber-950 font-black px-1.5 py-0.5 rounded border border-amber-400">
@@ -121,10 +141,15 @@ export default function MilitaryMoveView({ gameState, onExit, onConfirmMove }: M
                         )}
                       </div>
                       <div className="text-xs text-stone-600">
-                        君主: <span className="font-bold">{cp.state?.rulerName || '無'}</span>
+                        君主: <span className="font-bold">{cp.state?.rulerName || '空置'}</span>
                       </div>
-                      <div className="text-[11px] text-stone-500">
-                        總兵力: <strong className="text-stone-800">{cpTotalTroops.toLocaleString()}</strong>
+                      <div className="text-[11px] text-stone-500 flex justify-between">
+                        <span>總兵力: <strong className="text-stone-800">{cpTotalTroops.toLocaleString()}</strong></span>
+                        {cp.info?.isPass && (
+                          <span className="text-stone-600 font-bold">
+                            駐守: {cpGenerals.length}/5 隊
+                          </span>
+                        )}
                       </div>
                     </button>
                   );
@@ -132,6 +157,33 @@ export default function MilitaryMoveView({ gameState, onExit, onConfirmMove }: M
               </div>
             )}
           </div>
+
+          {/* Pass 5-unit Garrison Notice */}
+          {isTargetPass && (
+            <div className={`p-3 border-2 text-xs rounded-sm shadow-xs ${
+              isExceedingPassLimit 
+                ? 'bg-red-100 border-red-500 text-red-950 font-bold'
+                : 'bg-amber-50 border-amber-400 text-amber-950'
+            }`}>
+              <div className="flex items-center gap-1.5 font-black text-sm mb-1">
+                <span>🏯</span>
+                <span>【{targetProvObj?.info?.name}】要塞駐軍規則</span>
+              </div>
+              <div>
+                要塞地形險要、營房腹地有限，<strong>最多僅限駐守 10 支部隊</strong>。
+                目前目標要塞已駐守 <strong>{targetCurrentStationed}</strong> 隊。
+                {isExceedingPassLimit ? (
+                  <div className="text-red-700 font-black mt-1">
+                    ⚠️ 本次欲調動 {selectedCount} 隊，合計達 {targetCurrentStationed + selectedCount} 隊，已超出上限！最多僅能再進駐 {Math.max(0, 10 - targetCurrentStationed)} 隊。
+                  </div>
+                ) : (
+                  <div className="text-emerald-800 font-bold mt-1">
+                    ✓ 本次調入 {selectedCount} 隊，調動後將有 {targetCurrentStationed + selectedCount}/10 隊駐防。戰時享 15% 基礎防守力加成！
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Rule Note */}
           <div className="bg-amber-100/70 border border-amber-400 p-2.5 text-xs text-amber-900 space-y-2">
@@ -236,13 +288,15 @@ export default function MilitaryMoveView({ gameState, onExit, onConfirmMove }: M
       {/* Footer */}
       <div className="p-4 border-t-[2px] border-[#1c1917] bg-[#f2efeb] flex justify-center">
         <button
-          disabled={selectedCount === 0 || !targetProvinceId}
+          disabled={selectedCount === 0 || !targetProvinceId || isExceedingPassLimit}
           onClick={handleExecute}
           className={`w-full max-w-lg py-3 font-black text-base border-2 border-[#1c1917] shadow-[3px_3px_0_#1c1917] transition-all text-white
-            ${selectedCount > 0 && targetProvinceId ? 'bg-[#991b1b] hover:bg-red-800 active:scale-95 cursor-pointer' : 'bg-stone-400 cursor-not-allowed opacity-60'}
+            ${selectedCount > 0 && targetProvinceId && !isExceedingPassLimit ? 'bg-[#991b1b] hover:bg-red-800 active:scale-95 cursor-pointer' : 'bg-stone-400 cursor-not-allowed opacity-60'}
           `}
         >
-          確認調動 ({selectedCount} 位武將)
+          {isExceedingPassLimit
+            ? `超過關卡駐軍上限 (最多 10 隊)`
+            : `確認調動 (${selectedCount} 位武將)`}
         </button>
       </div>
     </div>

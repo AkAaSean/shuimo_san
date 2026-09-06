@@ -15,7 +15,8 @@ import {
   CityCoordsMap,
   PassCoordsMap
 } from '../utils/mapCoordinatesStorage';
-import { MapPin, Sliders } from 'lucide-react';
+import { MapPin, Sliders, CloudRain, CloudSnow, Sun, Sparkles } from 'lucide-react';
+import WeatherOverlay, { getSeasonInfo } from './WeatherOverlay';
 
 // 座標調校系統開關（預設為 false 關閉，隨時可改為 true 重新開啟調校工具）
 const ENABLE_COORDINATE_EDITOR = false;
@@ -25,6 +26,7 @@ interface MapAreaProps {
   onSelectProvince: (id: number) => void;
   onClearSelection?: () => void;
   provincesData?: Record<number, ProvinceState>;
+  month?: number;
 }
 
 const RULER_COLORS: Record<string, string> = {
@@ -52,28 +54,51 @@ const getRulerText = (rulerName: string | null) => {
 };
 
 // 根據都市類型與特定城市對應圖樣
+const SPECIAL_KING_CITIES = [15, 16]; // 15 洛陽, 16 長安
+const SPECIAL_BOTTOM_RIGHT_CITIES = [1, 3, 5, 19, 20, 40];
+const SPECIAL_CITY3_CITIES = [26, 42]; // 26 夷州, 42 交趾
+
 const getCityPatternId = (provinceId: number): string => {
+  const pMeta = provinces.find(p => p.id === provinceId);
+  if (pMeta?.isPass) {
+    return 'pass-pattern-gate';
+  }
+
+  // 指定皇都雙京 (15 洛陽, 16 長安) 套用 public/assets/king_city.jpg 全景圖片
+  if (SPECIAL_KING_CITIES.includes(provinceId)) {
+    return 'city-pattern-king-city';
+  }
+
+  // 指定城市 (26 夷州, 42 交趾) 套用 public/assets/city3.jpg 全城池圖案
+  if (SPECIAL_CITY3_CITIES.includes(provinceId)) {
+    return 'city-pattern-city3';
+  }
+
+  // 指定城市 (1 襄平, 3 晉陽, 5 上黨, 19 武威, 20 西平, 40 永昌) 套用 public/assets/city.jpg 右下角圖案
+  if (SPECIAL_BOTTOM_RIGHT_CITIES.includes(provinceId)) {
+    return 'city-pattern-bottom-right';
+  }
+
   const tier = PROVINCE_BASE_CONFIGS[provinceId]?.tier;
 
-  // b. 小型城市 (FRONTIER) 套用 public/assets/city2.jpg 整張城市圖
+  // 小型城市 (FRONTIER) 套用 public/assets/city2.jpg 整張城市圖
   if (tier === 'FRONTIER') {
     return 'city-pattern-small';
   }
 
-  // a. 中型城市 (MIDSIZED) 套用 public/assets/city.jpg 左下角圖案
-  if (tier === 'MIDSIZED') {
-    return 'city-pattern-midsized';
+  if (tier === 'COMMERCIAL') {
+    return 'city-pattern-commercial'; // 商業都市 (city.jpg 右上)
   }
 
-  if (tier === 'METROPOLIS') return 'city-pattern-metropolis';     // 大型都市 (city.jpg 左上)
-  if (tier === 'COMMERCIAL') return 'city-pattern-commercial';     // 商業都市 (city.jpg 右上)
-  if (tier === 'AGRICULTURAL') return 'city-pattern-agricultural'; // 農業都市 (city.jpg 左下)
+  if (tier === 'METROPOLIS') {
+    return 'city-pattern-metropolis'; // 大型都市 (city.jpg 左上)
+  }
 
-  // 預設為中型城市 (city.jpg 左下角)
+  // 中型/農業城市 預設套用 public/assets/city.jpg 左下角圖案
   return 'city-pattern-midsized';
 };
 
-export default function MapArea({ selectedProvinceId, onSelectProvince, onClearSelection, provincesData }: MapAreaProps) {
+export default function MapArea({ selectedProvinceId, onSelectProvince, onClearSelection, provincesData, month = 1 }: MapAreaProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const controls = useAnimation();
@@ -82,6 +107,26 @@ export default function MapArea({ selectedProvinceId, onSelectProvince, onClearS
   const scaleValue = useMotionValue(1);
   const [currentScale, setCurrentScale] = useState(1);
   const [containerSize, setContainerSize] = useState({ width: 800, height: 600 });
+  const [weatherEnabled, setWeatherEnabled] = useState(true);
+  const [showWeather, setShowWeather] = useState(false);
+
+  const seasonInfo = useMemo(() => getSeasonInfo(month), [month]);
+
+  // 監聽月份或季節變化：當月份變更時，觸發持續 1.5 秒淡入淡出的天氣特效，隨後自動移除 DOM 元素
+  useEffect(() => {
+    if (!weatherEnabled) {
+      setShowWeather(false);
+      return;
+    }
+
+    setShowWeather(true);
+
+    const timer = setTimeout(() => {
+      setShowWeather(false);
+    }, 1500); // 1.5 秒淡入淡出結束後，自動隱藏並移除 DOM 元素
+
+    return () => clearTimeout(timer);
+  }, [month, weatherEnabled]);
 
   // 城市與關隘座標即時調整狀態
   const [cityCoords, setCityCoords] = useState<CityCoordsMap>(() => loadStoredCityCoordinates());
@@ -98,9 +143,9 @@ export default function MapArea({ selectedProvinceId, onSelectProvince, onClearS
 
   const MAP_BASE_SIZE = 1600;
 
-  // 動態套用最新座標的城池清單
+  // 動態套用最新座標的城池清單 (排除關隘，避免與 pass-nodes 重複繪製)
   const effectiveProvinces = useMemo(() => {
-    return provinces.map(p => {
+    return provinces.filter(p => !p.isPass).map(p => {
       const c = cityCoords[p.id];
       return {
         ...p,
@@ -114,13 +159,21 @@ export default function MapArea({ selectedProvinceId, onSelectProvince, onClearS
   const effectivePasses = useMemo(() => {
     return DEFAULT_PASSES.map(p => {
       const c = passCoords[p.name];
+      const pMeta = provinces.find(prov => prov.id === p.id);
       return {
         ...p,
+        connections: pMeta ? pMeta.connections : [],
+        isPass: true,
         x: c ? c.x : p.x,
         y: c ? c.y : p.y,
       };
     });
   }, [passCoords]);
+
+  // 全部地圖節點（43 郡城 + 7 戰略要塞關隘）
+  const allLocations = useMemo(() => {
+    return [...effectiveProvinces, ...effectivePasses];
+  }, [effectiveProvinces, effectivePasses]);
 
   // 計算永遠填滿視窗容器的最小縮放比率，確保畫面 100% 永遠被地圖完全覆蓋，絕不露出底圖
   const minScale = useMemo(() => {
@@ -212,11 +265,12 @@ export default function MapArea({ selectedProvinceId, onSelectProvince, onClearS
     }
   }, [containerSize, minScale, getClampedPosition, animateToTransform, scaleValue, x, y]);
 
-  // 確保選中城池時精確置中，且嚴格鎖定在地圖邊界內
+  // 確保選中城池或關隘時精確置中，且嚴格鎖定在地圖邊界內
   useEffect(() => {
     const safeW = containerSize.width || 800;
     if (selectedProvinceId && !isEditMode) {
-      const selectedP = effectiveProvinces.find(p => p.id === selectedProvinceId);
+      const selectedP = effectiveProvinces.find(p => p.id === selectedProvinceId) || 
+                        effectivePasses.find(p => p.id === selectedProvinceId);
       if (selectedP) {
         const activeScale = scaleValue.get();
         const targetScale = Math.max(activeScale < 1.2 ? 1.45 : activeScale, minScale);
@@ -228,7 +282,7 @@ export default function MapArea({ selectedProvinceId, onSelectProvince, onClearS
         animateToTransform(targetScale, rawTargetX, rawTargetY, 0.25);
       }
     }
-  }, [selectedProvinceId, containerSize, minScale, animateToTransform, effectiveProvinces, isEditMode, scaleValue]);
+  }, [selectedProvinceId, containerSize, minScale, animateToTransform, effectiveProvinces, effectivePasses, isEditMode, scaleValue]);
 
   // 滑鼠滾輪順暢縮放 (Wheel Zoom)
   useEffect(() => {
@@ -485,7 +539,8 @@ export default function MapArea({ selectedProvinceId, onSelectProvince, onClearS
     let rawTargetY = y.get();
 
     if (selectedProvinceId && !isEditMode) {
-      const selectedP = effectiveProvinces.find(p => p.id === selectedProvinceId);
+      const selectedP = effectiveProvinces.find(p => p.id === selectedProvinceId) ||
+                        effectivePasses.find(p => p.id === selectedProvinceId);
       if (selectedP) {
         const isMobile = (containerSize.width || 800) < 640;
         rawTargetX = (800 - selectedP.x) * clampedScale;
@@ -537,51 +592,45 @@ export default function MapArea({ selectedProvinceId, onSelectProvince, onClearS
           viewBox="0 0 1600 1600" 
           style={{ touchAction: 'none' }}
         >
-          {/* SVG Definitions for City Sprite Patterns and Filters */}
+          {/* SVG Definitions for City & Gate Patterns and Filters */}
           <defs>
-            {/* 4 Quadrants of public/assets/city.jpg (1024x1024) */}
-            {/* 大型都市 (Top-Left, Q1) */}
-            <pattern id="city-pattern-metropolis" patternUnits="objectBoundingBox" width="1" height="1" viewBox="20 20 472 472">
-              <image href="./assets/city.jpg" xlinkHref="./assets/city.jpg" x="0" y="0" width="1024" height="1024" preserveAspectRatio="none" />
+            {/* 關隘專屬要塞立繪 (public/assets/gate.jpg - 100% 填滿並置中裁切) */}
+            <pattern id="pass-pattern-gate" patternUnits="objectBoundingBox" width="1" height="1" viewBox="0 0 1024 1024">
+              <image href="./assets/gate.jpg" xlinkHref="./assets/gate.jpg" x="0" y="0" width="1024" height="1024" preserveAspectRatio="xMidYMid slice" />
             </pattern>
 
-            {/* 商業都市 (Top-Right, Q2) */}
-            <pattern id="city-pattern-commercial" patternUnits="objectBoundingBox" width="1" height="1" viewBox="532 20 472 472">
-              <image href="./assets/city.jpg" xlinkHref="./assets/city.jpg" x="0" y="0" width="1024" height="1024" preserveAspectRatio="none" />
+            {/* 帝都雙京皇城圖樣 (public/assets/king_city.jpg - 15 洛陽, 16 長安) */}
+            <pattern id="city-pattern-king-city" patternUnits="objectBoundingBox" width="1" height="1" viewBox="0 0 160 160">
+              <image href="./assets/king_city.jpg" xlinkHref="./assets/king_city.jpg" x="0" y="0" width="160" height="160" preserveAspectRatio="xMidYMid slice" />
             </pattern>
 
-            {/* 農業都市 (Bottom-Left, Q3) */}
-            <pattern id="city-pattern-agricultural" patternUnits="objectBoundingBox" width="1" height="1" viewBox="20 532 472 472">
-              <image href="./assets/city.jpg" xlinkHref="./assets/city.jpg" x="0" y="0" width="1024" height="1024" preserveAspectRatio="none" />
+            {/* 特殊邊陲圖樣 (public/assets/city3.jpg - 26 夷州, 42 交趾) */}
+            <pattern id="city-pattern-city3" patternUnits="objectBoundingBox" width="1" height="1" viewBox="0 0 1024 1024">
+              <image href="./assets/city3.jpg" xlinkHref="./assets/city3.jpg" x="0" y="0" width="1024" height="1024" preserveAspectRatio="xMidYMid slice" />
             </pattern>
 
-            {/* a. 中型城市套用 public/assets/city.jpg 左下角圖案 (Bottom-Left, Q3 - 精準置中) */}
-            <pattern id="city-pattern-midsized" patternUnits="objectBoundingBox" width="1" height="1" viewBox="20 532 472 472">
-              <image href="./assets/city.jpg" xlinkHref="./assets/city.jpg" x="0" y="0" width="1024" height="1024" preserveAspectRatio="none" />
-            </pattern>
-
-            {/* b. 小型城市套用 public/assets/city2.jpg (整張城市圖 - 精準全圖置中) */}
-            <pattern id="city-pattern-frontier" patternUnits="objectBoundingBox" width="1" height="1" viewBox="0 0 1024 1024">
-              <image href="./assets/city2.jpg" xlinkHref="./assets/city2.jpg" x="0" y="0" width="1024" height="1024" preserveAspectRatio="xMidYMid slice" />
-            </pattern>
+            {/* 邊關小城圖樣 (public/assets/city2.jpg - FRONTIER) */}
             <pattern id="city-pattern-small" patternUnits="objectBoundingBox" width="1" height="1" viewBox="0 0 1024 1024">
               <image href="./assets/city2.jpg" xlinkHref="./assets/city2.jpg" x="0" y="0" width="1024" height="1024" preserveAspectRatio="xMidYMid slice" />
             </pattern>
 
-            {/* 備用異域模式 (city3.jpg) */}
-            <pattern id="city-pattern-special-26" patternUnits="objectBoundingBox" width="1" height="1" viewBox="20 532 472 472">
+            {/* 大型都市 (public/assets/city.jpg 左上象限 Q1) */}
+            <pattern id="city-pattern-metropolis" patternUnits="objectBoundingBox" width="1" height="1" viewBox="20 20 472 472">
               <image href="./assets/city.jpg" xlinkHref="./assets/city.jpg" x="0" y="0" width="1024" height="1024" preserveAspectRatio="none" />
             </pattern>
-            <pattern id="city-pattern-special-42" patternUnits="objectBoundingBox" width="1" height="1" viewBox="20 532 472 472">
+
+            {/* 商業都市 (public/assets/city.jpg 右上象限 Q2) */}
+            <pattern id="city-pattern-commercial" patternUnits="objectBoundingBox" width="1" height="1" viewBox="532 20 472 472">
               <image href="./assets/city.jpg" xlinkHref="./assets/city.jpg" x="0" y="0" width="1024" height="1024" preserveAspectRatio="none" />
             </pattern>
-            <pattern id="city-pattern-special-40" patternUnits="objectBoundingBox" width="1" height="1" viewBox="20 532 472 472">
+
+            {/* 中型與農業都市 (public/assets/city.jpg 左下象限 Q3) */}
+            <pattern id="city-pattern-midsized" patternUnits="objectBoundingBox" width="1" height="1" viewBox="20 532 472 472">
               <image href="./assets/city.jpg" xlinkHref="./assets/city.jpg" x="0" y="0" width="1024" height="1024" preserveAspectRatio="none" />
             </pattern>
-            <pattern id="city-pattern-special-20" patternUnits="objectBoundingBox" width="1" height="1" viewBox="20 532 472 472">
-              <image href="./assets/city.jpg" xlinkHref="./assets/city.jpg" x="0" y="0" width="1024" height="1024" preserveAspectRatio="none" />
-            </pattern>
-            <pattern id="city-pattern-special-frontier" patternUnits="objectBoundingBox" width="1" height="1" viewBox="20 532 472 472">
+
+            {/* 指定都市 (public/assets/city.jpg 右下象限 Q4 - 1 襄平, 3 晉陽, 5 上黨, 19 武威, 20 西平, 40 永昌) */}
+            <pattern id="city-pattern-bottom-right" patternUnits="objectBoundingBox" width="1" height="1" viewBox="532 532 472 472">
               <image href="./assets/city.jpg" xlinkHref="./assets/city.jpg" x="0" y="0" width="1024" height="1024" preserveAspectRatio="none" />
             </pattern>
 
@@ -653,10 +702,10 @@ export default function MapArea({ selectedProvinceId, onSelectProvince, onClearS
           {/* City & Pass Network Group */}
           <g id="map-network">
             {/* Draw connection lines: Dark backdrop line + Bold White main line */}
-            {effectiveProvinces.map((p) =>
-              p.connections.map((targetId) => {
+            {allLocations.map((p) =>
+              (p.connections || []).map((targetId) => {
                 if (targetId > p.id) { // Avoid drawing double lines
-                  const target = effectiveProvinces.find((t) => t.id === targetId);
+                  const target = allLocations.find((t) => t.id === targetId);
                   if (target) {
                     return (
                       <g key={`line-group-${p.id}-${targetId}`}>
@@ -690,12 +739,21 @@ export default function MapArea({ selectedProvinceId, onSelectProvince, onClearS
             {/* Historical Passes / Fortresses Layer */}
             <g id="pass-nodes">
               {effectivePasses.map(pass => {
-                const isSelectedPass = isEditMode && selectedEditTarget?.type === 'pass' && selectedEditTarget.id === pass.name;
+                const isSelectedInGame = pass.id !== undefined && pass.id === selectedProvinceId;
+                const isSelectedPass = isEditMode 
+                  ? (selectedEditTarget?.type === 'pass' && selectedEditTarget.id === pass.name)
+                  : isSelectedInGame;
+
+                const pData = pass.id ? provincesData?.[pass.id] : null;
+                const rulerName = pData ? pData.rulerName : null;
+                const passFill = getRulerFill(rulerName, isSelectedPass);
+                const textContent = getRulerText(rulerName);
+
                 return (
                   <g 
                     key={pass.name} 
                     transform={`translate(${pass.x}, ${pass.y})`}
-                    className={isEditMode ? 'cursor-move' : 'pointer-events-none'}
+                    className={isEditMode ? 'cursor-move' : (pass.id ? 'cursor-pointer' : 'pointer-events-none')}
                     onPointerDown={(e) => {
                       if (isEditMode) {
                         e.stopPropagation();
@@ -703,46 +761,110 @@ export default function MapArea({ selectedProvinceId, onSelectProvince, onClearS
                         setDraggingTarget({ type: 'pass', id: pass.name });
                       }
                     }}
+                    onClick={() => {
+                      if (isEditMode) {
+                        setSelectedEditTarget({ type: 'pass', id: pass.name });
+                      } else if (pass.id) {
+                        onSelectProvince(pass.id);
+                      }
+                    }}
                   >
                     {/* Pass Selected Aura */}
                     {isSelectedPass && (
-                      <circle
-                        r={24}
-                        fill="none"
-                        stroke="#fbbf24"
-                        strokeWidth={3}
-                        className="animate-ping opacity-80"
-                      />
+                      <>
+                        <circle
+                          r={34}
+                          fill="none"
+                          stroke="#fbbf24"
+                          strokeWidth={2.5}
+                          className="animate-ping opacity-70 pointer-events-none"
+                        />
+                        <circle
+                          r={24}
+                          fill="none"
+                          stroke="#f59e0b"
+                          strokeWidth={3}
+                          className="animate-ping opacity-85 pointer-events-none"
+                          style={{ animationDelay: '0.15s' }}
+                        />
+                      </>
                     )}
 
+                    {/* Fortress Shadow Base Plate */}
                     <rect 
-                      x="-11" 
-                      y="-11" 
-                      width="22" 
-                      height="22" 
-                      fill={isSelectedPass ? '#f59e0b' : '#b91c1c'} 
-                      stroke={isSelectedPass ? '#fbbf24' : '#ffffff'} 
-                      strokeWidth={isSelectedPass ? 3 : 2} 
-                      rx="3" 
+                      x={isSelectedPass ? "-16" : "-13"} 
+                      y={isSelectedPass ? "-16" : "-13"} 
+                      width={isSelectedPass ? "32" : "26"} 
+                      height={isSelectedPass ? "32" : "26"} 
+                      rx="4.5" 
+                      fill="#292524" 
+                      filter="url(#city-shadow)"
+                    />
+
+                    {/* Fortress Gate Pictorial Texture */}
+                    <rect 
+                      x={isSelectedPass ? "-16" : "-13"} 
+                      y={isSelectedPass ? "-16" : "-13"} 
+                      width={isSelectedPass ? "32" : "26"} 
+                      height={isSelectedPass ? "32" : "26"} 
+                      rx="4.5" 
+                      fill="url(#pass-pattern-gate)"
+                    />
+
+                    {/* Fortress Outer Border with Ruler Color */}
+                    <rect 
+                      x={isSelectedPass ? "-16" : "-13"} 
+                      y={isSelectedPass ? "-16" : "-13"} 
+                      width={isSelectedPass ? "32" : "26"} 
+                      height={isSelectedPass ? "32" : "26"} 
+                      rx="4.5" 
+                      fill="none" 
+                      stroke={isSelectedPass ? '#fbbf24' : passFill} 
+                      strokeWidth={isSelectedPass ? 3.5 : 2.2} 
+                      filter={isSelectedPass ? 'url(#city-selected-glow)' : undefined}
                     />
                     
+                    {/* Pass Name */}
                     <text 
                       x="0" 
-                      y="-15" 
+                      y="-17" 
                       textAnchor="middle" 
-                      fill="#ffffff" 
-                      fontSize="15" 
+                      fill={isSelectedPass ? '#fef08a' : '#ffffff'} 
+                      fontSize={isSelectedPass ? '18' : '15'} 
                       className="font-serif font-black" 
                       stroke="#000000"
-                      strokeWidth="3"
+                      strokeWidth={isSelectedPass ? '4' : '3'}
                       style={{ paintOrder: 'stroke fill' }}
                     >
                       {pass.name}
                     </text>
 
+                    {/* Ruler Badge if occupied */}
+                    {pass.id && (
+                      <g transform="translate(10, 10)">
+                        <circle
+                          r={isSelectedPass ? 8 : 6.5}
+                          fill={passFill}
+                          stroke={isSelectedPass ? '#fbbf24' : '#ffffff'}
+                          strokeWidth="1.5"
+                          filter="url(#city-shadow)"
+                        />
+                        <text
+                          y={isSelectedPass ? 2.5 : 2}
+                          textAnchor="middle"
+                          className="font-serif fill-white font-black text-[7px]"
+                          stroke="#000000"
+                          strokeWidth="1"
+                          style={{ paintOrder: 'stroke fill' }}
+                        >
+                          {textContent || '關'}
+                        </text>
+                      </g>
+                    )}
+
                     {/* Coordinate Tag in Edit Mode */}
                     {(isEditMode && (showLabels || isSelectedPass)) && (
-                      <g transform="translate(0, 20)">
+                      <g transform="translate(0, 22)">
                         <rect x="-36" y="-7" width="72" height="15" rx="3" fill="#000000" fillOpacity="0.85" stroke="#fbbf24" strokeWidth="1" />
                         <text x="0" y="4" textAnchor="middle" fill="#fbbf24" fontSize="10" className="font-mono font-bold">
                           {pass.x},{pass.y}
@@ -829,11 +951,11 @@ export default function MapArea({ selectedProvinceId, onSelectProvince, onClearS
                     width={citySize}
                     height={citySize}
                     rx={cornerRadius}
-                    fill="#000000"
+                    fill="#292524"
                     filter="url(#city-shadow)"
                   />
 
-                  {/* City Pictorial Icon (Filled with 4-quadrant city.jpg pattern) */}
+                  {/* City Pictorial Texture Fill */}
                   <rect
                     x={-halfSize}
                     y={-halfSize}
@@ -946,8 +1068,28 @@ export default function MapArea({ selectedProvinceId, onSelectProvince, onClearS
         />
       )}
 
+      {/* Dynamic Weather Overlay Particle Layer (僅在月份切換時顯示 1.5 秒，隨後自動移除 DOM) */}
+      {showWeather && <WeatherOverlay month={month} enabled={weatherEnabled} />}
+
       {/* Translucent Controls Bar (Bottom Right) */}
       <div className="absolute right-3 bottom-3 flex flex-col items-center gap-1.5 z-30 p-1.5 rounded-2xl bg-stone-900/60 border border-amber-900/40 backdrop-blur-md shadow-2xl">
+        {/* Season & Weather Effect Toggle Button */}
+        <button
+          onClick={() => setWeatherEnabled(!weatherEnabled)}
+          title={`當前氣候：${seasonInfo.seasonName} · ${seasonInfo.weatherName} (點擊${weatherEnabled ? '關閉' : '開啟'}季節天氣特效)`}
+          className={`px-2.5 py-1.5 rounded-full flex items-center gap-1.5 text-xs font-bold transition-all cursor-pointer shadow-md ${
+            weatherEnabled
+              ? 'bg-amber-950/80 text-amber-200 border border-amber-500/50 hover:bg-amber-900/90'
+              : 'bg-stone-900/80 text-stone-400 border border-stone-700/50 hover:text-stone-200'
+          }`}
+        >
+          <span className="text-sm">{seasonInfo.icon}</span>
+          <span className="hidden sm:inline">{seasonInfo.weatherName}</span>
+          <span className={`w-2 h-2 rounded-full ${weatherEnabled ? 'bg-emerald-400 animate-pulse' : 'bg-stone-500'}`} />
+        </button>
+
+        <div className="w-full h-px bg-stone-700/60 my-0.5" />
+
         {/* Toggle Coordinate Adjust Mode Button (僅在 ENABLE_COORDINATE_EDITOR 開啟時顯示) */}
         {ENABLE_COORDINATE_EDITOR && (
           <>

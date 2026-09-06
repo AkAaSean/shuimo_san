@@ -2,18 +2,20 @@ import { provinces } from '../data/provinces';
 import { Province } from '../types';
 
 export interface MapPass {
+  id: number;
   name: string;
   x: number;
   y: number;
 }
 
 export const DEFAULT_PASSES: MapPass[] = [
-  { name: '虎牢關', x: 1005, y: 670 },
-  { name: '函谷關', x: 894, y: 674 },
-  { name: '潼關', x: 701, y: 666 },
-  { name: '武關', x: 830, y: 741 },
-  { name: '陽平關', x: 579, y: 682 },
-  { name: '劍閣', x: 592, y: 791 },
+  { id: 101, name: '虎牢關', x: 1005, y: 670 },
+  { id: 102, name: '函谷關', x: 894, y: 674 },
+  { id: 103, name: '散關', x: 701, y: 666 },
+  { id: 104, name: '劍閣', x: 592, y: 791 },
+  { id: 105, name: '陽平關', x: 579, y: 682 },
+  { id: 106, name: '巫關', x: 745, y: 980 },
+  { id: 107, name: '武關', x: 830, y: 755 },
 ];
 
 const CITY_COORDS_STORAGE_KEY = 'sanguo_map_city_coordinates_v2';

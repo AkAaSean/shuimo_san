@@ -56,7 +56,7 @@ export default function ActionModal({
   );
 
   const ownedProvincesList = Object.values(gameState.provincesData)
-    .filter(p => p.rulerName === gameState.rulerName)
+    .filter(p => p.rulerName === gameState.rulerName && !p.isPass)
     .map(p => ({
       id: p.id,
       info: provinces.find(x => x.id === p.id),
@@ -282,16 +282,21 @@ export default function ActionModal({
   let errorMsg = '';
 
   if (action === '指定太守') {
-    const isRulerInCurrentCity = generals.some(g => g.isRuler);
-    if (isRulerInCurrentCity) {
+    if (province?.isPass || currentProvinceInfo?.isPass) {
       canExecute = false;
-      errorMsg = '君主親自坐鎮本郡，君主即為太守，無須另指派太守！';
-    } else if (!selectedGen) {
-      canExecute = false;
-      errorMsg = '本郡無非君主武將可指派為太守';
-    } else if (selectedGen.role === '太守') {
-      canExecute = false;
-      errorMsg = `【${selectedGen.name}】目前已是本郡太守`;
+      errorMsg = '關隘要塞專司戍防扼守，不設太守官爵！';
+    } else {
+      const isRulerInCurrentCity = generals.some(g => g.isRuler);
+      if (isRulerInCurrentCity) {
+        canExecute = false;
+        errorMsg = '君主親自坐鎮本郡，君主即為太守，無須另指派太守！';
+      } else if (!selectedGen) {
+        canExecute = false;
+        errorMsg = '本郡無非君主武將可指派為太守';
+      } else if (selectedGen.role === '太守') {
+        canExecute = false;
+        errorMsg = `【${selectedGen.name}】目前已是本郡太守`;
+      }
     }
   } else if (action === '指定軍師') {
     if (!selectedGen) {
@@ -531,7 +536,7 @@ export default function ActionModal({
               <div>
                 {category === '內政' && (
                   action.includes('商業') ? `商業: ${province.commerce || 0}/${tierRules.maxCommerce}` :
-                  action.includes('土地') ? `土地: ${province.value}/${tierRules.maxDev}` : `洪水: ${province.flood}`
+                  action.includes('土地') ? `土地: ${province.value}/${tierRules.maxDev}` : `防災: ${100 - province.flood}%`
                 )}
                 {category === '商業' && (
                   action.includes('商業') ? `商業: ${province.commerce || 0}/${tierRules.maxCommerce}` : `民忠: ${province.loyalty}`
@@ -782,7 +787,7 @@ export default function ActionModal({
                             : 'border-stone-300 bg-stone-100 hover:bg-stone-200'
                         }`}
                       >
-                        <div>{cp.info?.name} ({cp.id}郡)</div>
+                        <div>{cp.info?.name} {cp.info?.isPass ? '🏯 (關口要塞)' : `(${cp.id}郡)`}</div>
                         <div className="text-[10px] text-stone-500 font-normal">
                           君主: {cp.state?.rulerName || '無'}
                         </div>

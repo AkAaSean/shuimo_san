@@ -17,7 +17,7 @@ export interface ProvinceTierConfig {
   maxDev: number;          // 土地開發上限 (100 ~ 300)
   maxCommerce: number;     // 商業發展上限 (100 ~ 300)
   maxForts: number;        // 防禦設施上限 (4 ~ 10)
-  minPopulation: number;   // 最低人口維持數 (30,000 ~ 100,000)
+  minPopulation: number;   // 最低人口維持數 (300,000 ~ 1,000,000)
   desc: string;            // 城市特性說明
 }
 
@@ -28,7 +28,7 @@ export const TIER_RULES: Record<string, ProvinceTierConfig> = {
     maxDev: 300,
     maxCommerce: 300,
     maxForts: 10,
-    minPopulation: 100000, // 巨都最少維持 10 萬人口
+    minPopulation: 600000, // 巨都最少維持 60 萬人口 (對應 100萬~150萬 巨邑)
     desc: '土地農桑與商貿流通上限極高，人口稠密，帝國樞紐。',
   },
   COMMERCIAL: {
@@ -37,7 +37,7 @@ export const TIER_RULES: Record<string, ProvinceTierConfig> = {
     maxDev: 180,
     maxCommerce: 260,
     maxForts: 8,
-    minPopulation: 70000,  // 商邑最少維持 7 萬人口
+    minPopulation: 400000,  // 商邑最少維持 40 萬人口 (對應 70萬~100萬 商邑)
     desc: '水陸交匯通商大邑，商賈雲集，商貿繁盛，金錢稅收豐厚。',
   },
   AGRICULTURAL: {
@@ -46,7 +46,7 @@ export const TIER_RULES: Record<string, ProvinceTierConfig> = {
     maxDev: 260,
     maxCommerce: 180,
     maxForts: 8,
-    minPopulation: 70000,  // 農邑最少維持 7 萬人口
+    minPopulation: 400000,  // 農邑最少維持 40 萬人口 (對應 70萬~100萬 農邑)
     desc: '沃野平原糧倉重鎮，屯田沃土，農桑昌盛，秋糧收成極盛。',
   },
   MIDSIZED: {
@@ -55,7 +55,7 @@ export const TIER_RULES: Record<string, ProvinceTierConfig> = {
     maxDev: 160,
     maxCommerce: 160,
     maxForts: 6,
-    minPopulation: 50000,  // 一般郡縣最少維持 5 萬人口
+    minPopulation: 250000,  // 一般郡縣最少維持 25 萬人口 (對應 40萬~70萬 中郡)
     desc: '農商兼備之標準郡治，民風淳厚，發展均衡。',
   },
   FRONTIER: {
@@ -64,7 +64,7 @@ export const TIER_RULES: Record<string, ProvinceTierConfig> = {
     maxDev: 100,
     maxCommerce: 100,
     maxForts: 4,
-    minPopulation: 30000,  // 邊陲要塞最少維持 3 萬人口
+    minPopulation: 150000,  // 邊陲要塞最少維持 15 萬人口 (對應 25萬~40萬 邊塞)
     desc: '邊陲偏遠塞防要衝，地廣人稀，以軍備邊防為要。',
   },
 };
@@ -313,7 +313,7 @@ export function getHistoricalInitialForts(
  *   - 魅力 50：折扣 19.5% (每 1000 兵需 805 金)
  *   - 魅力 75：折扣 35.7% (每 1000 兵需 643 金)
  *   - 魅力 99 (劉備)：折扣 51.3% (每 1000 兵需 487 金)
- *   - 魅力 120 (劉備+玉璽)：折扣 65.0% (每 1000 兵需 350 金)
+ *   - 魅力 100 (持有傳國玉璽 / 劉備配寶物)：折扣 52.0% (每 1000 兵需 480 金)
  */
 export function calculateDraftDiscountRate(generalCha: number): number {
   if (generalCha <= 20) return 0;
@@ -327,20 +327,22 @@ export function calculateDraftCost(soldierCount: number, generalCha: number = 50
 }
 
 /**
- * 都市單次徵兵上限精密計算公式：
- * - 嚴格維護人口下限：徵兵後人口不得低於該郡縣規模底限 (minPopulation)
- * - 人口越多，單次可徵募新兵量越大
- * - 安全動員率公式：可用剩餘人口 (population - minPopulation) * 8%
- * - 最多單次封頂 5,000 人 (一次最多5000人)
+ * 都市單次徵兵上限計算公式：
+ * 1. 最低人口限制：徵兵後人口不得低於該都市規模之最低人口維持數 (minPopulation)；若當下人口已低於或等於底限則不可徵兵
+ * 2. 城池當下人口 0.25%：以當前城池總人口之 0.25% 為基準安全動員額度
+ * 3. 每次徵兵限制最多 5,000 人封頂
  */
 export function calculateMaxProvinceDraft(provincePopulation: number, minPopulation: number): number {
-  const availablePop = Math.max(0, provincePopulation - minPopulation);
-  if (availablePop <= 0) return 0;
+  if (provincePopulation <= minPopulation) return 0;
   
-  // 8% 動員率，確保不透支民力
-  const popBasedAmount = Math.floor(availablePop * 0.08);
-  const safeAmount = Math.min(availablePop, Math.max(100, popBasedAmount));
-  return Math.min(5000, safeAmount);
+  // 1. 最低人口限制：不得侵蝕都市最低人口底限
+  const maxAvailableByFloor = Math.max(0, provincePopulation - minPopulation);
+  
+  // 2. 城池當下人口 0.25%
+  const popBasedAmount = Math.floor(provincePopulation * 0.0025);
+  
+  // 3. 每次徵兵限制最多 5,000 人封頂，且嚴格受限於最低人口限制
+  return Math.max(0, Math.min(5000, popBasedAmount, maxAvailableByFloor));
 }
 
 /**

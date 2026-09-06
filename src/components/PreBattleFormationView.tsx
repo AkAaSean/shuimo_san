@@ -284,6 +284,16 @@ export default function PreBattleFormationView({
                       <div>
                         <div className="flex items-center gap-1.5">
                           <span className="font-black text-sm text-stone-100">{gName}</span>
+                          {gName === strategistName && (
+                            <span className={`text-[9px] px-1 py-0.2 rounded font-black border flex items-center gap-0.5 ${
+                              isStartingFive
+                                ? 'bg-amber-950 text-amber-300 border-amber-500 shadow animate-pulse'
+                                : 'bg-stone-900 text-stone-400 border-stone-700'
+                            }`}>
+                              <Compass className="w-2.5 h-2.5 text-amber-400" />
+                              <span>軍師{isStartingFive ? '督戰光環' : '(需首發)'}</span>
+                            </span>
+                          )}
                           <span className={`text-[9px] px-1 py-0.2 rounded font-black border ${
                             isStartingFive
                               ? (isDefense ? 'bg-sky-950 border-sky-700 text-sky-300' : 'bg-red-950 border-red-700 text-red-300')

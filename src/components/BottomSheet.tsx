@@ -38,7 +38,20 @@ export default function BottomSheet({ activeMenu, gameState, onClose, onActionSe
   }, [isOpen, isPlayerCity, activeMenu, onClose]);
 
   const menuTitle = activeMenu !== null ? COMMANDS.find(c => c.id === activeMenu)?.label : '';
-  const subCommands = activeMenu !== null ? SUB_COMMANDS[activeMenu] || [] : [];
+  let subCommands = activeMenu !== null ? SUB_COMMANDS[activeMenu] || [] : [];
+
+  if (selectedProv?.isPass) {
+    if (activeMenu === 3) {
+      // 關卡只能訓練不能徵兵
+      subCommands = subCommands.filter(c => c !== '徵兵');
+    } else if (activeMenu === 6) {
+      // 關卡無在野人士
+      subCommands = subCommands.filter(c => c !== '尋訪人才');
+    } else if (activeMenu === 7) {
+      // 關卡要塞無太守官制，亦不可自治
+      subCommands = subCommands.filter(c => c !== '指定太守' && c !== '郡縣自治');
+    }
+  }
 
   return (
     <AnimatePresence>

@@ -45,3 +45,116 @@
 .animate-battle-shake {
   animation: battleShake 0.4s ease-in-out;
 }
+
+/* Weather Effect Keyframe Animations */
+@keyframes snowFall {
+  0% {
+    transform: translateY(-20px) translateX(0px) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.85;
+  }
+  90% {
+    opacity: 0.85;
+  }
+  100% {
+    transform: translateY(100vh) translateX(60px) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+@keyframes rainFall {
+  0% {
+    transform: translateY(-50px) translateX(0px);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.65;
+  }
+  85% {
+    opacity: 0.65;
+  }
+  100% {
+    transform: translateY(100vh) translateX(-80px);
+    opacity: 0;
+  }
+}
+
+@keyframes leafFall {
+  0% {
+    transform: translateY(-20px) translateX(0px) rotate(0deg);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.9;
+  }
+  50% {
+    transform: translateY(50vh) translateX(50px) rotate(180deg);
+  }
+  85% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateY(100vh) translateX(-30px) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+@keyframes petalFall {
+  0% {
+    transform: translateY(-20px) translateX(0px) rotate(0deg);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.85;
+  }
+  60% {
+    transform: translateY(60vh) translateX(70px) rotate(140deg);
+  }
+  80% {
+    opacity: 0.85;
+  }
+  100% {
+    transform: translateY(100vh) translateX(20px) rotate(280deg);
+    opacity: 0;
+  }
+}
+
+@keyframes lightningFlash {
+  0%, 92%, 96%, 100% { opacity: 0; }
+  93% { opacity: 0.22; }
+  94% { opacity: 0.05; }
+  95% { opacity: 0.35; }
+}
+
+.weather-snow {
+  animation: snowFall linear infinite;
+}
+
+.weather-rain {
+  animation: rainFall linear infinite;
+}
+
+.weather-leaf {
+  animation: leafFall ease-in-out infinite;
+}
+
+.weather-petal {
+  animation: petalFall ease-in-out infinite;
+}
+
+.weather-lightning {
+  animation: lightningFlash 7s infinite;
+}
+
+@keyframes weatherFadeInOut {
+  0% { opacity: 0; }
+  20% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.animate-weather-fade {
+  animation: weatherFadeInOut 1.5s ease-in-out forwards;
+}

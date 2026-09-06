@@ -125,18 +125,22 @@ export default function ManualModal({ isOpen = true, onClose }: ManualModalProps
                   <h3 className="font-black text-[#1c1917] text-base flex items-center gap-2 border-b border-[#1c1917]/20 pb-1.5">
                     <span>📅</span> 季節收支時程表
                   </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-                    <div className="p-2.5 bg-emerald-50 border border-emerald-300">
-                      <div className="font-black text-emerald-800">🌸 1月 春季：米糧發放</div>
-                      <div className="text-stone-700 mt-1">發放全州郡軍糧，維護軍心與治安。</div>
-                    </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
                     <div className="p-2.5 bg-amber-50 border border-amber-300">
-                      <div className="font-black text-amber-800">🌾 7月 秋季：賦稅與秋收</div>
-                      <div className="text-stone-700 mt-1">依據各城商業與農業值大幅結算金錢與米糧收入。治水得宜且農業發達之城池，有機會觸發「大豐收」獲得額外米糧與民心人口！</div>
+                      <div className="font-black text-amber-800">💰 1月 春季：金稅徵收</div>
+                      <div className="text-stone-700 mt-1">依據各城商業繁榮、人口與民心忠誠，結算徵收全郡金錢稅賦。</div>
                     </div>
-                    <div className="p-2.5 bg-sky-50 border border-sky-300">
-                      <div className="font-black text-sky-800">❄️ 四季變遷：自然災害</div>
-                      <div className="text-stone-700 mt-1">可能隨機發生蝗災、水患或疫病，需適時發糧賑災。</div>
+                    <div className="p-2.5 bg-emerald-50 border border-emerald-300">
+                      <div className="font-black text-emerald-800">🌾 7月 秋季：秋收賦稅</div>
+                      <div className="text-stone-700 mt-1">依農田開墾、防汛安全與人口結算軍糧。水利昌盛且無洪患者有機率觸發「大豐收」！</div>
+                    </div>
+                    <div className="p-2.5 bg-indigo-50 border border-indigo-300">
+                      <div className="font-black text-indigo-800">📈 10月 孟冬：戶籍歲計</div>
+                      <div className="text-stone-700 mt-1">秋收後按民心、農商與治水結算，城池人口自然增長 +0.6% ～ +1.2%，休養生息。</div>
+                    </div>
+                    <div className="p-2.5 bg-rose-50 border border-rose-300">
+                      <div className="font-black text-rose-800">🌪️ 四季天災與防災防護</div>
+                      <div className="text-stone-700 mt-1">旱災、洪水、颱風或地震。平時加強治水防災與儲糧，可大幅減免受災損失並守護人口底限。</div>
                     </div>
                   </div>
                 </div>
@@ -212,9 +216,12 @@ export default function ManualModal({ isOpen = true, onClose }: ManualModalProps
                   <h3 className="font-black text-[#1c1917] text-base flex items-center gap-2 border-b border-[#1c1917]/20 pb-1.5">
                     <span>🛡️</span> 徵兵、訓練與兵力分配
                   </h3>
-                  <p className="text-xs text-stone-700 leading-relaxed">
-                    新徵招之新兵會稍微拉低部隊整體士氣與熟練度。徵兵後務必進行<strong>訓練兵力</strong>，提升訓練值與熟練度可大幅增強戰鬥傷害與防禦！
-                  </p>
+                  <div className="space-y-1.5 text-xs text-stone-700 leading-relaxed">
+                    <p>• <strong>民力動員率 (0.25%)</strong>：每次徵兵以城池當前總人口之 <strong>0.25%</strong> 為安全動員基準，單次最高封頂 <strong>5,000 人</strong>。</p>
+                    <p>• <strong>都市規模底限保護</strong>：徵兵後人口不得低於該都市規模之最低維持人數（巨都 60萬、商農邑 40萬、一般郡 25萬、要塞 15萬），若已達底限則嚴格禁徵，絕不傷及民本。</p>
+                    <p>• <strong>魅力節省軍資</strong>：主持募兵將領魅力越高，徵兵軍資折扣越大（例如劉備主持可節省近 50% 金錢）。每城每月限徵兵一次。</p>
+                    <p>• <strong>軍隊操演訓練</strong>：新徵招之新兵會稀釋部隊士氣與熟練度。徵兵後務必進行<strong>訓練兵力</strong>，提升訓練值與熟練度可大幅增強戰鬥傷害與防禦！</p>
+                  </div>
                 </div>
 
                 {/* 5v5 戰鬥陣型 */}
@@ -303,11 +310,15 @@ export default function ManualModal({ isOpen = true, onClose }: ManualModalProps
                 {/* 寶物系統 */}
                 <div className="bg-white/80 p-4 border-2 border-[#1c1917] shadow-[3px_3px_0_#1c1917] space-y-2">
                   <h3 className="font-black text-[#1c1917] text-base flex items-center gap-2 border-b border-[#1c1917]/20 pb-1.5">
-                    <span>💎</span> 名物寶物與賞賜加成
+                    <span>💎</span> 名物寶物與屬性加成規則
                   </h3>
                   <p className="text-xs text-stone-700 leading-relaxed">
-                    搜尋尋訪或戰勝俘獲之傳世寶物（如赤兔馬、青龍偃月刀、孫子兵法等），賞賜給麾下武將可永久提升其五維屬性與 <strong>100 滿分忠誠度</strong>！
+                    搜尋尋訪或戰勝俘獲之傳世寶物（如赤兔馬、青龍偃月刀、孫子兵法等），賞賜給麾下武將可大幅提升其能力並保持 <strong>100 滿分忠誠度</strong>！
                   </p>
+                  <div className="p-2.5 bg-amber-50/70 border border-amber-200 text-xs text-amber-950 space-y-1">
+                    <div><strong>✦ 寶物加成不累積：</strong>同一項屬性（戰力、謀略、統帥、政治、魅力）若持有多件寶物，<strong>不進行累加</strong>，而是自動採用加成最高的那一件數值。</div>
+                    <div><strong>✦ 傳國玉璽特殊效果：</strong>象徵受命於天、號令天下之至尊奇寶，持有人之<strong>魅力直接設為 100 滿值</strong>（不與其他魅力寶物疊加）。</div>
+                  </div>
                 </div>
 
                 {/* 人才尋訪與繼承 */}

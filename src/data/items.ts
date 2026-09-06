@@ -1,3 +1,5 @@
+import { generals } from './generals';
+
 export interface TreasureItem {
   id: string;
   name: string;
@@ -8,6 +10,7 @@ export interface TreasureItem {
     int?: number;
     pol?: number;
     cha?: number;
+    setCha?: number;
     hp?: number;
     staminaRecover?: number;
     special?: string;
@@ -981,10 +984,10 @@ export const TREASURE_ITEMS: TreasureItem[] = [
     "id": "relic_3",
     "name": "傳國玉璽",
     "category": "奇寶",
-    "bonusDesc": "魅力 +100，受命於天",
+    "bonusDesc": "魅力 100，受命於天",
     "effect": {
-      "cha": 100,
-      "special": "號令天下，諸侯敬服"
+      "setCha": 100,
+      "special": "號令天下，諸侯敬服（魅力直接設為 100）"
     },
     "desc": "「受命於天，既壽永昌」。秦始皇以和氏璧所刻之至寶，天下至尊正統之象徵。",
     "defaultOwner": {
@@ -1182,7 +1185,7 @@ export function getItemByOwner(generalName: string, scenarioIndex: number): Trea
   return TREASURE_ITEMS.filter(item => item.defaultOwner[scenarioIndex] === generalName);
 }
 
-export function getGeneralItemBonus(generalName: string, scenarioIndex: number) {
+export function getGeneralItemBonus(generalName: string, scenarioIndex: number, currentBaseCha?: number) {
   const items = getItemByOwner(generalName, scenarioIndex);
   let strBonus = 0;
   let intBonus = 0;
@@ -1192,15 +1195,51 @@ export function getGeneralItemBonus(generalName: string, scenarioIndex: number) 
   let staminaRecover = 0;
   const specials: string[] = [];
 
+  // 1. 寶物加成不累積：同一項屬性（戰力、謀略、政治、統帥、體力恢復）取所持寶物之最高值，不進行累加
   items.forEach(item => {
-    if (item.effect.str) strBonus += item.effect.str;
-    if (item.effect.int) intBonus += item.effect.int;
-    if (item.effect.pol) polBonus += item.effect.pol;
-    if (item.effect.cha) chaBonus += item.effect.cha;
-    if (item.effect.hp) hpBonus += item.effect.hp;
-    if (item.effect.staminaRecover) staminaRecover += item.effect.staminaRecover;
+    if (item.effect.str && item.effect.str > strBonus) strBonus = item.effect.str;
+    if (item.effect.int && item.effect.int > intBonus) intBonus = item.effect.int;
+    if (item.effect.pol && item.effect.pol > polBonus) polBonus = item.effect.pol;
+    if (item.effect.hp && item.effect.hp > hpBonus) hpBonus = item.effect.hp;
+    if (item.effect.staminaRecover && item.effect.staminaRecover > staminaRecover) staminaRecover = item.effect.staminaRecover;
     if (item.effect.special) specials.push(item.effect.special);
   });
 
-  return { strBonus, intBonus, polBonus, chaBonus, hpBonus, staminaRecover, staminaRecoverBonus: staminaRecover, specials, items };
+  // 2. 玉璽是直接設魅力 100，且寶物加成不累積
+  const hasImperialSeal = items.some(item => item.name === '傳國玉璽' || item.id === 'relic_3' || item.effect.setCha === 100);
+
+  let baseCha = currentBaseCha;
+  if (baseCha === undefined) {
+    const baseGen = generals.find(g => g.name === generalName);
+    baseCha = baseGen?.cha ?? 50;
+  }
+
+  if (hasImperialSeal) {
+    // 傳國玉璽特殊效果：魅力直接設為 100（不與其他魅力寶物累積）
+    // 為相容所有依賴 g.cha + itemBonus.chaBonus 的既有計算邏輯，將差額精確補足至 100
+    chaBonus = Math.max(0, 100 - baseCha);
+  } else {
+    // 未持玉璽時：魅力取所持名物中的最高加成（不累積累加）
+    items.forEach(item => {
+      if (item.effect.cha && item.effect.cha > chaBonus) {
+        chaBonus = item.effect.cha;
+      }
+    });
+  }
+
+  const effectiveCha = hasImperialSeal ? 100 : (baseCha + chaBonus);
+
+  return {
+    strBonus,
+    intBonus,
+    polBonus,
+    chaBonus,
+    hpBonus,
+    staminaRecover,
+    staminaRecoverBonus: staminaRecover,
+    specials,
+    items,
+    hasImperialSeal,
+    effectiveCha
+  };
 }

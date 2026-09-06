@@ -33,14 +33,18 @@ export default function CommandMenu({ gameState, onCommandSelect, showToast }: C
     : null;
   const isPlayerCity = selectedProv ? selectedProv.rulerName === gameState.rulerName : true;
   const isAutonomous = isPlayerCity && selectedProv?.isAutonomous;
+  const isPass = Boolean(selectedProv?.isPass || selectedProvMeta?.isPass);
 
   const handleTouch = (e: React.MouseEvent<HTMLButtonElement>, cmdId: number) => {
     const isDisallowedByAutonomy = isAutonomous && [3, 4, 5, 8].includes(cmdId);
-    const isAllowed = (!isDisallowedByAutonomy && isPlayerCity) || cmdId === 0 || cmdId === 1 || cmdId === 9;
+    const isDisallowedByPass = isPass && [4, 5, 8].includes(cmdId);
+    const isAllowed = (!isDisallowedByAutonomy && !isDisallowedByPass && isPlayerCity) || cmdId === 0 || cmdId === 1 || cmdId === 9;
 
     if (!isAllowed) {
       if (showToast) {
-        if (isDisallowedByAutonomy) {
+        if (isDisallowedByPass) {
+          showToast(`【${selectedProvMeta?.name || '關隘要塞'}】為軍事要塞，無戶籍民丁與商肆市集，無法施行內政商謀！請專注於駐軍操練與軍事防衛。`);
+        } else if (isDisallowedByAutonomy) {
           showToast(`【${selectedProvMeta?.name || '目標城池'}】已設為自治，太守將自動管理內政、商業、兵士與謀略。請至【7.君主】解除自治後再行下令。`);
         } else {
           showToast(`【${selectedProvMeta?.name || '目標城池'}】非我方轄區，無法下達政令！只能使用【0.狀態】、【1.查看】與【9.系統】。`);
@@ -68,7 +72,8 @@ export default function CommandMenu({ gameState, onCommandSelect, showToast }: C
       <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
         {COMMANDS.map((cmd) => {
           const isDisallowedByAutonomy = isAutonomous && [3, 4, 5, 8].includes(cmd.id);
-          const isAllowed = (!isDisallowedByAutonomy && isPlayerCity) || cmd.id === 0 || cmd.id === 1 || cmd.id === 9;
+          const isDisallowedByPass = isPass && [4, 5, 8].includes(cmd.id);
+          const isAllowed = (!isDisallowedByAutonomy && !isDisallowedByPass && isPlayerCity) || cmd.id === 0 || cmd.id === 1 || cmd.id === 9;
 
           return (
             <button
@@ -100,7 +105,9 @@ export default function CommandMenu({ gameState, onCommandSelect, showToast }: C
 
               {/* 白字標籤與鎖定圖示 */}
               <span className="relative z-10 pointer-events-none flex items-center justify-center gap-0.5 text-white font-black text-xs sm:text-sm tracking-widest drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
-                {isDisallowedByAutonomy ? (
+                {isDisallowedByPass ? (
+                  <span className="text-[9px] bg-red-800 text-red-100 px-1 py-0.2 rounded font-black tracking-normal">要塞</span>
+                ) : isDisallowedByAutonomy ? (
                   <span className="text-[9px] bg-amber-600/90 text-amber-100 px-1 py-0.2 rounded font-black tracking-normal">委任</span>
                 ) : !isAllowed ? (
                   <span className="text-[10px] text-amber-300">🔒</span>

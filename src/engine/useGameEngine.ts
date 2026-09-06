@@ -6,6 +6,62 @@ import { calculateFormationTerrainCombatModifier } from './formations';
 import { getGeneralItemBonus } from '../data/items';
 import { calculateCaptiveRate, isCityIsolated, processAICaptiveDecision, calculateCaptiveRecruitChance } from './postBattleLogic';
 import { handleRulerDecapitation, applyPlayerSuccessorChoice } from './rulerSuccessionLogic';
+import { getProvinceTierRules } from '../data/historicalProvinceConfig';
+import { getGeneralAvailableSkills } from './skills';
+
+export function normalizeGameStatePopulation(state: GameState): GameState {
+  if (!state || !state.provincesData) return state;
+  let modified = false;
+  const updatedProvinces = { ...state.provincesData };
+
+  Object.entries(updatedProvinces).forEach(([idStr, prov]) => {
+    const pId = Number(idStr);
+    const tierRules = getProvinceTierRules(pId);
+    let pop = prov.population;
+
+    // 若存檔或當前進度為舊版小人口 (小於 20 萬)，自動升級為 10 倍寫實標準 (30萬 ~ 150萬)
+    if (pop > 0 && pop < 200000) {
+      pop = pop * 10;
+      modified = true;
+    }
+
+    // 確保人口不低於該都市規模之最低維持下限
+    if (pop < tierRules.minPopulation) {
+      pop = Math.max(tierRules.minPopulation, pop);
+      modified = true;
+    }
+
+    if (pop !== prov.population) {
+      updatedProvinces[pId] = {
+        ...prov,
+        population: pop
+      };
+    }
+  });
+
+  // 同步更新所有武將戰法（確保舊檔或即時遊玩均取得 GENERAL_SKILLS.md 最新戰法）
+  let updatedGenerals = state.generalsData;
+  if (state.generalsData) {
+    let genModified = false;
+    const nextGenerals = { ...state.generalsData };
+    Object.entries(nextGenerals).forEach(([name, g]) => {
+      const targetSkills = getGeneralAvailableSkills(g);
+      if (!g.skills || g.skills.length !== targetSkills.length || g.skills.some((s, idx) => s !== targetSkills[idx])) {
+        nextGenerals[name] = {
+          ...g,
+          skills: targetSkills
+        };
+        genModified = true;
+      }
+    });
+    if (genModified) {
+      updatedGenerals = nextGenerals;
+      modified = true;
+    }
+  }
+
+  return modified ? { ...state, provincesData: updatedProvinces, generalsData: updatedGenerals } : state;
+}
 
 function getBestStrategistForBattle(
   assignedStrategist: string | null | undefined,
@@ -51,12 +107,62 @@ export function battleCombatCalculator(
 }
 
 export function useGameEngine(initialScenario: number, initialRuler: string, initialGameState?: GameState) {
-  const [gameState, setGameState] = useState<GameState>(() => initialGameState || initGame(initialScenario, initialRuler));
+  const [gameState, setGameState] = useState<GameState>(() => 
+    normalizeGameStatePopulation(initialGameState || initGame(initialScenario, initialRuler))
+  );
 
   const dispatchNextTurn = useCallback(() => {
     setGameState(prev => {
-      // 1. 若本月有已排定之戰役，點擊休息後依序進入第一場戰役
-      const list = prev.pendingBattles || (prev.pendingBattle ? [prev.pendingBattle] : []);
+      // 1. 若本月有已排定之戰役，點擊休息後依序進入戰役
+      let list = [...(prev.pendingBattles || (prev.pendingBattle ? [prev.pendingBattle] : []))];
+      let baseState = { ...prev, provincesData: { ...prev.provincesData }, generalsData: { ...prev.generalsData } };
+
+      // 自動結算無人防守的空城與空關戰役 (免戰鬥直接進駐佔領，花費 1 回合接收)
+      while (list.length > 0) {
+        const candidate = list[0];
+        const targetDefGens = (candidate.defendingGenerals || []).filter(gName => {
+          const gen = baseState.generalsData[gName];
+          return gen && !gen.isWild && !gen.isCaptive && gen.provinceId === candidate.targetProvinceId;
+        });
+
+        const targetProvState = baseState.provincesData[candidate.targetProvinceId];
+        const targetPInfo = provinces.find(p => p.id === candidate.targetProvinceId);
+        const isEmptyPass = (targetProvState?.isPass || targetPInfo?.isPass) && (targetDefGens.length === 0 || (targetProvState?.soldiers || 0) === 0);
+        const isEmptyCity = targetDefGens.length === 0;
+
+        if (isEmptyPass || isEmptyCity) {
+          const emptyBattle = list.shift()!;
+          const targetProv = baseState.provincesData[emptyBattle.targetProvinceId];
+          const targetPName = targetPInfo ? targetPInfo.name : `${emptyBattle.targetProvinceId}郡`;
+
+          if (targetProv) {
+            targetProv.rulerName = emptyBattle.attackerRuler || baseState.rulerName;
+            targetProv.isAutonomous = false;
+            targetProv.gold = (targetProv.gold || 0) + (emptyBattle.attackerGold || 0);
+            targetProv.food = (targetProv.food || 0) + (emptyBattle.attackerFood || 0);
+            if (!targetProv.loyalty) targetProv.loyalty = 60;
+          }
+          emptyBattle.attackingGenerals.forEach(gName => {
+            const gen = baseState.generalsData[gName];
+            if (gen) {
+              gen.provinceId = emptyBattle.targetProvinceId;
+              gen.hasActed = true;
+            }
+          });
+
+          if (targetProv?.isPass || targetPInfo?.isPass) {
+            baseState.lastActionResult = {
+              action: '發動戰役',
+              title: '🏯 行軍接收空關大捷',
+              message: `【${targetPName}】要塞兵力為 0，無人防守！我軍部隊長驅直入，花費一月行軍順利進駐並接管該要塞！`,
+              type: 'success'
+            };
+          }
+        } else {
+          break;
+        }
+      }
+
       if (list.length > 0) {
         const [firstBattle, ...remainingBattles] = list;
         
@@ -64,18 +170,18 @@ export function useGameEngine(initialScenario: number, initialRuler: string, ini
         const atkStrategist = getBestStrategistForBattle(
           firstBattle.attackerStrategist,
           firstBattle.attackingGenerals,
-          prev.generalsData,
-          prev.currentScenario
+          baseState.generalsData,
+          baseState.currentScenario
         );
         const defStrategist = getBestStrategistForBattle(
           firstBattle.defenderStrategist,
           firstBattle.defendingGenerals,
-          prev.generalsData,
-          prev.currentScenario
+          baseState.generalsData,
+          baseState.currentScenario
         );
 
         return {
-          ...prev,
+          ...baseState,
           activeBattle: {
             targetProvinceId: firstBattle.targetProvinceId,
             attackerProvinceId: firstBattle.attackerProvinceId,
@@ -99,7 +205,7 @@ export function useGameEngine(initialScenario: number, initialRuler: string, ini
         };
       }
       // 2. 無戰役則正常推進時光進入下個月
-      const nextMonthState = advanceTime(prev);
+      const nextMonthState = advanceTime(baseState);
       
       // 3. 檢查是否有 AI 發起的攻擊 (玩家防守戰)
       if (nextMonthState.pendingDefenses && nextMonthState.pendingDefenses.length > 0) {
@@ -231,11 +337,20 @@ export function useGameEngine(initialScenario: number, initialRuler: string, ini
           });
         }
 
-        // 城池受創與民心衰退
-        targetProv.loyalty = Math.max(0, targetProv.loyalty - 20);
-        targetProv.value = Math.max(10, Math.floor(targetProv.value * 0.8));
-        targetProv.commerce = Math.max(10, Math.floor((targetProv.commerce || 50) * 0.8));
-        targetProv.isAutonomous = false;
+        // 城池受創與民心衰退 (關口要塞無民政屬性)
+        if (targetProv.isPass) {
+          targetProv.loyalty = 100;
+          targetProv.value = 0;
+          targetProv.commerce = 0;
+          targetProv.flood = 0;
+          targetProv.population = 0;
+          targetProv.isAutonomous = false;
+        } else {
+          targetProv.loyalty = Math.max(0, targetProv.loyalty - 20);
+          targetProv.value = Math.max(10, Math.floor(targetProv.value * 0.8));
+          targetProv.commerce = Math.max(10, Math.floor((targetProv.commerce || 50) * 0.8));
+          targetProv.isAutonomous = false;
+        }
 
         // 攻擊方將領進駐新城池，並精準更新戰後真實殘餘兵力
         battle.attackingGenerals.forEach(gName => {
@@ -731,7 +846,7 @@ export function useGameEngine(initialScenario: number, initialRuler: string, ini
   }, []);
 
   const loadGameState = useCallback((savedState: GameState) => {
-    setGameState(savedState);
+    setGameState(normalizeGameStatePopulation(savedState));
   }, []);
 
   const resetGame = useCallback((scenarioIndex: number, rulerName: string) => {

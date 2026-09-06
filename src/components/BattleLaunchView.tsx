@@ -335,6 +335,12 @@ export default function BattleLaunchView({ gameState, onExit, onLaunchBattle }: 
     return (Object.values(cityProvisions) as { gold: number; food: number }[]).reduce((sum, p) => sum + (p.food || 0), 0);
   }, [cityProvisions]);
 
+  const targetDefendingGens = useMemo(() => {
+    if (!targetProvinceId) return [];
+    return Object.values(gameState.generalsData).filter(g => g.provinceId === targetProvinceId && !g.isWild);
+  }, [targetProvinceId, gameState.generalsData]);
+  const isTargetEmpty = targetDefendingGens.length === 0;
+
   // 確認發動出征
   const handleLaunch = () => {
     if (!targetProvinceId || totalSelectedCount === 0) return;
@@ -419,6 +425,8 @@ export default function BattleLaunchView({ gameState, onExit, onLaunchBattle }: 
 
                   const cpGenerals = Object.values(gameState.generalsData).filter(g => g.provinceId === cp.id && !g.isWild);
                   const cpTotalTroops = cpGenerals.reduce((sum, g) => sum + (g.soldiers || 0), 0);
+                  const isEmptyCity = cpGenerals.length === 0;
+
                   return (
                     <button
                       key={cp.id}
@@ -429,6 +437,8 @@ export default function BattleLaunchView({ gameState, onExit, onLaunchBattle }: 
                           ? 'border-stone-300 bg-stone-100 text-stone-400 opacity-60 cursor-not-allowed'
                           : isSelected
                           ? 'border-[#8b1818] bg-amber-50/90 shadow-md ring-2 ring-[#8b1818] cursor-pointer'
+                          : isEmptyCity
+                          ? 'border-emerald-300 bg-emerald-50/50 hover:border-emerald-500 hover:bg-emerald-50 cursor-pointer shadow-xs'
                           : 'border-stone-300 bg-white hover:border-stone-500 hover:bg-stone-50 cursor-pointer shadow-xs'
                       }`}
                     >
@@ -439,19 +449,25 @@ export default function BattleLaunchView({ gameState, onExit, onLaunchBattle }: 
                             ? 'bg-rose-100 text-rose-800 border-rose-300'
                             : isSelected
                             ? 'bg-[#8b1818] text-white border-[#8b1818]'
+                            : isEmptyCity
+                            ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
                             : 'bg-red-100 text-red-700 border-red-200'
                         }`}>
-                          {isAlreadyTargeted ? '已排定' : isSelected ? '🎯 目標' : '敵城'}
+                          {isAlreadyTargeted ? '已排定' : isSelected ? '🎯 目標' : isEmptyCity ? '🏰 空城(免戰)' : '敵城'}
                         </span>
                       </div>
                       <div className="text-xs text-stone-600 mt-1 flex justify-between items-center">
-                        <span>君主: <strong className="text-[#8b1818]">{cp.state?.rulerName || '無'}</strong></span>
+                        <span>君主: <strong className={isEmptyCity ? 'text-emerald-800' : 'text-[#8b1818]'}>{cp.state?.rulerName || '無 (空城)'}</strong></span>
                         <span className="text-[11px] bg-stone-100 px-1 py-0.5 rounded border border-stone-300">
                           {cpTerrainDetail?.symbol} {cpTerrain}
                         </span>
                       </div>
                       <div className="text-xs text-stone-500 mt-0.5">
-                        守軍總兵力: <strong className="text-[#8b1818] font-black">{cpTotalTroops.toLocaleString()}</strong>
+                        {isEmptyCity ? (
+                          <span className="text-emerald-700 font-bold">✨ 無人駐守（直接佔領）</span>
+                        ) : (
+                          <>守軍總兵力: <strong className="text-[#8b1818] font-black">{cpTotalTroops.toLocaleString()}</strong></>
+                        )}
                       </div>
                     </button>
                   );
@@ -461,6 +477,16 @@ export default function BattleLaunchView({ gameState, onExit, onLaunchBattle }: 
           </div>
 
           {/* 步驟二：調遣參戰將領 (最多2座城池，每城最多5人) */}
+          {targetProvinceId && isTargetEmpty && (
+            <div className="p-3 bg-emerald-50 border-2 border-emerald-500/80 rounded-xl shadow-sm text-emerald-950 flex items-center gap-2.5">
+              <Sparkles className="w-5 h-5 text-emerald-600 shrink-0" />
+              <div className="text-xs sm:text-sm font-bold">
+                <strong className="text-emerald-800 text-sm sm:text-base">🏰【無人駐守之空城】</strong>
+                目標【{targetProvInfo?.name}】目前無任何敵軍或將領駐守。確認指派部隊出發後將<strong>兵不血刃直接和平進駐接管</strong>，無需進入戰場戰鬥！
+              </div>
+            </div>
+          )}
+
           {targetProvinceId && alliedProvincesConnectedToTarget.length > 0 && (
             <div className="bg-[#f7f5f0] border-2 border-[#3d3227] rounded-xl shadow-sm overflow-hidden">
               <div className="bg-[#eeeae2] border-b-2 border-stone-300 p-2.5 sm:p-3">
@@ -891,17 +917,29 @@ export default function BattleLaunchView({ gameState, onExit, onLaunchBattle }: 
           onClick={handleLaunch}
           className={`w-full max-w-xl py-2.5 sm:py-3 font-black text-sm sm:text-base border-2 rounded-lg transition-all text-white cursor-pointer flex items-center justify-center gap-2 shadow-lg
             ${totalSelectedCount > 0 && targetProvinceId 
-              ? 'bg-[#8b1818] border-red-600 hover:bg-red-700 active:scale-98' 
+              ? isTargetEmpty
+                ? 'bg-emerald-700 border-emerald-500 hover:bg-emerald-600 active:scale-98 text-emerald-50 shadow-emerald-950/50'
+                : 'bg-[#8b1818] border-red-600 hover:bg-red-700 active:scale-98' 
               : 'bg-stone-700 border-stone-600 cursor-not-allowed opacity-50'}
           `}
         >
-          <Swords className="w-5 h-5 text-amber-400" />
+          {isTargetEmpty ? (
+            <Sparkles className="w-5 h-5 text-amber-300 animate-bounce" />
+          ) : (
+            <Swords className="w-5 h-5 text-amber-400" />
+          )}
           <span>
-            確認出征！排定進軍方案 ({participatingCityIds.length} 座城池 ‧ {totalSelectedCount} 位將領 ‧ {totalTroops.toLocaleString()} 兵力)
+            {isTargetEmpty 
+              ? `🏰 兵不血刃 ‧ 確認進駐佔領【${targetProvInfo?.name}】(${totalSelectedCount} 位將領 ‧ 免戰鬥)` 
+              : `確認出征！排定進軍方案 (${participatingCityIds.length} 座城池 ‧ ${totalSelectedCount} 位將領 ‧ ${totalTroops.toLocaleString()} 兵力)`
+            }
           </span>
         </button>
         <span className="text-[11px] text-stone-400 font-bold">
-          ※ 確定後全軍將於本月『休息』時正式發動進攻，進入戰前陣形配置與順序調整！
+          {isTargetEmpty
+            ? `※ 目標【${targetProvInfo?.name}】無人駐守，確認後部隊將直接進駐接管，兵不血刃納入版圖！`
+            : `※ 確定後全軍將於本月『休息』時正式發動進攻，進入戰前陣形配置與順序調整！`
+          }
         </span>
       </div>
     </div>

@@ -23,16 +23,33 @@ export const HISTORICAL_SCENARIO_TARGET_OVERRIDES: Record<number, Record<string,
     '袁術': { gold: 5000 },
     '曹操': { gold: 1300 },
     '孫堅': { gold: 1300 },
+    '劉繇': { totalTroops: 6500 },
+    '王朗': { totalTroops: 4500 },
+    '馬騰': { gold: 1500 },
+    '張魯': { gold: 1500 },
   },
   // 第2時代 (195年興平二年: 呂布弒董卓，李傕敗呂布)
   1: {
-    '劉備': { totalTroops: 6500 },
+    '曹操': { gold: 4000 },
+    '劉備': { totalTroops: 6500, gold: 2500 },
+    '馬騰': { gold: 1500 },
+    '張魯': { gold: 1500 },
+    '劉繇': { totalTroops: 7000 },
+    '王朗': { totalTroops: 4500 },
     '楊奉': { gold: 1000 },
   },
   // 第三時代 (201年建安六年: 曹操敗袁紹，劉備投荊州)
   2: {
     '袁紹': { food: 250000 },
     '曹操': { food: 200000 },
+    '馬騰': { gold: 2000 },
+    '張魯': { gold: 2000, totalTroops: 10000 },
+  },
+  // 第四時代 (208年建安十三年: 赤壁之戰)
+  3: {
+    '劉度': { gold: 1500 },
+    '趙範': { gold: 1500 },
+    '金旋': { gold: 1500 },
   },
   // 第五時代 (215年建安二十年: 劉備收蜀，張魯降曹操)
   4: {

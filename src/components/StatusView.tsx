@@ -1,13 +1,129 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { GameState, FormationTerrainType } from '../types';
 import { provinces } from '../data/provinces';
 import { getProvinceTierRules } from '../data/historicalProvinceConfig';
+import { PROVINCE_BASE_CONFIGS } from '../data/provinceBaseConfig';
 import { getGeneralItemBonus } from '../data/items';
 import { getGeneralAvailableSkills, getBattleSkillInfo, isPassiveSkill } from '../engine/skills';
 import { getGeneralAvailableFormations, getFormationInfo, FORMATION_TERRAIN_MATRIX, TERRAIN_DETAILS } from '../engine/formations';
 import { getGeneralDescription } from '../data/generalDescriptions';
 import { GeneralAvatar } from './GeneralAvatar';
 import { ItemAvatar } from './ItemAvatar';
+import { getEstimatedMonthlyFoodConsumption } from '../engine/gameLogic';
+import { ZoomIn, Maximize2, X, Shield, Users, Landmark, Wheat, Coins } from 'lucide-react';
+
+const SPECIAL_KING_CITIES = [15, 16]; // 15 洛陽, 16 長安
+const SPECIAL_CITY3_CITIES = [26, 42]; // 26 夷州, 42 交趾
+const SPECIAL_BOTTOM_RIGHT_CITIES = [1, 3, 5, 19, 20, 40]; // 1 襄平, 3 晉陽, 5 上黨, 19 武威, 20 西平, 40 永昌
+
+function getCityVisualConfig(provinceId: number) {
+  const pMeta = provinces.find(p => p.id === provinceId);
+  if (pMeta?.isPass) {
+    return {
+      imageUrl: './assets/gate.jpg',
+      viewBox: '0 0 1024 1024',
+      fullViewBox: '0 0 1024 1024',
+      imgWidth: 1024,
+      imgHeight: 1024,
+      label: '戰略天險要塞',
+      desc: '一夫當關、萬夫莫開之雄偉要塞，扼守山川咽喉，防守作戰時防守部隊享 15% 基礎防禦加成。',
+      canToggleFull: false,
+    };
+  }
+
+  const tier = PROVINCE_BASE_CONFIGS[provinceId]?.tier;
+
+  if (SPECIAL_KING_CITIES.includes(provinceId)) {
+    return {
+      imageUrl: './assets/king_city.jpg',
+      viewBox: '0 0 160 160',
+      fullViewBox: '0 0 160 160',
+      imgWidth: 160,
+      imgHeight: 160,
+      label: '帝國雙京皇都',
+      desc: '九重宮闕、金碧輝煌之帝王皇都，千載帝京，威加海內。',
+      canToggleFull: false,
+    };
+  }
+
+  if (SPECIAL_CITY3_CITIES.includes(provinceId)) {
+    return {
+      imageUrl: './assets/city3.jpg',
+      viewBox: '0 0 1024 1024',
+      fullViewBox: '0 0 1024 1024',
+      imgWidth: 1024,
+      imgHeight: 1024,
+      label: '異域邊疆城郭 (全景)',
+      desc: '依山傍水之特殊異域邊陲城塞，雄據一方，地勢險峻。',
+      canToggleFull: false,
+    };
+  }
+
+  if (SPECIAL_BOTTOM_RIGHT_CITIES.includes(provinceId)) {
+    return {
+      imageUrl: './assets/city.jpg',
+      viewBox: '532 532 472 472',
+      fullViewBox: '0 0 1024 1024',
+      label: '邊防要塞堅城',
+      desc: '高牆厚壘、重兵駐防之軍事要塞，關塞嚴防。',
+      canToggleFull: true,
+    };
+  }
+
+  if (tier === 'FRONTIER') {
+    return {
+      imageUrl: './assets/city2.jpg',
+      viewBox: '0 0 1024 1024',
+      fullViewBox: '0 0 1024 1024',
+      label: '邊陲要塞全景',
+      desc: '地處塞防要衝之堅固邊城，扼守隘口，民風剽悍。',
+      canToggleFull: false,
+    };
+  }
+
+  if (tier === 'METROPOLIS') {
+    return {
+      imageUrl: './assets/city.jpg',
+      viewBox: '20 20 472 472',
+      fullViewBox: '0 0 1024 1024',
+      label: '帝國雄都巨邑',
+      desc: '宮殿巍峨、街市繁華、四通八達的帝國樞紐大都。',
+      canToggleFull: true,
+    };
+  }
+
+  if (tier === 'COMMERCIAL') {
+    return {
+      imageUrl: './assets/city.jpg',
+      viewBox: '532 20 472 472',
+      fullViewBox: '0 0 1024 1024',
+      label: '水陸商貿通邑',
+      desc: '商賈雲集、舟車輻輳、金銀流轉之商貿重鎮。',
+      canToggleFull: true,
+    };
+  }
+
+  if (tier === 'AGRICULTURAL') {
+    return {
+      imageUrl: './assets/city.jpg',
+      viewBox: '20 532 472 472',
+      fullViewBox: '0 0 1024 1024',
+      label: '沃野糧倉重鎮',
+      desc: '良田千頃、屯田豐饒、五穀豐登之糧草重鎮。',
+      canToggleFull: true,
+    };
+  }
+
+  // MIDSIZED or default
+  return {
+    imageUrl: './assets/city.jpg',
+    viewBox: '20 532 472 472',
+    fullViewBox: '0 0 1024 1024',
+    label: '郡治州府城郭',
+    desc: '農商兼備、城垣齊整、政令通達的標準郡治。',
+    canToggleFull: true,
+  };
+}
 
 interface StatusViewProps {
   gameState: GameState;
@@ -19,6 +135,7 @@ export default function StatusView({ gameState, initialAction, onExit }: StatusV
   const [activeTab, setActiveTab] = useState(initialAction === '戰場地圖' ? '查看本郡狀態' : initialAction);
   const [selectedFormationForDetail, setSelectedFormationForDetail] = useState<string | null>(null);
   const [selectedSkillForDetail, setSelectedSkillForDetail] = useState<string | null>(null);
+  const [isCityImageModalOpen, setIsCityImageModalOpen] = useState<boolean>(false);
 
   // 取得玩家君主所屬的所有領地
   const ownedProvinces = Object.values(gameState.provincesData).filter(p => p.rulerName === gameState.rulerName);
@@ -35,6 +152,20 @@ export default function StatusView({ gameState, initialAction, onExit }: StatusV
   const generals = Object.values(gameState.generalsData).filter(g => g.provinceId === currentProvinceId && !g.isWild);
   const totalGeneralsSoldiers = generals.reduce((sum, g) => sum + g.soldiers, 0);
   const totalSoldiers = totalGeneralsSoldiers;
+  const cityVisual = getCityVisualConfig(currentProvinceId);
+
+  // ESC 鍵關閉放大視窗
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (isCityImageModalOpen) setIsCityImageModalOpen(false);
+        if (selectedFormationForDetail) setSelectedFormationForDetail(null);
+        if (selectedSkillForDetail) setSelectedSkillForDetail(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isCityImageModalOpen, selectedFormationForDetail, selectedSkillForDetail]);
 
   if (!provinceState || !provinceData) {
     return (
@@ -114,9 +245,75 @@ export default function StatusView({ gameState, initialAction, onExit }: StatusV
                 {getProvinceTierRules(currentProvinceId).tierName}
               </span>
             </h2>
-            <div className="text-center text-stone-500 text-xs mb-4 pb-3 border-b-2 border-stone-200 space-y-1">
+            <div className="text-center text-stone-500 text-xs mb-3 pb-2 border-b-2 border-stone-200 space-y-1">
               <div>{provinceData.desc}</div>
               <div className="text-amber-800 font-bold">【定位】{getProvinceTierRules(currentProvinceId).desc}</div>
+            </div>
+
+            {/* 城池縮圖畫軸 (點選放大) */}
+            <div
+              onClick={() => setIsCityImageModalOpen(true)}
+              className="mb-4 relative w-full h-44 sm:h-52 rounded-lg overflow-hidden border-2 border-[#1c1917] shadow-[2px_2px_0_#1c1917] hover:shadow-[4px_4px_0_#1c1917] cursor-pointer group transition-all transform active:scale-[0.99] bg-stone-900 flex items-center justify-center select-none"
+              title="點選放大檢視城池特寫"
+            >
+              <svg className="w-full h-full transition-transform duration-500 group-hover:scale-105" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice">
+                <defs>
+                  <pattern
+                    id={`status-city-pattern-thumb-${currentProvinceId}`}
+                    patternUnits="objectBoundingBox"
+                    width="1"
+                    height="1"
+                    viewBox={cityVisual.viewBox}
+                  >
+                    <image
+                      href={cityVisual.imageUrl}
+                      xlinkHref={cityVisual.imageUrl}
+                      x="0"
+                      y="0"
+                      width={cityVisual.imgWidth || 1024}
+                      height={cityVisual.imgHeight || 1024}
+                      preserveAspectRatio={cityVisual.imageUrl.includes('city2') || cityVisual.imageUrl.includes('city3') || cityVisual.imageUrl.includes('king_city') || cityVisual.imageUrl.includes('gate') ? 'xMidYMid slice' : 'none'}
+                    />
+                  </pattern>
+                </defs>
+                <rect
+                  x="0"
+                  y="0"
+                  width="100"
+                  height="100"
+                  fill={`url(#status-city-pattern-thumb-${currentProvinceId})`}
+                />
+              </svg>
+
+              {/* 漸層光影與互動指示標籤 */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/40 flex flex-col justify-between p-3 pointer-events-none">
+                <div className="flex justify-between items-start">
+                  <span className="bg-black/70 backdrop-blur-xs text-amber-300 border border-amber-500/50 text-xs font-black px-2 py-0.5 rounded shadow-xs flex items-center gap-1">
+                    <Landmark className="w-3.5 h-3.5" />
+                    {cityVisual.label}
+                  </span>
+                  <span className="bg-[#991b1b] text-white text-[11px] font-bold px-2 py-0.5 rounded shadow-xs flex items-center gap-1 group-hover:bg-red-700 transition-colors">
+                    <ZoomIn className="w-3.5 h-3.5 animate-pulse" /> 點擊放大檢視
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-end">
+                  <div>
+                    <div className="text-white text-sm font-black drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] flex items-center gap-1.5">
+                      <span>【{provinceData.name}】城池雄姿</span>
+                      <span className="text-[10px] bg-amber-900/80 text-amber-200 px-1.5 py-0.5 rounded border border-amber-500/40">
+                        {provinceData.region}
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-stone-300 font-medium line-clamp-1 mt-0.5">
+                      {cityVisual.desc}
+                    </div>
+                  </div>
+                  <div className="text-xs text-amber-300 font-black bg-black/60 px-2 py-0.5 rounded border border-amber-400/30">
+                    {getProvinceTierRules(currentProvinceId).tierName}
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* 地理地形比例 (加總 100%) */}
@@ -181,85 +378,183 @@ export default function StatusView({ gameState, initialAction, onExit }: StatusV
               </div>
             )}
             
-            <div className="grid grid-cols-2 gap-y-4 gap-x-8 text-base">
-              <div className="flex justify-between items-center">
-                <span className="text-stone-500 font-bold">君主</span>
-                <span className="font-black text-[#991b1b]">{provinceState.rulerName || '無主'}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-stone-500 font-bold">武將數</span>
-                <span className="font-black">{generals.length} 人</span>
-              </div>
-
-              {(() => {
-                const rulerInProv = generals.find(g => g.isRuler);
-                const appointedPrefect = generals.find(g => g.role === '太守');
-                const govName = rulerInProv
-                  ? `${rulerInProv.name} (君主)`
-                  : appointedPrefect
-                    ? appointedPrefect.name
-                    : generals.length > 0
-                      ? '未指派'
-                      : '無';
-
-                return (
-                  <>
-                    <div className="flex justify-between items-center">
-                      <span className="text-stone-500 font-bold">坐鎮太守</span>
-                      <span className="font-black text-amber-900">{govName}</span>
+            {Boolean(provinceData.isPass || provinceState.isPass) ? (
+              <div className="space-y-4">
+                {/* 關隘要塞天險插畫與特權展示 */}
+                <div className="relative rounded-lg overflow-hidden border-2 border-amber-900/40 shadow-sm bg-black">
+                  <div className="h-36 w-full relative">
+                    <img 
+                      src="./assets/gate.jpg" 
+                      alt="戰略要塞" 
+                      className="w-full h-full object-cover object-center"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-transparent flex flex-col justify-end p-3.5">
+                      <div className="flex justify-between items-end">
+                        <div>
+                          <div className="text-amber-200 font-black text-base flex items-center gap-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
+                            <span>🏯【{provinceData.name}】戰略要塞體系</span>
+                            <span className="text-[11px] bg-amber-800 text-amber-100 px-2 py-0.5 rounded font-bold border border-amber-600">
+                              咽喉天險
+                            </span>
+                          </div>
+                          <div className="text-xs text-stone-200 font-medium drop-shadow mt-1">
+                            扼守山川咽喉 · 享 +15% 天險守城減傷 · 專備獨立府庫
+                          </div>
+                        </div>
+                        <span className="text-xs bg-red-800/90 text-white font-black px-2.5 py-1 rounded border border-red-500 shadow-sm">
+                          駐軍上限 10 隊
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-stone-500 font-bold">治理模式</span>
-                      <span className={`font-black ${provinceState.isAutonomous ? 'text-amber-800' : 'text-stone-700'}`}>
-                        {provinceState.isAutonomous ? '自治中' : '直轄'}
-                      </span>
-                    </div>
-                  </>
-                );
-              })()}
+                  </div>
+                  <div className="bg-[#fbf8f3] p-3 text-xs text-stone-800 font-medium leading-relaxed border-t border-amber-300/70">
+                    本關隘專司鎖鑰扼守，無常住百姓商肆，免除太守、土地開荒、商業稅收與防災；永不發生任何水災、颱風、旱災或地震。作戰時守軍糧草金費完全由本要塞庫存支應。
+                  </div>
+                </div>
 
-              <div className="col-span-2 border-b border-stone-300 my-1"></div>
+                <div className="grid grid-cols-2 gap-y-3.5 gap-x-6 text-sm bg-stone-50 p-4 border border-stone-300 rounded-lg">
+                  <div className="flex justify-between items-center">
+                    <span className="text-stone-600 font-bold">所屬勢力</span>
+                    <span className="font-black text-[#991b1b]">{provinceState.rulerName || '無主要塞'}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-stone-600 font-bold">駐防守將</span>
+                    <span className="font-black text-stone-900">
+                      {generals.length > 0 
+                        ? generals.slice().sort((a, b) => b.str - a.str)[0].name + ` (主將)` 
+                        : '無駐守部隊'}
+                    </span>
+                  </div>
 
-              <div className="flex justify-between items-center">
-                <span className="text-stone-500 font-bold">金庫</span>
-                <span className="font-black text-amber-800">{provinceState.gold.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-stone-500 font-bold">兵糧</span>
-                <span className="font-black text-emerald-800">{provinceState.food.toLocaleString()}</span>
-              </div>
+                  <div className="col-span-2 border-b border-stone-200"></div>
 
-              <div className="col-span-2 border-b border-stone-300 my-1"></div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-stone-600 font-bold">關防金庫</span>
+                    <span className="font-black text-amber-800">{provinceState.gold.toLocaleString()} 金</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-stone-600 font-bold">守備軍糧</span>
+                    <span className="font-black text-emerald-800">{provinceState.food.toLocaleString()} 石</span>
+                  </div>
 
-              <div className="flex justify-between items-center">
-                <span className="text-stone-500 font-bold">人口</span>
-                <span className="font-black">{provinceState.population.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-stone-500 font-bold">兵士</span>
-                <span className="font-black text-[#991b1b]">{totalSoldiers.toLocaleString()}</span>
-              </div>
+                  <div className="col-span-2 flex justify-between items-center bg-rose-50 px-2.5 py-1.5 rounded border border-rose-200">
+                    <span className="text-rose-900 font-bold text-xs">每月守軍兵糧耗損</span>
+                    <span className="font-black text-rose-700 text-xs">
+                      -{getEstimatedMonthlyFoodConsumption(provinceState, Object.values(gameState.generalsData)).toLocaleString()} 石/月 (自本關扣除)
+                    </span>
+                  </div>
 
-              <div className="col-span-2 border-b border-stone-300 my-1"></div>
+                  <div className="col-span-2 border-b border-stone-200"></div>
 
-              <div className="flex justify-between items-center">
-                <span className="text-stone-500 font-bold">土地開發</span>
-                <span className="font-black text-amber-700">{provinceState.value} / {getProvinceTierRules(currentProvinceId).maxDev}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-stone-500 font-bold">商業發展</span>
-                <span className="font-black text-sky-700">{provinceState.commerce || 0} / {getProvinceTierRules(currentProvinceId).maxCommerce}</span>
-              </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-stone-600 font-bold">駐軍編制</span>
+                    <span className="font-black text-stone-900">
+                      {generals.length} / 10 隊 
+                      <span className="text-xs text-stone-500 font-normal ml-1">(上限10隊)</span>
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-stone-600 font-bold">要塞防護加成</span>
+                    <span className="font-black text-blue-800">天險 +15% 減傷</span>
+                  </div>
+                  <div className="flex justify-between items-center col-span-2 border-t border-stone-200 pt-2">
+                    <span className="text-stone-600 font-bold">守城總兵力</span>
+                    <span className="font-black text-[#991b1b] text-base">{totalSoldiers.toLocaleString()} 人</span>
+                  </div>
+                </div>
 
-              <div className="flex justify-between items-center">
-                <span className="text-stone-500 font-bold">防災程度</span>
-                <span className="font-black text-blue-700">{100 - provinceState.flood}%</span>
+                <div className="p-3 bg-stone-100 border border-stone-300 rounded text-xs text-stone-700 font-bold flex items-center justify-between">
+                  <span>💡 庫存不足時，可自相鄰城池【運送錢糧】前往要塞補給。</span>
+                </div>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-stone-500 font-bold">民心忠誠</span>
-                <span className="font-black text-emerald-700">{provinceState.loyalty}</span>
+            ) : (
+              <div className="grid grid-cols-2 gap-y-4 gap-x-8 text-base">
+                <div className="flex justify-between items-center">
+                  <span className="text-stone-500 font-bold">君主</span>
+                  <span className="font-black text-[#991b1b]">{provinceState.rulerName || '無主'}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-stone-500 font-bold">武將數</span>
+                  <span className="font-black">{generals.length} 人</span>
+                </div>
+
+                {(() => {
+                  const rulerInProv = generals.find(g => g.isRuler);
+                  const appointedPrefect = generals.find(g => g.role === '太守');
+                  const govName = rulerInProv
+                    ? `${rulerInProv.name} (君主)`
+                    : appointedPrefect
+                      ? appointedPrefect.name
+                      : generals.length > 0
+                        ? '未指派'
+                        : '無';
+
+                  return (
+                    <>
+                      <div className="flex justify-between items-center">
+                        <span className="text-stone-500 font-bold">坐鎮太守</span>
+                        <span className="font-black text-amber-900">{govName}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-stone-500 font-bold">治理模式</span>
+                        <span className={`font-black ${provinceState.isAutonomous ? 'text-amber-800' : 'text-stone-700'}`}>
+                          {provinceState.isAutonomous ? '自治中' : '直轄'}
+                        </span>
+                      </div>
+                    </>
+                  );
+                })()}
+
+                <div className="col-span-2 border-b border-stone-300 my-1"></div>
+
+                <div className="flex justify-between items-center">
+                  <span className="text-stone-500 font-bold">金庫</span>
+                  <span className="font-black text-amber-800">{provinceState.gold.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-stone-500 font-bold">兵糧</span>
+                  <span className="font-black text-emerald-800">{provinceState.food.toLocaleString()}</span>
+                </div>
+
+                <div className="col-span-2 border-b border-stone-300 my-1"></div>
+
+                <div className="flex justify-between items-center">
+                  <span className="text-stone-500 font-bold">人口</span>
+                  <span className="font-black">{provinceState.population.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-stone-500 font-bold">兵士</span>
+                  <span className="font-black text-[#991b1b]">{totalSoldiers.toLocaleString()}</span>
+                </div>
+
+                <div className="col-span-2 border-b border-stone-300 my-1"></div>
+
+                <div className="flex justify-between items-center">
+                  <span className="text-stone-500 font-bold">土地開發</span>
+                  <span className="font-black text-amber-700">
+                    {`${provinceState.value} / ${getProvinceTierRules(currentProvinceId).maxDev}`}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-stone-500 font-bold">商業發展</span>
+                  <span className="font-black text-sky-700">
+                    {`${provinceState.commerce || 0} / ${getProvinceTierRules(currentProvinceId).maxCommerce}`}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <span className="text-stone-500 font-bold">防災程度</span>
+                  <span className="font-black text-blue-700">
+                    {`${100 - provinceState.flood}%`}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-stone-500 font-bold">民心忠誠</span>
+                  <span className="font-black text-emerald-700">{provinceState.loyalty}</span>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 
@@ -356,9 +651,15 @@ export default function StatusView({ gameState, initialAction, onExit }: StatusV
                     <div className="bg-stone-100 p-1 rounded-sm border border-stone-300">
                       <div className="text-stone-500 text-xs mb-1">魅力</div>
                       <div className="font-black flex items-center justify-center gap-0.5">
-                        <span>{g.cha}</span>
-                        {itemBonus.chaBonus > 0 && (
-                          <span className="text-emerald-700 font-black text-xs">+{itemBonus.chaBonus}</span>
+                        {itemBonus.hasImperialSeal ? (
+                          <span className="text-amber-800 font-black">100</span>
+                        ) : (
+                          <>
+                            <span>{g.cha}</span>
+                            {itemBonus.chaBonus > 0 && (
+                              <span className="text-emerald-700 font-black text-xs">+{itemBonus.chaBonus}</span>
+                            )}
+                          </>
                         )}
                       </div>
                     </div>
@@ -371,14 +672,14 @@ export default function StatusView({ gameState, initialAction, onExit }: StatusV
                     </div>
                     <div>
                       <div className="text-stone-400 text-xs mb-0.5">訓練度</div>
-                      <div className="font-bold text-emerald-300">{g.training}%</div>
+                      <div className="font-bold text-emerald-300">{g.soldiers === 0 ? 0 : (g.training || 0)}%</div>
                     </div>
                   </div>
 
                   {/* Formations & Battle Skills Badges */}
                   {(() => {
                     const formations = g.formations && g.formations.length > 0 ? g.formations : getGeneralAvailableFormations(g);
-                    const skills = g.skills && g.skills.length > 0 ? g.skills : getGeneralAvailableSkills(g);
+                    const skills = getGeneralAvailableSkills(g);
                     const activeSkills = skills.filter(s => !isPassiveSkill(s));
 
                     return (
@@ -707,6 +1008,132 @@ export default function StatusView({ gameState, initialAction, onExit }: StatusV
             </div>
           );
         })()}
+
+        {/* ═══════════════════════════════════════════════════════════════
+            CITY ENLARGED IMAGE MODAL (城池放大全景賞析)
+           ═══════════════════════════════════════════════════════════════ */}
+        {isCityImageModalOpen && (
+          <div
+            className="fixed inset-0 bg-black/85 backdrop-blur-md z-70 flex items-center justify-center p-3 sm:p-5 animate-fade-in"
+            onClick={() => setIsCityImageModalOpen(false)}
+          >
+            <div
+              className="bg-[#1c1917] text-stone-100 border-2 border-amber-600/80 rounded-xl max-w-2xl w-full p-4 sm:p-5 shadow-[0_12px_40px_rgba(0,0,0,0.9)] flex flex-col gap-3 max-h-[92vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="flex justify-between items-center border-b border-stone-700 pb-2.5">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-lg sm:text-xl font-black text-amber-200 flex items-center gap-1.5">
+                    <Landmark className="w-5 h-5 text-amber-400" />
+                    【{provinceData.name}】城池風貌
+                  </span>
+                  <span className="text-xs bg-amber-950 text-amber-300 border border-amber-600/60 px-2 py-0.5 rounded font-bold">
+                    {provinceData.region} · {getProvinceTierRules(currentProvinceId).tierName}
+                  </span>
+                  <span className="text-xs bg-stone-800 text-stone-300 px-2 py-0.5 rounded font-medium">
+                    {cityVisual.label}
+                  </span>
+                </div>
+                <button
+                  onClick={() => setIsCityImageModalOpen(false)}
+                  className="text-stone-400 hover:text-white p-1 rounded-md hover:bg-stone-800 transition-colors cursor-pointer"
+                  title="關閉 (ESC)"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* High-Resolution City Image Showcase - 100% Matching Map Display */}
+              <div className="relative w-full max-w-lg mx-auto aspect-square rounded-xl border-2 border-amber-600/70 overflow-hidden bg-stone-950 flex items-center justify-center shadow-[0_8px_24px_rgba(0,0,0,0.8)]">
+                <svg className="w-full h-full" viewBox="0 0 100 100">
+                  <defs>
+                    <pattern
+                      id={`status-city-pattern-modal-${currentProvinceId}`}
+                      patternUnits="objectBoundingBox"
+                      width="1"
+                      height="1"
+                      viewBox={cityVisual.viewBox}
+                    >
+                      <image
+                        href={cityVisual.imageUrl}
+                        xlinkHref={cityVisual.imageUrl}
+                        x="0"
+                        y="0"
+                        width={cityVisual.imgWidth || 1024}
+                        height={cityVisual.imgHeight || 1024}
+                        preserveAspectRatio={cityVisual.imageUrl.includes('city2') || cityVisual.imageUrl.includes('city3') || cityVisual.imageUrl.includes('king_city') || cityVisual.imageUrl.includes('gate') ? 'xMidYMid slice' : 'none'}
+                      />
+                    </pattern>
+                  </defs>
+                  <rect
+                    x="0"
+                    y="0"
+                    width="100"
+                    height="100"
+                    fill={`url(#status-city-pattern-modal-${currentProvinceId})`}
+                  />
+                </svg>
+
+                {/* 浮水印與城池名稱標籤 */}
+                <div className="absolute bottom-3 left-3 bg-black/80 backdrop-blur-xs border border-amber-500/50 text-amber-200 text-xs font-bold px-2.5 py-1 rounded shadow-md flex items-center gap-1.5">
+                  <Landmark className="w-3.5 h-3.5 text-amber-400" />
+                  <span>【{provinceData.name}】{cityVisual.label}</span>
+                </div>
+              </div>
+
+              {/* Strategic Attributes & Description */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                <div className="bg-stone-900 border border-stone-800 p-2 rounded flex flex-col">
+                  <span className="text-[10px] text-stone-400 font-bold flex items-center gap-1">
+                    <Users className="w-3 h-3 text-stone-400" /> 郡邑人口
+                  </span>
+                  <span className="text-sm font-black text-amber-200 mt-0.5">
+                    {provinceState.population.toLocaleString()} 人
+                  </span>
+                </div>
+                <div className="bg-stone-900 border border-stone-800 p-2 rounded flex flex-col">
+                  <span className="text-[10px] text-stone-400 font-bold flex items-center gap-1">
+                    <Shield className="w-3 h-3 text-stone-400" /> 城郭防禦
+                  </span>
+                  <span className="text-sm font-black text-blue-300 mt-0.5">
+                    {100 - provinceState.flood}% 防災
+                  </span>
+                </div>
+                <div className="bg-stone-900 border border-stone-800 p-2 rounded flex flex-col">
+                  <span className="text-[10px] text-stone-400 font-bold flex items-center gap-1">
+                    <Wheat className="w-3 h-3 text-stone-400" /> 土地開發
+                  </span>
+                  <span className="text-sm font-black text-emerald-300 mt-0.5">
+                    {provinceState.value} / {getProvinceTierRules(currentProvinceId).maxDev}
+                  </span>
+                </div>
+                <div className="bg-stone-900 border border-stone-800 p-2 rounded flex flex-col">
+                  <span className="text-[10px] text-stone-400 font-bold flex items-center gap-1">
+                    <Coins className="w-3 h-3 text-stone-400" /> 商業發展
+                  </span>
+                  <span className="text-sm font-black text-sky-300 mt-0.5">
+                    {provinceState.commerce || 0} / {getProvinceTierRules(currentProvinceId).maxCommerce}
+                  </span>
+                </div>
+              </div>
+
+              {/* Historical & Strategic Briefing */}
+              <div className="bg-stone-900/80 border border-stone-800 p-2.5 rounded text-xs text-stone-300 leading-relaxed font-sans">
+                <span className="text-amber-400 font-bold mr-1">【城池背景】</span>
+                {provinceData.desc} {getProvinceTierRules(currentProvinceId).desc}
+              </div>
+
+              {/* Close Action */}
+              <button
+                onClick={() => setIsCityImageModalOpen(false)}
+                className="w-full py-2 bg-amber-700 hover:bg-amber-600 text-amber-50 text-xs font-black rounded-lg transition-colors cursor-pointer shadow-md active:scale-[0.99] flex items-center justify-center gap-1"
+              >
+                <span>✕ 關閉城池全景視窗 (ESC)</span>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
