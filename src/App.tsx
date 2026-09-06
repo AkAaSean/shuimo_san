@@ -617,7 +617,7 @@ function GameApp({
         isFullscreen={isFullscreen}
       />
 
-      {/* Manual Modal: 水墨三國說明書 v0.4 */}
+      {/* Manual Modal: 水墨三國說明書 v0.5 */}
       <ManualModal
         isOpen={isManualOpen}
         onClose={() => setIsManualOpen(false)}

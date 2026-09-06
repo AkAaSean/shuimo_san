@@ -139,57 +139,57 @@ export function initGame(scenarioIndex: number, playerRulerName: string): GameSt
     const historicalMil = getHistoricalReserveMilitary(scenarioIndex, p.id);
     const initialForts = getHistoricalInitialForts(scenarioIndex, p.id);
 
-    // 時代背景調整 (人口、土地加值、忠誠度)
+    // 時代背景調整 (人口、土地加值、忠誠度 65~85 區間)
     let popMult = 1.0;
     let devMult = 1.0;
-    let loyBase = 75;
+    let loyBase = 72;
 
     const isNorth = p.id <= 20;
     const isLuoChang = p.id === 15 || p.id === 16; // 洛陽、長安
     const isJing = p.id >= 27 && p.id <= 34; // 荊州
 
     switch (scenarioIndex) {
-      case 0: // 189 - 靈帝崩逝與黃巾平定後
+      case 0: // 189 - 靈帝崩逝與黃巾平定後：天下初亂，北方稍低，南方稍穩
         if (isNorth) {
-          popMult = 0.95; devMult = 0.6; loyBase = 50;
+          popMult = 0.95; devMult = 0.6; loyBase = 66;
         } else {
-          popMult = 0.90; devMult = 0.4; loyBase = 65; // 南方開發中
+          popMult = 0.90; devMult = 0.4; loyBase = 70; // 南方開發中
         }
         break;
       case 1: // 195 - 董卓遷都長安、洛陽遭焚殘破
         if (isLuoChang) {
-          popMult = 0.65; devMult = 0.4; loyBase = 50; // 洛陽長安兵燹殘破
+          popMult = 0.65; devMult = 0.4; loyBase = 65; // 洛陽長安兵燹殘破
         } else if (isNorth) {
-          popMult = 0.95; devMult = 0.8; loyBase = 60;
+          popMult = 0.95; devMult = 0.8; loyBase = 68;
         } else {
-          popMult = 0.92; devMult = 0.5; loyBase = 70; // 南方逐步發展
+          popMult = 0.92; devMult = 0.5; loyBase = 72; // 南方逐步發展
         }
         break;
       case 2: // 201 - 官渡之戰
         if (isNorth) {
-          popMult = 0.98; devMult = 0.9; loyBase = 70; // 北方復甦
+          popMult = 0.98; devMult = 0.9; loyBase = 72; // 北方復甦
         } else {
-          popMult = 0.95; devMult = 0.7; loyBase = 75;
+          popMult = 0.95; devMult = 0.7; loyBase = 74;
         }
         break;
       case 3: // 208 - 赤壁之戰
         if (isNorth) {
-          popMult = 1.0; devMult = 1.0; loyBase = 75;
+          popMult = 1.0; devMult = 1.0; loyBase = 74;
         } else if (isJing) {
-          popMult = 1.08; devMult = 1.1; loyBase = 80; // 荊州繁榮避難所
+          popMult = 1.08; devMult = 1.1; loyBase = 78; // 荊州繁榮避難所
         } else {
-          popMult = 0.98; devMult = 0.8; loyBase = 75;
+          popMult = 0.98; devMult = 0.8; loyBase = 74;
         }
         break;
       case 4: // 215 - 三分天下雛形
         popMult = 1.05;
         devMult = 1.2;
-        loyBase = 80;
+        loyBase = 76;
         break;
       case 5: // 220 - 魏蜀吳鼎立
         popMult = 1.08;
         devMult = 1.3;
-        loyBase = 80;
+        loyBase = 78;
         break;
     }
 
@@ -256,7 +256,7 @@ export function initGame(scenarioIndex: number, playerRulerName: string): GameSt
       commerce: isPassNode ? 0 : Math.max(10, Math.min(tierRules.maxCommerce, startingCommerce)),
       // state.flood 代表水患危險度 (0~100)，UI 顯示防災度為 100 - state.flood；關隘要塞無水患直接為 0
       flood: isPassNode ? 0 : (100 - startingDefensePercent),
-      loyalty: isPassNode ? 80 : loyBase + Math.floor(Math.random() * 10),
+      loyalty: isPassNode ? 80 : Math.max(65, Math.min(85, loyBase + Math.floor(Math.random() * 5))),
       price: 10 + Math.floor(Math.random() * 5),
       forts: initialForts,
       training: isPassNode ? undefined : historicalMil.training,
@@ -271,6 +271,23 @@ export function initGame(scenarioIndex: number, playerRulerName: string): GameSt
       // 第一個都市通常為首都/君主所在大本營
       const capitalProvinceId = ruler.provinces.length > 0 ? ruler.provinces[0] : -1;
 
+      // 查詢君主統御魅力特性（若有對應武將資料，以魅力/政治特質微調民忠）
+      const rulerGen = generals.find(g => g.name === ruler.name);
+      let rulerCharismaBonus = 0;
+      if (rulerGen) {
+        // 魅力 90+ (如劉備 99、曹操 96、孫權 98、孫堅 92) 加成 +2 ~ +4；暴虐/魅力低者 (如董卓) 扣減 -3 ~ -5
+        if (rulerGen.cha >= 95) rulerCharismaBonus = 4;
+        else if (rulerGen.cha >= 88) rulerCharismaBonus = 2;
+        else if (rulerGen.cha <= 50) rulerCharismaBonus = -4;
+        else if (rulerGen.cha <= 65) rulerCharismaBonus = -2;
+      }
+      // 暴政/特殊君主名望修正
+      if (ruler.name === '董卓' || ruler.name === '李傕') {
+        rulerCharismaBonus = -5;
+      } else if (ruler.name === '劉備' || ruler.name === '陶謙' || ruler.name === '孔融') {
+        rulerCharismaBonus = Math.max(rulerCharismaBonus, 4);
+      }
+
       ruler.provinces.forEach(provinceId => {
         const pState = provincesData[provinceId];
         const baseConfig = PROVINCE_BASE_CONFIGS[provinceId];
@@ -284,7 +301,9 @@ export function initGame(scenarioIndex: number, playerRulerName: string): GameSt
           pState.gold = Math.round(baseConfig.baseGold * mult.goldMult);
           pState.food = Math.round(baseConfig.baseFood * mult.foodMult);
           pState.soldiers = 0;
-          pState.loyalty = Math.min(95, mult.soldierLoyalty + (isCapital ? 10 : 5));
+          // 民忠依據時代基礎、君主魅力/名望特性與首都加成微調，嚴格維持在 65~85 (首都最高 85)
+          const adjustedLoyalty = (pState.loyalty || 70) + rulerCharismaBonus + (isCapital ? 4 : 1);
+          pState.loyalty = Math.max(65, Math.min(85, adjustedLoyalty));
           pState.value = Math.min(tierRules.maxDev, Math.round(pState.value * (isCapital ? 1.2 : 1.0)));
           pState.commerce = Math.min(tierRules.maxCommerce, Math.round((pState.commerce || 20) * (isCapital ? 1.2 : 1.0)));
           // 勢力大本營/首都微幅強化治水堤防 (維持在 40~60% 防災區間內)
@@ -294,12 +313,13 @@ export function initGame(scenarioIndex: number, playerRulerName: string): GameSt
     });
   }
 
-  // 2.5 空白地額外懲罰 (關隘不扣開發度)
+  // 2.5 空白地額外懲罰 (關隘不扣開發度，無人佔領城池民忠可自然在 50 以下)
   Object.values(provincesData).forEach(pState => {
     if (pState.rulerName === null && !pState.isPass) {
       pState.value = Math.max(5, Math.round(pState.value * 0.7)); // 空白地開發度降低
       pState.commerce = Math.max(5, Math.round((pState.commerce || 10) * 0.7)); // 空白地商業度降低
-      pState.loyalty = Math.max(10, pState.loyalty - 20); // 空白地忠誠度降低
+      // 無人佔領城池缺乏治理，民忠衰退至 30~48 區間 (允許在 50 以下)
+      pState.loyalty = Math.max(10, Math.min(48, Math.round((pState.loyalty || 65) - 28 - Math.floor(Math.random() * 8))));
       pState.flood = Math.min(60, pState.flood + 2); // 空白荒地水患率微升
     }
   });

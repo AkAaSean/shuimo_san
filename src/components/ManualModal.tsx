@@ -7,12 +7,13 @@ interface ManualModalProps {
 }
 
 export default function ManualModal({ isOpen = true, onClose }: ManualModalProps) {
-  const [activeTab, setActiveTab] = useState<'basic' | 'internal' | 'military' | 'strategy' | 'personnel'>('basic');
+  const [activeTab, setActiveTab] = useState<'basic' | 'internal' | 'military' | 'pass' | 'strategy' | 'personnel'>('basic');
 
   const tabs = [
     { id: 'basic', label: '👑 基礎與目標', icon: '📜' },
-    { id: 'internal', label: '🌾 內政與經濟', icon: '🏛️' },
     { id: 'military', label: '⚔️ 軍事與戰術', icon: '🛡️' },
+    { id: 'pass', label: '🏰 關隘與要塞', icon: '🏯' },
+    { id: 'internal', label: '🌾 內政與經濟', icon: '🏛️' },
     { id: 'strategy', label: '🤝 謀略與外交', icon: '📜' },
     { id: 'personnel', label: '💎 人事與寶物', icon: '👑' },
   ] as const;
@@ -40,7 +41,10 @@ export default function ManualModal({ isOpen = true, onClose }: ManualModalProps
         <div className="bg-[#1c1917] text-[#f2efeb] px-4 sm:px-6 py-3 flex justify-between items-center border-b-2 border-[#1c1917] shrink-0">
           <div className="flex items-center gap-2">
             <span className="text-amber-400 text-lg">📜</span>
-            <h2 className="text-base sm:text-lg font-black tracking-wider">水墨三國 • 遊戲指南與說明書</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-base sm:text-lg font-black tracking-wider">水墨三國 • 遊戲指南與說明書</h2>
+              <span className="bg-[#991b1b] text-amber-200 text-xs font-mono font-bold px-2 py-0.5 rounded border border-amber-300/40">V0.5</span>
+            </div>
           </div>
           <button 
             onClick={onClose}
@@ -57,7 +61,7 @@ export default function ManualModal({ isOpen = true, onClose }: ManualModalProps
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as typeof activeTab)}
-              className={`px-3.5 sm:px-5 py-2.5 text-xs sm:text-sm font-black border-r-2 border-[#1c1917] whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-black border-r-2 border-[#1c1917] whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
                 activeTab === tab.id
                   ? 'bg-[#f2efeb] text-[#991b1b] shadow-[inset_0_-3px_0_#991b1b]'
                   : 'text-stone-700 hover:bg-[#ded9d0] hover:text-[#1c1917]'
@@ -74,6 +78,31 @@ export default function ManualModal({ isOpen = true, onClose }: ManualModalProps
           <AnimatePresence mode="wait">
             {activeTab === 'basic' && (
               <motion.div key="basic" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} className="space-y-4">
+                {/* V0.5 版本更新亮點 */}
+                <div className="bg-amber-100/90 p-3.5 border-2 border-amber-800/80 shadow-[3px_3px_0_#78350f] space-y-2">
+                  <h3 className="font-black text-[#991b1b] text-sm sm:text-base flex items-center gap-2 border-b border-amber-800/30 pb-1">
+                    <span>🔥</span> V0.5 重大系統更新一覽
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs leading-relaxed">
+                    <div className="bg-white/80 p-2.5 border border-amber-700/40 rounded-xs">
+                      <strong className="text-amber-950 block mb-0.5">🧠 a. 戰鬥軍師系統</strong>
+                      戰前指派智謀軍師！戰場中提供即時破陣建言、主動釋放全軍計策（水淹、落石、伏兵、十面埋伏、神算護體）並具備被動識破敵計光環。
+                    </div>
+                    <div className="bg-white/80 p-2.5 border border-amber-700/40 rounded-xs">
+                      <strong className="text-amber-950 block mb-0.5">🏯 b. 戰略關隘要塞</strong>
+                      實裝虎牢關、函谷關、散關、劍閣、陽平關、巫關、武關。純軍事天險要塞，免疫天災、免除太守與民政，防禦力極高，駐軍達 10 隊上限！
+                    </div>
+                    <div className="bg-white/80 p-2.5 border border-amber-700/40 rounded-xs">
+                      <strong className="text-amber-950 block mb-0.5">🏛️ c. 內政與經濟精確修正</strong>
+                      修正每年「1月春季徵金稅、7月秋季豐收軍糧、10月戶籍人口成長」時序；優化開局防災度（40%~60%），杜絕前期無效過度防災。
+                    </div>
+                    <div className="bg-white/80 p-2.5 border border-amber-700/40 rounded-xs">
+                      <strong className="text-amber-950 block mb-0.5">⚔️ d. 戰爭多城池作戰體系</strong>
+                      全面升級多路戰役佇列面板！當同月有多座城池或關口遭遇進犯時，玩家可逐一親臨戰場調兵遣將，或個別指派陣型交由 AI 自動決算。
+                    </div>
+                  </div>
+                </div>
+
                 {/* 核心目標 */}
                 <div className="bg-white/80 p-4 border-2 border-[#1c1917] shadow-[3px_3px_0_#1c1917] space-y-2">
                   <h3 className="font-black text-[#991b1b] text-base flex items-center gap-2 border-b border-[#1c1917]/20 pb-1.5">
@@ -82,11 +111,11 @@ export default function ManualModal({ isOpen = true, onClose }: ManualModalProps
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs leading-relaxed">
                     <div className="bg-amber-50 p-3 border border-amber-800/30">
                       <span className="font-black text-amber-900 block mb-1">🚩 霸業勝出：天下一統</span>
-                      率領您的勢力成功攻佔全中國所有 <strong className="text-red-700">20 州郡</strong>，消除一切敵對君主，即可平定亂世，問鼎天下！
+                      率領您的勢力成功攻佔全中國所有州郡城池與戰略關隘，消除一切敵對君主，即可平定亂世，問鼎天下！
                     </div>
                     <div className="bg-red-50 p-3 border border-red-800/30">
                       <span className="font-black text-red-900 block mb-1">💀 勢力覆滅：敗北條件</span>
-                      當我方最後一座城池陷落，或君主戰死/病逝且無武將可繼承大統時，即宣告敗北，國破家亡。
+                      當我方最後一座城池或關塞陷落，或君主陣亡/病逝且無武將可繼承大統時，即宣告敗北，國破家亡。
                     </div>
                   </div>
                 </div>
@@ -107,7 +136,7 @@ export default function ManualModal({ isOpen = true, onClose }: ManualModalProps
                     </div>
                     <div className="bg-stone-100 p-2 border border-stone-300">
                       <div className="font-black text-purple-900">智力</div>
-                      <div className="text-[11px] text-stone-600 mt-0.5">計謀施展成功率與敵方計謀防禦</div>
+                      <div className="text-[11px] text-stone-600 mt-0.5">軍師計策威能、計謀成功率與識破敵計</div>
                     </div>
                     <div className="bg-stone-100 p-2 border border-stone-300">
                       <div className="font-black text-emerald-900">政治</div>
@@ -115,32 +144,7 @@ export default function ManualModal({ isOpen = true, onClose }: ManualModalProps
                     </div>
                     <div className="bg-stone-100 p-2 border border-stone-300">
                       <div className="font-black text-amber-900">魅力</div>
-                      <div className="text-[11px] text-stone-600 mt-0.5">登用武將成功率與部屬忠誠度維護</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 季節循環與年度時序 */}
-                <div className="bg-white/80 p-4 border-2 border-[#1c1917] shadow-[3px_3px_0_#1c1917] space-y-2">
-                  <h3 className="font-black text-[#1c1917] text-base flex items-center gap-2 border-b border-[#1c1917]/20 pb-1.5">
-                    <span>📅</span> 季節收支時程表
-                  </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
-                    <div className="p-2.5 bg-amber-50 border border-amber-300">
-                      <div className="font-black text-amber-800">💰 1月 春季：金稅徵收</div>
-                      <div className="text-stone-700 mt-1">依據各城商業繁榮、人口與民心忠誠，結算徵收全郡金錢稅賦。</div>
-                    </div>
-                    <div className="p-2.5 bg-emerald-50 border border-emerald-300">
-                      <div className="font-black text-emerald-800">🌾 7月 秋季：秋收賦稅</div>
-                      <div className="text-stone-700 mt-1">依農田開墾、防汛安全與人口結算軍糧。水利昌盛且無洪患者有機率觸發「大豐收」！</div>
-                    </div>
-                    <div className="p-2.5 bg-indigo-50 border border-indigo-300">
-                      <div className="font-black text-indigo-800">📈 10月 孟冬：戶籍歲計</div>
-                      <div className="text-stone-700 mt-1">秋收後按民心、農商與治水結算，城池人口自然增長 +0.6% ～ +1.2%，休養生息。</div>
-                    </div>
-                    <div className="p-2.5 bg-rose-50 border border-rose-300">
-                      <div className="font-black text-rose-800">🌪️ 四季天災與防災防護</div>
-                      <div className="text-stone-700 mt-1">旱災、洪水、颱風或地震。平時加強治水防災與儲糧，可大幅減免受災損失並守護人口底限。</div>
+                      <div className="text-[11px] text-stone-600 mt-0.5">登用武將成功率、部屬忠誠與募兵成本折扣</div>
                     </div>
                   </div>
                 </div>
@@ -157,70 +161,41 @@ export default function ManualModal({ isOpen = true, onClose }: ManualModalProps
               </motion.div>
             )}
 
-            {activeTab === 'internal' && (
-              <motion.div key="internal" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} className="space-y-4">
-                {/* 三項基礎內政 */}
-                <div className="bg-white/80 p-4 border-2 border-[#1c1917] shadow-[3px_3px_0_#1c1917] space-y-2">
-                  <h3 className="font-black text-[#1c1917] text-base flex items-center gap-2 border-b border-[#1c1917]/20 pb-1.5">
-                    <span>🌾</span> 內政開發三要素
-                  </h3>
-                  <div className="space-y-2 text-xs">
-                    <div className="p-2.5 bg-stone-50 border border-stone-300 flex items-start gap-2">
-                      <span className="font-black text-emerald-800 shrink-0">🌱 開墾：</span>
-                      <span>提升城池農業上限，直接增加每年秋季 (7月) 的<strong>糧食產出量</strong>。</span>
-                    </div>
-                    <div className="p-2.5 bg-stone-50 border border-stone-300 flex items-start gap-2">
-                      <span className="font-black text-amber-800 shrink-0">💰 商業：</span>
-                      <span>促進城池繁榮度，直接增加每年秋季 (7月) 的<strong>金錢稅收量</strong>。</span>
-                    </div>
-                    <div className="p-2.5 bg-stone-50 border border-stone-300 flex items-start gap-2">
-                      <span className="font-black text-blue-800 shrink-0">🌊 治水：</span>
-                      <span>提升城池防災能力與治安，可大幅降低自然災害（蝗害、水患）造成的損失。</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 市場買賣 */}
-                <div className="bg-white/80 p-4 border-2 border-[#1c1917] shadow-[3px_3px_0_#1c1917] space-y-2">
-                  <h3 className="font-black text-[#1c1917] text-base flex items-center gap-2 border-b border-[#1c1917]/20 pb-1.5">
-                    <span>⚖️</span> 市場米糧交易機制
-                  </h3>
-                  <p className="text-xs text-stone-700 leading-relaxed">
-                    各地市場米價會隨季節與局勢在 <strong className="text-amber-800">1:1 ~ 1:3.5</strong> 之間浮動。建議在米價便宜時買入儲糧，於豐收米價偏高時賣出換取黃金，充實軍費！
-                  </p>
-                </div>
-
-                {/* 運送與自治 */}
-                <div className="bg-white/80 p-4 border-2 border-[#1c1917] shadow-[3px_3px_0_#1c1917] space-y-2">
-                  <h3 className="font-black text-[#1c1917] text-base flex items-center gap-2 border-b border-[#1c1917]/20 pb-1.5">
-                    <span>🚚</span> 錢糧運送與郡縣自治
-                  </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                    <div className="p-2.5 bg-stone-50 border border-stone-300">
-                      <div className="font-black text-[#1c1917] mb-1">📦 錢糧調運</div>
-                      派遣武將押運金帛糧草至相鄰我方城池，維持前線戰備。
-                    </div>
-                    <div className="p-2.5 bg-stone-50 border border-stone-300">
-                      <div className="font-black text-[#1c1917] mb-1">🏛️ 郡縣自治</div>
-                      至【7.君主】授權非君主所在城池自治。太守與守將每月將自動進行治水、賑民、農商修墾與兵操，並於月初呈報奏績；君主仍可調兵或隨時收回直轄。
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-
             {activeTab === 'military' && (
               <motion.div key="military" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} className="space-y-4">
-                {/* 徵兵與訓練 */}
-                <div className="bg-white/80 p-4 border-2 border-[#1c1917] shadow-[3px_3px_0_#1c1917] space-y-2">
-                  <h3 className="font-black text-[#1c1917] text-base flex items-center gap-2 border-b border-[#1c1917]/20 pb-1.5">
-                    <span>🛡️</span> 徵兵、訓練與兵力分配
+                {/* 戰鬥軍師功能 (V0.5 全新功能) */}
+                <div className="bg-purple-50/90 p-4 border-2 border-purple-900/80 shadow-[3px_3px_0_#581c87] space-y-2">
+                  <h3 className="font-black text-purple-950 text-base flex items-center gap-2 border-b border-purple-800/30 pb-1.5">
+                    <span>🧠</span> a. 戰鬥軍師系統 (戰場核心樞紐)
                   </h3>
-                  <div className="space-y-1.5 text-xs text-stone-700 leading-relaxed">
-                    <p>• <strong>民力動員率 (0.25%)</strong>：每次徵兵以城池當前總人口之 <strong>0.25%</strong> 為安全動員基準，單次最高封頂 <strong>5,000 人</strong>。</p>
-                    <p>• <strong>都市規模底限保護</strong>：徵兵後人口不得低於該都市規模之最低維持人數（巨都 60萬、商農邑 40萬、一般郡 25萬、要塞 15萬），若已達底限則嚴格禁徵，絕不傷及民本。</p>
-                    <p>• <strong>魅力節省軍資</strong>：主持募兵將領魅力越高，徵兵軍資折扣越大（例如劉備主持可節省近 50% 金錢）。每城每月限徵兵一次。</p>
-                    <p>• <strong>軍隊操演訓練</strong>：新徵招之新兵會稀釋部隊士氣與熟練度。徵兵後務必進行<strong>訓練兵力</strong>，提升訓練值與熟練度可大幅增強戰鬥傷害與防禦！</p>
+                  <div className="space-y-2 text-xs text-stone-800 leading-relaxed">
+                    <p>• <strong>隨軍參謀指派：</strong>戰鬥前夕可從出征或防守陣容中指派一名智謀之士擔任「戰役軍師」（如諸葛亮、周瑜、司馬懿、郭嘉、龐統）。</p>
+                    <p>• <strong>軍師主動錦囊妙計：</strong>軍師具備專屬計謀庫（依智力消耗戰意值發動）：</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pl-2">
+                      <div className="bg-white/90 p-2 border border-purple-200">
+                        <strong className="text-blue-900">🌊 水淹七軍 / 🪨 落石滾木：</strong>在水域或山地召喚地形災害，對範圍敵軍造成毀滅性範圍傷害與混亂。
+                      </div>
+                      <div className="bg-white/90 p-2 border border-purple-200">
+                        <strong className="text-rose-900">⚔️ 十面埋伏 / 🔥 烈火焚城：</strong>全屏誘敵合圍或點燃草木連營，重挫敵方士氣與兵員。
+                      </div>
+                      <div className="bg-white/90 p-2 border border-purple-200">
+                        <strong className="text-emerald-900">🛡️ 神算護體 / 🥁 鼓舞全軍：</strong>為全軍加持免傷護盾、大幅提升全隊戰意與部隊攻擊力。
+                      </div>
+                      <div className="bg-white/90 p-2 border border-purple-200">
+                        <strong className="text-amber-900">👁️ 識破敵計光環 (被動)：</strong>智力高於敵方軍師時，大幅降低敵方計謀命中率，甚至使其自食惡果。
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 戰爭多城池作戰 (V0.5 全新功能) */}
+                <div className="bg-red-50/90 p-4 border-2 border-red-900/80 shadow-[3px_3px_0_#991b1b] space-y-2">
+                  <h3 className="font-black text-red-950 text-base flex items-center gap-2 border-b border-red-800/30 pb-1.5">
+                    <span>⚔️</span> d. 戰爭多城池作戰體系
+                  </h3>
+                  <div className="space-y-1.5 text-xs text-stone-800 leading-relaxed">
+                    <p>• <strong>多路戰役佇列管理：</strong>當月末進攻結算同時有多處郡縣、邊境或關口爆發戰火時，系統會自動匯整為【戰役待辦佇列】。</p>
+                    <p>• <strong>自主指揮與 AI 委託：</strong>您可以針對主力戰場親自進入 5v5 水墨戰棋模式臨機決戰；對於次要防線或兵力懸殊之戰役，可預設好防守陣型後一鍵交付 AI 自動決算，多線戰略兩不耽誤。</p>
                   </div>
                 </div>
 
@@ -257,25 +232,97 @@ export default function ManualModal({ isOpen = true, onClose }: ManualModalProps
                   </div>
                 </div>
 
-                {/* 戰鬥計謀與真・無雙 */}
+                {/* 徵兵與部隊訓練度 */}
                 <div className="bg-white/80 p-4 border-2 border-[#1c1917] shadow-[3px_3px_0_#1c1917] space-y-2">
                   <h3 className="font-black text-[#1c1917] text-base flex items-center gap-2 border-b border-[#1c1917]/20 pb-1.5">
-                    <span>⚡</span> 戰鬥計謀與真・無雙奧義
+                    <span>🛡️</span> 徵兵動員與獨立部隊訓練度
                   </h3>
-                  <div className="space-y-1.5 text-xs text-stone-700">
-                    <div>🔥 <strong>火計/混亂/誘敵/鼓舞：</strong>依高智力武將發動，成功可使敵軍暫停行動或士氣大崩潰。</div>
-                    <div>⚡ <strong>真・無雙奧義：</strong>高武力猛將於士氣高昂或絕境時有機會觸發，造成毀滅性群體傷害！</div>
+                  <div className="space-y-1.5 text-xs text-stone-700 leading-relaxed">
+                    <p>• <strong>民力動員率 (0.25%)：</strong>每次徵兵以城池人口之 0.25% 為安全動員量，單次最高封頂 5,000 人，且嚴格受都市規模底限保護。</p>
+                    <p>• <strong>獨立部隊訓練度：</strong>各武將部隊擁有獨立的訓練士氣值（0%~100%）。新兵入伍會以 35% 基礎訓練度稀釋部隊；無兵力時訓練度為 0%。指派高武力教官執行【軍隊操演】可迅速提升全軍訓練度，大幅增加戰鬥攻防威力！</p>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {activeTab === 'pass' && (
+              <motion.div key="pass" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} className="space-y-4">
+                {/* 戰略關隘要塞 (V0.5 全新功能) */}
+                <div className="bg-stone-900 text-stone-100 p-4 border-2 border-amber-500 shadow-[3px_3px_0_#1c1917] space-y-3">
+                  <h3 className="font-black text-amber-300 text-base flex items-center gap-2 border-b border-stone-700 pb-1.5">
+                    <span>🏯</span> b. 七大戰略關隘要塞體系
+                  </h3>
+                  <p className="text-xs text-stone-300 leading-relaxed">
+                    地圖實裝<strong>虎牢關、函谷關、散關、劍閣、陽平關、巫關、武關</strong>七大天下雄關，構築起中原洛陽、關中長安、秦蜀漢中與長江三峽的關鍵咽喉。
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                    <div className="bg-stone-800 p-3 border border-stone-700 rounded-xs space-y-1">
+                      <span className="font-black text-amber-400 block">🛡️ 一夫當關天險防護</span>
+                      <div>• 具備先天 <strong>+15% 減傷天險防護</strong>與高達 90~95 的城郭堅固防禦。</div>
+                      <div>• 駐軍編制擴增至 <strong>10 隊上限</strong>，是抵禦敵國大軍狂攻的鋼鐵壁壘。</div>
+                    </div>
+                    <div className="bg-stone-800 p-3 border border-stone-700 rounded-xs space-y-1">
+                      <span className="font-black text-emerald-400 block">🌾 純軍事體制與免役</span>
+                      <div>• <strong>免除太守與民政：</strong>關口無常住百姓商肆，免去農業、商業與治安開發。</div>
+                      <div>• <strong>永絕天災：</strong>關隘依山而建，免疫水患、蝗災、旱災與地震。</div>
+                    </div>
+                  </div>
+                  <div className="bg-stone-800/80 p-2.5 border border-stone-700 text-[11px] text-stone-300">
+                    💡 <strong>補給調配要訣：</strong>關口不徵收賦稅與秋糧，防守戰鬥與駐軍每月消耗由關塞本身之庫存支應。請務必定期自後方富庶大郡使用【錢糧運送】向前線關卡補充金錢與軍糧！
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {activeTab === 'internal' && (
+              <motion.div key="internal" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} className="space-y-4">
+                {/* 修正後的精確時序與防災機制 */}
+                <div className="bg-white/80 p-4 border-2 border-[#1c1917] shadow-[3px_3px_0_#1c1917] space-y-2">
+                  <h3 className="font-black text-[#991b1b] text-base flex items-center gap-2 border-b border-[#1c1917]/20 pb-1.5">
+                    <span>🏛️</span> c. 內政收支精確時序 (V0.5 修正)
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                    <div className="p-2.5 bg-amber-50 border border-amber-300">
+                      <div className="font-black text-amber-800">💰 1月 春季：金稅徵收</div>
+                      <div className="text-stone-700 mt-1">依據商業繁榮度、人口與民心忠誠徵收金錢稅賦。</div>
+                    </div>
+                    <div className="p-2.5 bg-emerald-50 border border-emerald-300">
+                      <div className="font-black text-emerald-800">🌾 7月 秋季：秋收賦稅</div>
+                      <div className="text-stone-700 mt-1">依農田開墾、防災安全與人口結算軍糧；水利良好時觸發「大豐收」！</div>
+                    </div>
+                    <div className="p-2.5 bg-indigo-50 border border-indigo-300">
+                      <div className="font-black text-indigo-800">📈 10月 孟冬：戶籍歲計</div>
+                      <div className="text-stone-700 mt-1">按民心、農商與治水結算，人口自然繁衍 +0.6% ～ +1.2%。</div>
+                    </div>
                   </div>
                 </div>
 
-                {/* 多路戰役佇列 */}
+                {/* 防災初始度與防汛 */}
                 <div className="bg-white/80 p-4 border-2 border-[#1c1917] shadow-[3px_3px_0_#1c1917] space-y-2">
                   <h3 className="font-black text-[#1c1917] text-base flex items-center gap-2 border-b border-[#1c1917]/20 pb-1.5">
-                    <span>🏰</span> 多路戰役佇列與防守配置
+                    <span>🌊</span> 治水防災與開局平穩調控
                   </h3>
-                  <p className="text-xs text-stone-700 leading-relaxed">
-                    若有多處城池同時遭遇敵軍攻打，系統會生成<strong>待處理戰役佇列面板</strong>。您可以親自指揮每場關鍵保衛戰，或配置防守陣型後交由 AI 決算。
-                  </p>
+                  <div className="space-y-1.5 text-xs text-stone-700 leading-relaxed">
+                    <p>• <strong>初始防災度 (40%~60%)：</strong>遊戲開局根據各郡縣之水患成長率、沿河流域地理與所屬劇本時代水利修築背景動態賦予 40%~60% 合理防災值，避免初期因防災過低而瘋狂耗金治水。</p>
+                    <p>• <strong>夏季汛期預警 (4~7月)：</strong>夏季汛期大水機率倍增，當城池防災度低於 45% 時請及早指派高政治官員執行【洪水防治】築堤固壩，確保秋收無虞。</p>
+                  </div>
+                </div>
+
+                {/* 市場買賣與運送 */}
+                <div className="bg-white/80 p-4 border-2 border-[#1c1917] shadow-[3px_3px_0_#1c1917] space-y-2">
+                  <h3 className="font-black text-[#1c1917] text-base flex items-center gap-2 border-b border-[#1c1917]/20 pb-1.5">
+                    <span>⚖️</span> 市場米糧交易與錢糧調運
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div className="p-2.5 bg-stone-50 border border-stone-300">
+                      <div className="font-black text-amber-900 mb-1">🌾 米糧市場買賣</div>
+                      各地市場米價隨季節於 <strong>1:1 ~ 1:3.5</strong> 浮動。米賤時買糧備戰，米貴時糶糧換金。
+                    </div>
+                    <div className="p-2.5 bg-stone-50 border border-stone-300">
+                      <div className="font-black text-blue-900 mb-1">🚚 錢糧調運與自治</div>
+                      派遣武將向前線要塞或缺糧郡縣押送物資；亦可在【君主】中委託郡縣自治，由太守自動經略。
+                    </div>
+                  </div>
                 </div>
               </motion.div>
             )}
@@ -344,7 +391,7 @@ export default function ManualModal({ isOpen = true, onClose }: ManualModalProps
 
         {/* Footer */}
         <div className="bg-[#e6e2db] px-4 sm:px-6 py-3 border-t-2 border-[#1c1917] flex justify-between items-center text-xs shrink-0">
-          <span className="font-bold text-stone-600">水墨三國 v0.4 指南手冊</span>
+          <span className="font-bold text-stone-600">水墨三國 v0.5 指南手冊</span>
           <button 
             onClick={onClose}
             className="bg-[#991b1b] hover:bg-red-800 text-amber-100 font-black px-5 py-1.5 border-2 border-[#1c1917] shadow-[2px_2px_0_#1c1917] cursor-pointer active:scale-95 transition-all"
