@@ -149,7 +149,10 @@ export default function StatusView({ gameState, initialAction, onExit }: StatusV
 
   const provinceState = gameState.provincesData[currentProvinceId] || null;
   const provinceData = provinces.find(p => p.id === currentProvinceId);
-  const generals = Object.values(gameState.generalsData).filter(g => g.provinceId === currentProvinceId && !g.isWild);
+  const generals = Object.values(gameState.generalsData).filter(g => g.provinceId === currentProvinceId && !g.isWild && !g.isCaptive);
+  const captiveGenerals = Object.values(gameState.generalsData).filter(
+    g => (g.provinceId === currentProvinceId || g.capturedInProvinceId === currentProvinceId) && g.isCaptive
+  );
   const totalGeneralsSoldiers = generals.reduce((sum, g) => sum + g.soldiers, 0);
   const totalSoldiers = totalGeneralsSoldiers;
   const cityVisual = getCityVisualConfig(currentProvinceId);
@@ -733,9 +736,64 @@ export default function StatusView({ gameState, initialAction, onExit }: StatusV
                 </div>
               );
             })}
-            {generals.length === 0 && (
+            {generals.length === 0 && captiveGenerals.length === 0 && (
               <div className="text-center text-stone-500 py-8 font-bold">
-                本郡目前無將領
+                本郡目前無駐防將領
+              </div>
+            )}
+
+            {/* 天牢俘虜專區 */}
+            {captiveGenerals.length > 0 && (
+              <div className="mt-4 pt-4 border-t-2 border-stone-800">
+                <div className="flex items-center justify-between mb-3 bg-stone-900 text-stone-100 px-3 py-2 rounded-t">
+                  <div className="flex items-center gap-2">
+                    <span className="text-red-400 font-black">⛓️ 本郡天牢俘虜</span>
+                    <span className="text-xs bg-red-950 text-red-200 border border-red-700 px-2 py-0.5 rounded font-bold">
+                      {captiveGenerals.length} 人在押
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-stone-400">重兵戒備 · 嚴禁指派公務</span>
+                </div>
+
+                <div className="space-y-3">
+                  {captiveGenerals.map(cg => (
+                    <div key={cg.name} className="bg-stone-100 border-2 border-stone-700 p-3 shadow-[2px_2px_0_#44403c] opacity-95">
+                      <div className="flex justify-between items-center pb-2 mb-2 border-b border-stone-300">
+                        <div className="flex items-center gap-2.5">
+                          <GeneralAvatar name={cg.name} size={40} className="shrink-0 rounded border border-stone-600 grayscale" />
+                          <div>
+                            <div className="text-base font-black flex items-center gap-2 text-stone-900">
+                              {cg.name}
+                              <span className="text-xs bg-stone-800 text-amber-200 px-2 py-0.5 rounded font-bold">
+                                {cg.role || '大將'}
+                              </span>
+                              {cg.originalRulerName === cg.name && (
+                                <span className="text-[10px] bg-red-900 text-white px-1.5 py-0.5 rounded font-bold">
+                                  原勢力君主
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[11px] text-stone-500 font-semibold">
+                              原屬：{cg.originalRulerName ? `${cg.originalRulerName}軍` : '無'} ｜ 兵力：0 (已被收繳)
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-0.5 text-xs font-bold">
+                          <span className="bg-red-100 text-red-800 px-2 py-0.5 rounded font-bold border border-red-300">
+                            牢獄禁錮中
+                          </span>
+                          <span className="text-stone-600 mt-1">
+                            忠誠度: <strong className="font-black text-stone-800">{cg.loyalty ?? 50}</strong>
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-[11px] text-stone-600 bg-white p-2 rounded border border-stone-200 flex justify-between items-center">
+                        <span>武力 {cg.str} ｜ 智力 {cg.int} ｜ 政治 {cg.pol} ｜ 魅力 {cg.cha}</span>
+                        <span className="text-amber-800 font-bold">可至「人事 ➔ 登用人才」進行招降</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>

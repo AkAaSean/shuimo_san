@@ -55,7 +55,7 @@ export default function DefenseSetupModal({
   // 1. 本城防守武將 (全數參戰 - 需求 2)
   const baseDefendingGenerals = useMemo(() => {
     return Object.values(gameState.generalsData).filter(
-      g => g.provinceId === targetProvinceId && !g.isWild
+      g => g.provinceId === targetProvinceId && !g.isWild && !g.isCaptive
     );
   }, [gameState.generalsData, targetProvinceId]);
 
@@ -67,7 +67,7 @@ export default function DefenseSetupModal({
         const pConf = provinces.find(p => p.id === cId);
         const pState = gameState.provincesData[cId];
         const gens = Object.values(gameState.generalsData).filter(
-          g => g.provinceId === cId && !g.isWild
+          g => g.provinceId === cId && !g.isWild && !g.isCaptive
         );
         return {
           id: cId,

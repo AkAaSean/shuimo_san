@@ -333,6 +333,7 @@ export interface BattleUnit {
   isAttacker: boolean;
   troops: number;
   maxTroops?: number;
+  initialTroops?: number; // 本場出戰初始兵力 (模式 A: 戰場兵力恢復之絕對嚴格上限)
   col: number;
   row: number;
   isCommander: boolean;

@@ -68,7 +68,7 @@ export default function RulerTerritoryCard({ gameState, onSelectProvince }: Rule
           const pData = gameState.provincesData[p.id];
           const isSelected = p.id === gameState.selectedProvinceId;
           const provinceGenerals = Object.values(gameState.generalsData).filter(
-            g => g.provinceId === p.id && !g.isWild
+            g => g.provinceId === p.id && !g.isWild && !g.isCaptive
           );
           const genCount = provinceGenerals.length;
           const totalTroops = provinceGenerals.reduce((sum, g) => sum + (g.soldiers || 0), 0);

@@ -1,5 +1,54 @@
 import { GameState, GeneralState, ProvinceState } from '../types';
 import { provinces } from '../data/provinces';
+import { generals } from '../data/generals';
+
+/**
+ * 依據原始武將資料還原武將之本職職稱
+ * 若俘虜身分原為君主，解除君主身分，恢復為原本武將職稱（若資料庫中原本就是君主，則給予軍階「大將」）
+ */
+export function getOriginalGeneralRole(generalName: string): string {
+  const raw = generals.find(g => g.name === generalName);
+  if (raw && raw.role && raw.role !== '君主') {
+    return raw.role;
+  }
+  return '大將';
+}
+
+/**
+ * 統一將武將打入地牢俘虜狀態
+ * 核心規則：
+ * 1. 被抓武將就是進地牢，清除 activeTask，不得從事任何工作
+ * 2. 若原身分為君主，解除君主身分 (isRuler = false)，職稱根據原本武將職稱變更 (例如大將)
+ * 3. 兵力清零，解除武裝，關押在指定城池地牢中
+ */
+export function applyCaptiveStatus(
+  gen: GeneralState,
+  winnerRuler: string,
+  defeatedRuler: string,
+  prisonProvinceId: number
+): GeneralState {
+  let finalRole = gen.role;
+  const isRulerOrLord = gen.isRuler || gen.role === '君主' || gen.name === defeatedRuler;
+  if (isRulerOrLord) {
+    finalRole = getOriginalGeneralRole(gen.name);
+  } else if (gen.role === '太守') {
+    finalRole = getOriginalGeneralRole(gen.name);
+  }
+
+  return {
+    ...gen,
+    isCaptive: true,
+    isRuler: false, // 淪為階下囚，君主身分解除
+    role: finalRole, // 根據原本武將職稱給予變更
+    captiveOfRuler: winnerRuler,
+    originalRulerName: defeatedRuler,
+    capturedInProvinceId: prisonProvinceId,
+    provinceId: prisonProvinceId, // 關押在目標城池天牢
+    soldiers: 0, // 部隊解除
+    activeTask: null, // 中止所有工作任務，地牢中不得從事任何內政軍事行動
+    hasActed: true, // 當月已無法行動
+  };
+}
 
 /**
  * 歷史死忠將領／宗族親信名錄

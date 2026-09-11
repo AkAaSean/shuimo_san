@@ -100,16 +100,26 @@ export function getScenarioRulerMultiplier(scenarioIndex: number, rulerName: str
       break;
 
     case 1: // 195年 興平二年
-      if (rulerName === '曹操' || rulerName === '劉備') {
-        // 第二時代：劉備曹操要減少兵力，配與差不多糧食跟金錢（避免武將過多造成不平衡）
+      if (rulerName === '曹操') {
+        // 第二時代：曹操要減少兵力，配與差不多糧食跟金錢（避免武將過多造成不平衡）
         goldMult = 0.6;
         foodMult = 0.7;
         reserveTroopMult = 0.2;
+      } else if (rulerName === '劉備') {
+        // 第二時代：劉備稍微增加一點起步金錢
+        goldMult = 0.85;
+        foodMult = 0.7;
+        reserveTroopMult = 0.2;
       } else if (rulerName === '孫策') {
-        // 第二時代：孫策剛起兵借兵，兵力調降至約 3500，糧餉金錢維持起家水準
-        goldMult = 0.5;
+        // 第二時代：孫策剛起兵借兵，兵力調降至約 3500，微幅增加金錢
+        goldMult = 0.75;
         foodMult = 0.6;
         reserveTroopMult = 0.15;
+      } else if (rulerName === '呂布') {
+        // 第二時代：呂布剛奪徐州部分，稍微增加金錢以應付前期軍費
+        goldMult = 0.85;
+        foodMult = 0.8;
+        reserveTroopMult = 0.4;
       } else if (rulerName === '李傕') {
         // 李傕長安霸權，坐擁西涼鐵騎，兵力上調至 11000，儲蓄豐厚
         goldMult = 1.4;

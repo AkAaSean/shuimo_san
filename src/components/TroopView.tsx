@@ -41,7 +41,7 @@ export default function TroopView({ gameState, initialAction, onExit, onExecute 
   const provinceName = provinceBase?.name || `郡縣 ${provinceId}`;
   const tierRules = getProvinceTierRules(provinceId);
 
-  const generals = Object.values(gameState.generalsData).filter(g => g.provinceId === provinceId && !g.isWild);
+  const generals = Object.values(gameState.generalsData).filter(g => g.provinceId === provinceId && !g.isWild && !g.isCaptive);
   const availableGenerals = generals.filter(g => !g.hasActed);
 
   // Total soldiers currently in this province (reserve + stationed generals)

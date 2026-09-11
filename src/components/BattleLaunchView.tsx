@@ -120,7 +120,7 @@ export default function BattleLaunchView({ gameState, onExit, onLaunchBattle }: 
   const currentCityGenerals = useMemo(() => {
     if (!currentCityObj) return [];
     return Object.values(gameState.generalsData)
-      .filter(g => g.provinceId === currentCityObj.id && !g.isWild)
+      .filter(g => g.provinceId === currentCityObj.id && !g.isWild && !g.isCaptive)
       .sort((a, b) => b.soldiers - a.soldiers);
   }, [currentCityObj, gameState.generalsData]);
 
@@ -337,7 +337,7 @@ export default function BattleLaunchView({ gameState, onExit, onLaunchBattle }: 
 
   const targetDefendingGens = useMemo(() => {
     if (!targetProvinceId) return [];
-    return Object.values(gameState.generalsData).filter(g => g.provinceId === targetProvinceId && !g.isWild);
+    return Object.values(gameState.generalsData).filter(g => g.provinceId === targetProvinceId && !g.isWild && !g.isCaptive);
   }, [targetProvinceId, gameState.generalsData]);
   const isTargetEmpty = targetDefendingGens.length === 0;
 
@@ -423,7 +423,7 @@ export default function BattleLaunchView({ gameState, onExit, onLaunchBattle }: 
                   const cpTerrain = (cp.info?.terrain as FormationTerrainType) || '平地';
                   const cpTerrainDetail = TERRAIN_DETAILS[cpTerrain];
 
-                  const cpGenerals = Object.values(gameState.generalsData).filter(g => g.provinceId === cp.id && !g.isWild);
+                  const cpGenerals = Object.values(gameState.generalsData).filter(g => g.provinceId === cp.id && !g.isWild && !g.isCaptive);
                   const cpTotalTroops = cpGenerals.reduce((sum, g) => sum + (g.soldiers || 0), 0);
                   const isEmptyCity = cpGenerals.length === 0;
 

@@ -17,8 +17,11 @@ export default function ProvinceCard({ provinceId, gameState, onClose }: Provinc
   if (!province || !state) return null;
 
   const stationedGenerals = Object.values(gameState.generalsData).filter(
-    g => g.provinceId === provinceId && !g.isWild
+    g => g.provinceId === provinceId && !g.isWild && !g.isCaptive
   );
+  const captivesCount = Object.values(gameState.generalsData).filter(
+    g => (g.provinceId === provinceId || g.capturedInProvinceId === provinceId) && g.isCaptive
+  ).length;
   const stationedGeneralsCount = stationedGenerals.length;
   const totalGeneralsSoldiers = stationedGenerals.reduce((sum, g) => sum + g.soldiers, 0);
   const totalSoldiers = totalGeneralsSoldiers;

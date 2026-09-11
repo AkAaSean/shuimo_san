@@ -180,7 +180,7 @@ export default function SystemModal({
           {/* Header Bar */}
           <div className="bg-stone-800 text-amber-100 px-4 py-3 flex justify-between items-center border-b border-stone-700">
             <h2 className="text-xl font-bold tracking-wider flex items-center gap-2">
-              <span>⚙️</span> 系統控制台 <span className="text-xs font-mono font-bold bg-amber-800 text-amber-100 px-2 py-0.5 rounded border border-amber-600 shadow-xs">V0.1</span>
+              <span>⚙️</span> 系統控制台 <span className="text-xs font-mono font-bold bg-amber-800 text-amber-100 px-2 py-0.5 rounded border border-amber-600 shadow-xs">V0.5</span>
             </h2>
             <div className="flex items-center gap-2">
               {onToggleFullscreen && (

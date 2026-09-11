@@ -380,6 +380,7 @@ export default function BattleView5v5({
         generalName: gName,
         troops: gen.soldiers,
         maxTroops: gen.soldiers,
+        initialTroops: gen.soldiers,
         isAttacker: true,
         col: 0,
         row: idx,
@@ -404,6 +405,7 @@ export default function BattleView5v5({
         generalName: gName,
         troops: gen.soldiers,
         maxTroops: gen.soldiers,
+        initialTroops: gen.soldiers,
         isAttacker: false,
         col: 1,
         row: idx,
@@ -464,6 +466,7 @@ export default function BattleView5v5({
               generalName: nextGenName,
               troops: gen.soldiers,
               maxTroops: gen.soldiers,
+              initialTroops: gen.soldiers,
               formation: form,
               skills: getGeneralAvailableSkills(gen),
               stamina: 100,
@@ -490,6 +493,7 @@ export default function BattleView5v5({
               generalName: nextGenName,
               troops: gen.soldiers,
               maxTroops: gen.soldiers,
+              initialTroops: gen.soldiers,
               formation: form,
               skills: getGeneralAvailableSkills(gen),
               stamina: 100,
@@ -907,11 +911,18 @@ export default function BattleView5v5({
     const isCrit = Math.random() < critChance;
     if (isCrit && !isStealthAttack) damage = Math.floor(damage * 1.5);
 
-    // 龍膽無敵閃避判定 (趙雲奧義：無視並閃避所有傷害)
+    // 龍膽身法判定 (趙雲奧義：50% 完全閃避，若命中則減免 50% 傷害)
     if (targetUnit.invincibleTurns && targetUnit.invincibleTurns > 0) {
-      damage = 0;
-      addLog(`🐉💨【龍膽無敵・身若游龍！】${targetUnit.generalName} 施展龍膽身法化作殘影，令【${activeUnit.generalName}】的猛攻完全落空，毫髮無傷！`, 'passive');
-      triggerDamagePopup(targetId, `⚡龍膽閃避!`, true);
+      const isDodged = Math.random() < 0.50;
+      if (isDodged) {
+        damage = 0;
+        addLog(`🐉💨【龍膽身法・身若游龍！】${targetUnit.generalName} 施展龍膽身法化作殘影，令【${activeUnit.generalName}】的猛攻完全落空！`, 'passive');
+        triggerDamagePopup(targetId, `⚡龍膽閃避!`, true);
+      } else {
+        damage = Math.floor(damage * 0.50);
+        addLog(`🐉🛡️【龍膽身法・游龍化勁！】${targetUnit.generalName} 龍膽護體化解衝擊，【${activeUnit.generalName}】的傷害減半（造成 ${damage} 傷害）！`, 'passive');
+        triggerDamagePopup(targetId, `-${damage}🛡️`, isCrit);
+      }
     } else {
       let terrainNote = '';
       if (atkTerrainEffect.rating === 'S') {
@@ -1031,35 +1042,47 @@ export default function BattleView5v5({
       }
     }
 
-    // 龍膽無敵閃避判定：若目標擁有無敵閃避狀態且為敵對單體技能，完全閃避
+    // 龍膽身法判定：若目標擁有龍膽身法狀態且為敵對單體技能，50% 完全閃避，50% 減傷 50%
+    let invincibleDamageReduction = 1.0;
     if (!isAllySkill(currentSkill) && !isAoeSkill(currentSkill) && targetUnit && targetUnit.invincibleTurns && targetUnit.invincibleTurns > 0) {
-      addLog(`🐉💨【龍膽無敵・身若游龍！】${targetUnit.generalName} 展開龍膽閃避身法，身如驚鴻！徹底閃避並格擋了【${activeUnit.generalName}】的戰法【${currentSkill}】，毫髮無傷！`, 'passive');
-      triggerDamagePopup(targetUnit.id, `⚡龍膽閃避!`, true);
-      const newUnits = battleState.units.map((u: any) => {
-        if (u.id === activeUnitId) return { 
-          ...u, 
-          stamina: Math.max(0, u.stamina - skillDef.cost), 
-          hasActed: true,
-          stealthTurns: u.stealthTurns ? Math.max(0, u.stealthTurns - 1) : 0
-        };
-        return u;
-      });
-      setTargetingMode(null);
-      setSelectedSkill(null);
-      advanceTurn(newUnits, turnQueue);
-      return;
+      const isDodged = Math.random() < 0.50;
+      if (isDodged) {
+        addLog(`🐉💨【龍膽身法・身若游龍！】${targetUnit.generalName} 展開龍膽閃避身法，身如驚鴻！徹底閃避了【${activeUnit.generalName}】的戰法【${currentSkill}】！`, 'passive');
+        triggerDamagePopup(targetUnit.id, `⚡龍膽閃避!`, true);
+        const newUnits = battleState.units.map((u: any) => {
+          if (u.id === activeUnitId) return { 
+            ...u, 
+            stamina: Math.max(0, u.stamina - skillDef.cost), 
+            hasActed: true,
+            stealthTurns: u.stealthTurns ? Math.max(0, u.stealthTurns - 1) : 0
+          };
+          return u;
+        });
+        setTargetingMode(null);
+        setSelectedSkill(null);
+        advanceTurn(newUnits, turnQueue);
+        return;
+      } else {
+        invincibleDamageReduction = 0.50;
+        addLog(`🐉🛡️【龍膽身法・游龍化勁！】${targetUnit.generalName} 龍膽護體化解衝擊，【${activeUnit.generalName}】戰法威力減半！`, 'passive');
+      }
     }
 
     // ====== 1. 計謀系：友軍增益與治療 ======
     if (currentSkill === '治傷') {
       if (!targetUnit) return;
-      const genMax = gameState.generalsData[targetUnit.generalName]?.soldiers || targetUnit.maxTroops || 1000;
+      const genMax = targetUnit.initialTroops ?? targetUnit.maxTroops ?? targetUnit.troops ?? 1000;
       const healAmount = Math.floor(genMax * 0.25 + atkGen.int * 3.0);
       const newTroops = Math.min(genMax, targetUnit.troops + healAmount);
       const actualHealed = newTroops - targetUnit.troops;
 
-      addLog(`🌿【妙手回春】${activeUnit.generalName} 施展【治傷】，為 ${targetUnit.generalName} 救治傷員，恢復 ${actualHealed} 兵力，士氣 +10！`, 'passive');
-      triggerDamagePopup(targetUnit.id, `+${actualHealed}`, false);
+      if (actualHealed > 0) {
+        addLog(`🌿【妙手回春】${activeUnit.generalName} 施展【治傷】，為 ${targetUnit.generalName} 救治傷員，恢復 ${actualHealed} 兵力（上限為出戰兵力 ${genMax}），士氣 +10！`, 'passive');
+        triggerDamagePopup(targetUnit.id, `+${actualHealed}`, false);
+      } else {
+        addLog(`🌿【妙手回春】${activeUnit.generalName} 施展【治傷】，但 ${targetUnit.generalName} 兵力已達出戰滿編（${genMax}），傷員已全數回隊，士氣 +10！`, 'passive');
+        triggerDamagePopup(targetUnit.id, `滿編`, false);
+      }
 
       updatedUnits = updatedUnits.map((u: any) => {
         if (u.id === targetUnit.id && u.id !== activeUnitId) {
@@ -1090,10 +1113,11 @@ export default function BattleView5v5({
       
       updatedUnits = updatedUnits.map((u: any) => {
         if (u.isAttacker === activeUnit.isAttacker && u.troops > 0) {
-          const gMax = gameState.generalsData[u.generalName]?.soldiers || u.maxTroops || 1000;
+          const gMax = u.initialTroops ?? u.maxTroops ?? u.troops ?? 1000;
           const healAmt = Math.floor(gMax * 0.20 + atkGen.int * 2.2);
           const newT = Math.min(gMax, u.troops + healAmt);
-          triggerDamagePopup(u.id, `+${newT - u.troops}`, false);
+          const actualH = newT - u.troops;
+          triggerDamagePopup(u.id, actualH > 0 ? `+${actualH}` : `滿編`, false);
           const isCaster = u.id === activeUnitId;
           return { 
             ...u, 
@@ -1378,13 +1402,13 @@ export default function BattleView5v5({
         triggerDamagePopup(targetUnit.id, `🌀混亂`, false);
       }
 
-      // 狀態修正
+      // 狀態修正與龍膽減傷
       let statusMod = 1.0;
       if (activeUnit.status === 'moraled') statusMod *= 1.25;
       if (activeUnit.status === 'panicked') statusMod *= 0.75;
       if (targetUnit.status === 'defending') statusMod *= 0.65;
       if (targetUnit.status === 'confused') statusMod *= 1.25;
-      damage = Math.max(0, Math.floor(damage * statusMod));
+      damage = Math.max(0, Math.floor(damage * statusMod * invincibleDamageReduction));
 
       if (damage > 0) {
         triggerDamagePopup(targetUnit.id, `-${damage}`, isCrit);
@@ -1912,12 +1936,12 @@ export default function BattleView5v5({
       // 1. 友軍治療與增益類
       if (skillToUse === '治傷') {
         const woundedAlly = [...allyUnits].sort((a: any, b: any) => a.troops - b.troops)[0] || actingUnit;
-        const gMax = gameState.generalsData[woundedAlly.generalName]?.soldiers || woundedAlly.maxTroops || 1000;
+        const gMax = woundedAlly.initialTroops ?? woundedAlly.maxTroops ?? woundedAlly.troops ?? 1000;
         const healAmount = Math.floor(gMax * 0.25 + gen.int * 3.0);
         const newTroops = Math.min(gMax, woundedAlly.troops + healAmount);
         const actualHealed = newTroops - woundedAlly.troops;
-        addLog(`🌿【治傷】敵將 ${actingUnit.generalName} 救治 ${woundedAlly.generalName}，恢復 ${actualHealed} 兵力，士氣 +10！`, 'passive');
-        triggerDamagePopup(woundedAlly.id, `+${actualHealed}`, false);
+        addLog(`🌿【治傷】敵將 ${actingUnit.generalName} 救治 ${woundedAlly.generalName}，恢復 ${actualHealed} 兵力（上限為出戰兵力 ${gMax}），士氣 +10！`, 'passive');
+        triggerDamagePopup(woundedAlly.id, actualHealed > 0 ? `+${actualHealed}` : `滿編`, false);
 
         const newUnits = battleState.units.map((u: any) => {
           if (u.id === woundedAlly.id && u.id !== actingUnit.id) {
@@ -1934,13 +1958,14 @@ export default function BattleView5v5({
         advanceTurn(newUnits, turnQueue);
         return;
       } else if (skillToUse === '援軍') {
-        addLog(`🚩【援軍】敵將 ${actingUnit.generalName} 呼叫輜重隊，敵軍在場存活全員恢復 20% 兵力，士氣 +10！`, 'passive');
+        addLog(`🚩【援軍】敵將 ${actingUnit.generalName} 呼叫輜重隊，敵軍在場存活全員救治傷員，恢復兵力（嚴格上限為各部隊出戰兵力），士氣 +10！`, 'passive');
         const newUnits = battleState.units.map((u: any) => {
           if (u.isAttacker === actingUnit.isAttacker && u.troops > 0) {
-            const gMax = gameState.generalsData[u.generalName]?.soldiers || u.maxTroops || 1000;
+            const gMax = u.initialTroops ?? u.maxTroops ?? u.troops ?? 1000;
             const healAmt = Math.floor(gMax * 0.20 + gen.int * 2.2);
             const newT = Math.min(gMax, u.troops + healAmt);
-            triggerDamagePopup(u.id, `+${newT - u.troops}`, false);
+            const actualH = newT - u.troops;
+            triggerDamagePopup(u.id, actualH > 0 ? `+${actualH}` : `滿編`, false);
             const isCaster = u.id === actingUnit.id;
             return {
               ...u,
@@ -2142,21 +2167,28 @@ export default function BattleView5v5({
       // 3. 單體技能
       const defGen = gameState.generalsData[targetUnit.generalName] || { str: 50, int: 50, hp: 50 };
       
-      // 龍膽無敵閃避判定：若目標擁有無敵閃避狀態且為對立單體技能，完全閃避
+      // 龍膽身法判定：若目標擁有龍膽身法狀態且為對立單體技能，50% 完全閃避，50% 減傷 50%
+      let aiInvincibleReduction = 1.0;
       if (targetUnit.invincibleTurns && targetUnit.invincibleTurns > 0) {
-        addLog(`🐉💨【龍膽無敵・身若游龍！】我方 ${targetUnit.generalName} 展開龍膽閃避身法，身如驚鴻！徹底閃避並格擋了敵將【${actingUnit.generalName}】的戰法【${skillToUse}】，毫髮無傷！`, 'passive');
-        triggerDamagePopup(targetUnit.id, `⚡龍膽閃避!`, true);
-        const newUnits = battleState.units.map((u: any) => {
-          if (u.id === actingUnit.id) return { 
-            ...u, 
-            stamina: Math.max(0, u.stamina - skillDef.cost), 
-            hasActed: true,
-            stealthTurns: u.stealthTurns ? Math.max(0, u.stealthTurns - 1) : 0
-          };
-          return u;
-        });
-        advanceTurn(newUnits, turnQueue);
-        return;
+        const isDodged = Math.random() < 0.50;
+        if (isDodged) {
+          addLog(`🐉💨【龍膽身法・身若游龍！】我方 ${targetUnit.generalName} 展開龍膽閃避身法，身如驚鴻！徹底閃避了敵將【${actingUnit.generalName}】的戰法【${skillToUse}】！`, 'passive');
+          triggerDamagePopup(targetUnit.id, `⚡龍膽閃避!`, true);
+          const newUnits = battleState.units.map((u: any) => {
+            if (u.id === actingUnit.id) return { 
+              ...u, 
+              stamina: Math.max(0, u.stamina - skillDef.cost), 
+              hasActed: true,
+              stealthTurns: u.stealthTurns ? Math.max(0, u.stealthTurns - 1) : 0
+            };
+            return u;
+          });
+          advanceTurn(newUnits, turnQueue);
+          return;
+        } else {
+          aiInvincibleReduction = 0.50;
+          addLog(`🐉🛡️【龍膽身法・游龍化勁！】我方 ${targetUnit.generalName} 龍膽護體化解衝擊，敵戰法威力減半！`, 'passive');
+        }
       }
 
       let skillDamage = 0;
@@ -2244,6 +2276,7 @@ export default function BattleView5v5({
         addLog(`⚔️ 敵將 ${actingUnit.generalName} 發動戰法【${skillToUse}】，重創我方 ${targetUnit.generalName} ${skillDamage} 兵力！`, 'attack');
       }
 
+      skillDamage = Math.floor(skillDamage * aiInvincibleReduction);
       if (skillDamage > 0) {
         triggerDamagePopup(targetUnit.id, `-${skillDamage}`, true);
       }
@@ -2336,11 +2369,18 @@ export default function BattleView5v5({
     const isCrit = Math.random() < critChance;
     if (isCrit && !isStealthAttack) damage = Math.floor(damage * 1.5);
 
-    // 龍膽無敵閃避判定 (趙雲奧義：無視並閃避所有傷害)
+    // 龍膽身法判定 (趙雲奧義：50% 完全閃避，若命中則減免 50% 傷害)
     if (targetUnit.invincibleTurns && targetUnit.invincibleTurns > 0) {
-      damage = 0;
-      addLog(`🐉💨【龍膽無敵・身若游龍！】我方 ${targetUnit.generalName} 施展龍膽身法化作殘影，令敵將【${actingUnit.generalName}】的猛攻完全落空，毫髮無傷！`, 'passive');
-      triggerDamagePopup(targetUnit.id, `⚡龍膽閃避!`, true);
+      const isDodged = Math.random() < 0.50;
+      if (isDodged) {
+        damage = 0;
+        addLog(`🐉💨【龍膽身法・身若游龍！】我方 ${targetUnit.generalName} 施展龍膽身法化作殘影，令敵將【${actingUnit.generalName}】的猛攻完全落空！`, 'passive');
+        triggerDamagePopup(targetUnit.id, `⚡龍膽閃避!`, true);
+      } else {
+        damage = Math.floor(damage * 0.50);
+        addLog(`🐉🛡️【龍膽身法・游龍化勁！】我方 ${targetUnit.generalName} 龍膽護體化解衝擊，敵將傷害減半（造成 ${damage} 傷害）！`, 'passive');
+        triggerDamagePopup(targetUnit.id, `-${damage}🛡️`, isCrit);
+      }
     } else {
       let terrainNote = '';
       if (atkTerrainEffect.rating === 'S') {

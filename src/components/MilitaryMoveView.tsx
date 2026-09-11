@@ -20,7 +20,7 @@ export default function MilitaryMoveView({ gameState, onExit, onConfirmMove }: M
   const currentProv = gameState.provincesData[currentProvinceId] || null;
   const currentProvInfo = provinces.find(p => p.id === currentProvinceId) || null;
 
-  const generals = Object.values(gameState.generalsData).filter(g => g.provinceId === currentProvinceId && !g.isWild);
+  const generals = Object.values(gameState.generalsData).filter(g => g.provinceId === currentProvinceId && !g.isWild && !g.isCaptive);
 
   const connectedProvinces = currentProvInfo
     ? currentProvInfo.connections.map(id => ({
@@ -45,7 +45,7 @@ export default function MilitaryMoveView({ gameState, onExit, onConfirmMove }: M
   const targetCurrentStationed = useMemo(() => {
     if (!targetProvinceId) return 0;
     return Object.values(gameState.generalsData).filter(
-      g => g.provinceId === targetProvinceId && !g.isWild && !selectedGenerals[g.name]
+      g => g.provinceId === targetProvinceId && !g.isWild && !g.isCaptive && !selectedGenerals[g.name]
     ).length;
   }, [targetProvinceId, gameState.generalsData, selectedGenerals]);
 
@@ -112,7 +112,7 @@ export default function MilitaryMoveView({ gameState, onExit, onConfirmMove }: M
               <div className="grid grid-cols-2 gap-2">
                 {connectedProvinces.map(cp => {
                   const isSelected = targetProvinceId === cp.id;
-                  const cpGenerals = Object.values(gameState.generalsData).filter(g => g.provinceId === cp.id && !g.isWild);
+                  const cpGenerals = Object.values(gameState.generalsData).filter(g => g.provinceId === cp.id && !g.isWild && !g.isCaptive);
                   const cpTotalTroops = cpGenerals.reduce((sum, g) => sum + (g.soldiers || 0), 0);
                   return (
                     <button

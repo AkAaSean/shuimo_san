@@ -3,8 +3,8 @@ import { getGeneralAvailableSkills, getGeneralPassives } from './skills';
 import { GameState, ProvinceState, GeneralState, PendingBattlePlan, AIDecisionLogItem, FactionAIDebugInfo, AITelemetry } from '../types';
 import { provinces } from '../data/provinces';
 import { generals } from '../data/generals';
-import { calculateCaptiveRate, isCityIsolated, processAICaptiveDecision } from './postBattleLogic';
-import { handleRulerDecapitation } from './rulerSuccessionLogic';
+import { calculateCaptiveRate, isCityIsolated, processAICaptiveDecision, applyCaptiveStatus, getOriginalGeneralRole } from './postBattleLogic';
+import { handleRulerDecapitation, handleRulerCapturedSuccession } from './rulerSuccessionLogic';
 import { SCENARIOS } from '../data/scenarios';
 import { HIDDEN_TALENTS } from '../data/talents';
 import { PROVINCE_BASE_CONFIGS } from '../data/provinceBaseConfig';
@@ -784,6 +784,17 @@ export function executeCommand(state: GameState, provinceId: number, category: s
   // Find executing general if provided
   let actingGen = generalName && newState.generalsData[generalName] ? { ...newState.generalsData[generalName] } : null;
 
+  // 俘虜防護：被抓進地牢的俘虜絕對不得從事任何內政、軍事或工作！
+  if (actingGen && actingGen.isCaptive) {
+    newState.lastActionResult = {
+      action: action,
+      title: '⚠️ 俘虜身陷囹圄',
+      message: `【${actingGen.name}】身陷地牢為階下囚，受重兵看押，不可派遣從事任何軍政公務！請先於人事選單登用勸降或釋放。`,
+      type: 'failure'
+    };
+    return newState;
+  }
+
   // 關卡戰略要塞規則限制：無內政功能、不可徵兵、不可謀略
   if (province.isPass) {
     if (category === '內政' || category === '商業' || category === '謀略' || (category === '兵士' && action === '徵兵')) {
@@ -1053,7 +1064,7 @@ export function executeCommand(state: GameState, provinceId: number, category: s
           newState.provincesData[provinceId].soldiers = 0;
         }
 
-        const provGens = Object.values(newState.generalsData).filter(g => g.provinceId === provinceId && !g.isWild);
+        const provGens = Object.values(newState.generalsData).filter(g => g.provinceId === provinceId && !g.isWild && !g.isCaptive);
         const totalCityTroops = provGens.reduce((sum, g) => sum + (g.soldiers || 0), 0);
 
         actingGen.hasActed = true;
@@ -1079,7 +1090,7 @@ export function executeCommand(state: GameState, provinceId: number, category: s
         // 關卡駐軍上限限制：上限為 10 支部隊
         if (targetProv.isPass || targetPInfo?.isPass) {
           const currentStationed = Object.values(newState.generalsData).filter(
-            g => g.provinceId === targetProvinceId && !g.isWild && !generalNames.includes(g.name)
+            g => g.provinceId === targetProvinceId && !g.isWild && !g.isCaptive && !generalNames.includes(g.name)
           ).length;
           if (currentStationed + generalNames.length > 10) {
             newState.lastActionResult = {
@@ -1098,8 +1109,8 @@ export function executeCommand(state: GameState, provinceId: number, category: s
         let rulerMoved = false;
         generalNames.forEach((gName: string) => {
           const gen = newState.generalsData[gName];
-          // 已經執行過任務之武將，不能移動
-          if (gen && gen.provinceId === provinceId && !gen.hasActed) {
+          // 已經執行過任務或身陷囹圄之俘虜武將，不能調動
+          if (gen && gen.provinceId === provinceId && !gen.hasActed && !gen.isCaptive) {
             gen.provinceId = targetProvinceId;
             gen.hasActed = true; // 移動後本月已行動
             // 太守調離原郡或進駐關隘要塞，職稱自動卸任太守轉為大將
@@ -1316,7 +1327,7 @@ export function executeCommand(state: GameState, provinceId: number, category: s
               targetProvState.flood = 0;
               targetProvState.population = 0;
             } else if (!targetProvState.loyalty) {
-              targetProvState.loyalty = 60;
+              targetProvState.loyalty = 45; // 無人佔領城池維持 50 以下
             }
           }
 
@@ -1839,7 +1850,7 @@ export function executeCommand(state: GameState, provinceId: number, category: s
     if (targetProv) newState.provincesData[targetProvId] = targetProv;
   } else if (category === '人事' || category === '君主') {
     if (action === '指定軍師') {
-      if (!actingGen || actingGen.isRuler) return state; // 君主不能任命自己為軍師
+      if (!actingGen || actingGen.isRuler || actingGen.isCaptive) return state; // 君主不能任命自己為軍師，俘虜不可任官
       const itemBonus = getGeneralItemBonus(actingGen.name, state.currentScenario);
       const totalInt = actingGen.int + itemBonus.intBonus;
       if (totalInt <= 80) return state; // 指派軍師至少需智力 > 80
@@ -1863,7 +1874,7 @@ export function executeCommand(state: GameState, provinceId: number, category: s
       };
       return newState;
     } else if (action === '指定太守') {
-      if (!actingGen || actingGen.isRuler) return state; // 君主本身就是太守，無法指派為太守
+      if (!actingGen || actingGen.isRuler || actingGen.isCaptive) return state; // 君主本身就是太守，俘虜不可任官
       const targetProvId = actingGen.provinceId !== null ? actingGen.provinceId : provinceId;
       const provInfo = provinces.find(p => p.id === targetProvId);
       const provName = provInfo ? provInfo.name : `${targetProvId}郡`;
@@ -1880,7 +1891,7 @@ export function executeCommand(state: GameState, provinceId: number, category: s
       }
 
       // 檢查君主是否在該城市，若君主在該城市則君主即為太守，不能指派太守
-      const hasRulerInProv = Object.values(newState.generalsData).some(g => g.provinceId === targetProvId && g.isRuler);
+      const hasRulerInProv = Object.values(newState.generalsData).some(g => g.provinceId === targetProvId && g.isRuler && !g.isCaptive);
       if (hasRulerInProv) return state;
 
       // 清除同郡其他武將的太守職稱，恢復為大將（不縮減兵力或兵力上限）
@@ -2226,10 +2237,16 @@ export function executeCommand(state: GameState, provinceId: number, category: s
 
             const roll = Math.random() * 100;
             if (roll < successRate) {
+              const restoredRole = getOriginalGeneralRole(targetGeneralName);
               targetGen.isCaptive = false;
+              targetGen.isRuler = false; // 解除君主身分
+              targetGen.role = restoredRole; // 根據原本武將職稱給予變更 (例如大將)
               targetGen.captiveOfRuler = null;
+              targetGen.originalRulerName = null;
               targetGen.provinceId = provinceId;
               targetGen.loyalty = Math.min(100, 65 + Math.floor(actingGen.cha / 5));
+              targetGen.soldiers = 0;
+              targetGen.activeTask = null;
               targetGen.hasActed = true;
               newState.generalsData[targetGeneralName] = targetGen;
 
@@ -2395,9 +2412,37 @@ function executeFactionRedeploymentAI(newState: GameState, rulerName: string, de
     donorCity.province.food -= 100;
   }
 
+  // 調集軍隊 (若來源城池預備兵力充裕，一併調往邊境)
+  let transferredTroops = 0;
+  if (donorCity.province.soldiers && donorCity.province.soldiers > 1500) {
+    transferredTroops = Math.floor(donorCity.province.soldiers * 0.4);
+    donorCity.province.soldiers -= transferredTroops;
+    targetCity.province.soldiers = (targetCity.province.soldiers || 0) + transferredTroops;
+  }
+
   // 記錄調度訊息
   const donorName = provinces.find(x => x.id === donorCity.province.id)?.name || '城池';
   const targetName = provinces.find(x => x.id === targetCity.province.id)?.name || '城池';
+
+  // 判斷該前線是否與玩家接壤
+  let neighborsPlayer = false;
+  const tBase = provinces.find(x => x.id === targetCity.province.id);
+  if (tBase) {
+    for (const conn of tBase.connections) {
+      if (newState.provincesData[conn]?.rulerName === newState.rulerName) {
+        neighborsPlayer = true;
+        break;
+      }
+    }
+  }
+
+  if (neighborsPlayer) {
+    if (!newState.monthlyEvents) newState.monthlyEvents = [];
+    const troopText = transferredTroops > 0 ? `與大軍 ${transferredTroops} 人` : '';
+    newState.monthlyEvents.push(
+      `🚨【敵軍增援】接壤我方邊境的敵軍重鎮【${targetName}】正大舉自【${donorName}】調動大將【${generalToMove.name}】${troopText}增強防備！`
+    );
+  }
 
   if (decisionLogs) {
     decisionLogs.push({
@@ -3136,7 +3181,7 @@ function executeProvinceAI(
   }
 
   const aiGenerals = Object.values(newState.generalsData).filter(
-    g => g.provinceId === updatedP.id && !g.hasActed && !g.isWild && !g.activeTask
+    g => g.provinceId === updatedP.id && !g.hasActed && !g.isWild && !g.isCaptive && !g.activeTask
   );
 
   // 1. 若無常駐將領，郡縣官吏維持基礎治所運作
@@ -3891,8 +3936,12 @@ function executeRulerStrategicAI(newState: GameState, rulerName: string) {
       requiredRatio += (relation - 50) * 0.01;
     }
 
-    if (enemyTroops < 1500 && !isTargetPlayer) {
-      requiredRatio = Math.max(1.0, requiredRatio - 0.2);
+    let isExploitingWeakPlayer = false;
+    if (enemyTroops < 2000) {
+      requiredRatio = Math.max(1.0, requiredRatio - (isTargetPlayer ? 0.35 : 0.2));
+      if (isTargetPlayer) {
+        isExploitingWeakPlayer = true;
+      }
     }
 
     if (attackPower < enemyPower * requiredRatio) {
@@ -3977,7 +4026,11 @@ function executeRulerStrategicAI(newState: GameState, rulerName: string) {
       if (isTargetAlreadyAttacked) {
         newState.monthlyEvents.push("🔥【車輪戰急報】" + rulerName + "軍 亦發兵進犯我方 " + targetName + "！該城面臨多方車輪大戰！");
       } else {
-        newState.monthlyEvents.push("🚨【緊急軍情】" + rulerName + "軍 向我方 " + targetName + " 發起了猛烈攻勢！請主公定奪！");
+        if (isExploitingWeakPlayer) {
+          newState.monthlyEvents.push(`🚨【強敵環伺】${rulerName}軍 察覺我方前線【${targetName}】防備空虛，自接壤領土悍然發動侵攻戰役！請主公定奪！`);
+        } else {
+          newState.monthlyEvents.push("🚨【緊急軍情】" + rulerName + "軍 向我方 " + targetName + " 發起了猛烈攻勢！請主公定奪！");
+        }
       }
       break;
     }
@@ -4087,15 +4140,28 @@ function executeRulerStrategicAI(newState: GameState, rulerName: string) {
 
     // 電腦互攻之求援與各俘虜細節已記於決策日誌，月報僅呈報城池攻克結果
     if (attackPower > finalEnemyPower * 1.05) {
+      let atkLostTroops = 0;
+      let defLostTroops = 0;
+      const capturedGenerals: string[] = [];
+
       tState.rulerName = rulerName;
       tState.isAutonomous = false;
       // 接管守方城池 60% 金糧，隨軍攜帶錢糧完全移入
       tState.food = Math.floor(tState.food * 0.6) + reqFood;
       tState.gold = Math.floor(tState.gold * 0.6);
-      tState.soldiers = Math.floor((tState.soldiers || 0) * 0.2);
+      
+      const oldCitySoldiers = tState.soldiers || 0;
+      const newCitySoldiers = Math.floor(oldCitySoldiers * 0.2);
+      defLostTroops += (oldCitySoldiers - newCitySoldiers);
+      tState.soldiers = newCitySoldiers;
+      
       tState.loyalty = Math.max(0, tState.loyalty - 20);
 
       attackGenerals.forEach(g => {
+        const oldS = g.soldiers || 0;
+        const newS = Math.floor(oldS * 0.75); // 勝方通常也損失 25% 兵力
+        atkLostTroops += (oldS - newS);
+        g.soldiers = newS;
         g.provinceId = target.targetId;
         g.hasActed = true;
         newState.generalsData[g.name] = g;
@@ -4110,19 +4176,48 @@ function executeRulerStrategicAI(newState: GameState, rulerName: string) {
       const allDefendingGenerals = [...enemyGenerals, ...defenderReinforcementGenerals];
 
       allDefendingGenerals.forEach(g => {
+        const oldS = g.soldiers || 0;
+        defLostTroops += oldS; // 守方敗退，兵力全數潰散或陣亡
+
         const rate = calculateCaptiveRate(g, true, isIsolated, isEliminated);
         const isCaptured = Math.random() < rate;
 
         if (isCaptured) {
+          capturedGenerals.push(g.name);
           const decision = processAICaptiveDecision(g, rulerName, winnerGen, target.targetId, isEliminated, g.name === enemyRuler, enemyRuler);
           if (decision.action === 'recruit') {
-            g.isCaptive = false; g.captiveOfRuler = null; g.provinceId = target.targetId; g.loyalty = 70; g.isWild = false; g.soldiers = 0;
+            const restoredRole = getOriginalGeneralRole(g.name);
+            g.isCaptive = false;
+            g.isRuler = false;
+            g.role = restoredRole;
+            g.captiveOfRuler = null;
+            g.originalRulerName = null;
+            g.provinceId = target.targetId;
+            g.loyalty = 70;
+            g.isWild = false;
+            g.soldiers = 0;
+            g.activeTask = null;
+            g.hasActed = true;
           } else if (decision.action === 'execute') {
             handleRulerDecapitation(newState, g.name, rulerName);
           } else if (decision.action === 'release') {
-            g.isCaptive = false; g.captiveOfRuler = null; g.provinceId = target.targetId; g.isWild = true; g.soldiers = 0;
+            const restoredRole = getOriginalGeneralRole(g.name);
+            g.isCaptive = false;
+            g.isRuler = false;
+            g.role = restoredRole;
+            g.captiveOfRuler = null;
+            g.originalRulerName = null;
+            g.provinceId = target.targetId;
+            g.isWild = true;
+            g.soldiers = 0;
+            g.activeTask = null;
+            g.hasActed = true;
           } else {
-            g.isCaptive = true; g.captiveOfRuler = rulerName; g.capturedInProvinceId = target.targetId; g.soldiers = 0;
+            const updatedCaptive = applyCaptiveStatus(g, rulerName, enemyRuler, target.targetId);
+            Object.assign(g, updatedCaptive);
+            if (g.name === enemyRuler && !isEliminated) {
+              handleRulerCapturedSuccession(newState, enemyRuler, rulerName);
+            }
           }
         } else {
           g.isWild = isEliminated;
@@ -4134,21 +4229,34 @@ function executeRulerStrategicAI(newState: GameState, rulerName: string) {
         newState.generalsData[g.name] = g;
       });
 
-      let msg = `⚔️【戰報】${rulerName}軍 猛攻 ${enemyRuler} 的 ${targetName}！守軍不敵，城池易主！`;
+      let msg = `⚔️【戰報】${rulerName}軍 猛攻 ${enemyRuler} 的 ${targetName}！守軍不敵，城池易主！\n`;
+      msg += `  📊 戰損統計：${rulerName}軍 傷亡 ${atkLostTroops} 人，${enemyRuler}軍 潰散與陣亡 ${defLostTroops} 人。`;
+      if (capturedGenerals.length > 0) {
+        msg += `\n  ⛓️ 俘虜名單：${capturedGenerals.join('、')} 被俘！`;
+      }
       if (isEliminated) {
-        msg += ` 勢力【${enemyRuler}】慘遭滅國，城內將領悉數被俘！`;
+        msg += `\n  🔥 勢力滅亡：【${enemyRuler}】慘遭滅國！`;
       }
       newState.monthlyEvents.push(msg);
     } else {
+      let atkLostTroops = 0;
+      let defLostTroops = 0;
+
       attackGenerals.forEach(g => {
-        g.soldiers = Math.floor((g.soldiers || 0) * 0.6);
+        const oldS = g.soldiers || 0;
+        const newS = Math.floor(oldS * 0.6); // 敗方損失 40%
+        atkLostTroops += (oldS - newS);
+        g.soldiers = newS;
         g.hasActed = true;
         newState.generalsData[g.name] = g;
       });
 
       const allDefendingGenerals = [...enemyGenerals, ...defenderReinforcementGenerals];
       allDefendingGenerals.forEach(g => {
-        g.soldiers = Math.floor((g.soldiers || 0) * 0.7);
+        const oldS = g.soldiers || 0;
+        const newS = Math.floor(oldS * 0.7); // 守方勝也損失 30%
+        defLostTroops += (oldS - newS);
+        g.soldiers = newS;
         if ((g as any).originalProvinceId) {
           g.provinceId = (g as any).originalProvinceId;
           delete (g as any).originalProvinceId;
@@ -4156,7 +4264,14 @@ function executeRulerStrategicAI(newState: GameState, rulerName: string) {
         newState.generalsData[g.name] = g;
       });
 
-      tState.soldiers = Math.floor((tState.soldiers || 0) * 0.7);
+      const oldCityS = tState.soldiers || 0;
+      const newCityS = Math.floor(oldCityS * 0.7);
+      defLostTroops += (oldCityS - newCityS);
+      tState.soldiers = newCityS;
+
+      let msg = `🛡️【戰報】${rulerName}軍 猛攻 ${enemyRuler} 的 ${targetName}，遭到守軍頑強抵抗，無功而返！\n`;
+      msg += `  📊 戰損統計：${rulerName}軍 傷亡 ${atkLostTroops} 人，${enemyRuler}軍 傷亡 ${defLostTroops} 人。`;
+      newState.monthlyEvents.push(msg);
     }
 
     if (newState.diplomacyData && newState.diplomacyData[rulerName]) {
@@ -4686,7 +4801,7 @@ export function advanceTime(state: GameState): GameState {
            
            // 武將帶兵與忠誠下降
            Object.values(newState.generalsData).forEach(g => {
-              if (g.provinceId === updatedP.id && !g.isWild) {
+              if (g.provinceId === updatedP.id && !g.isWild && !g.isCaptive) {
                  const newGen = { ...g };
                  newGen.soldiers = Math.floor((newGen.soldiers || 0) * 0.9);
                  newGen.loyalty = Math.max(0, newGen.loyalty - 2);
@@ -4717,11 +4832,14 @@ export function advanceTime(state: GameState): GameState {
 
     let newLoyalty = gen.loyalty ?? 50;
     if (gen.isCaptive) {
+      // 天牢俘虜：絕對不得執行任何任務，行動始終鎖定為已行動(地牢中無法工作)
+      newTask = null;
+      newHasActed = true;
       // 天牢羈押削弱心志：每月忠誠微降 1 點；若原君主已滅亡，意志消磨更快（每月降 2 點）
       const origRuler = gen.originalRulerName;
       const isLordAlive = origRuler ? (Object.values(newState.provincesData) as ProvinceState[]).some(p => p.rulerName === origRuler) : false;
       const decay = isLordAlive ? 1 : 2;
-      newLoyalty = Math.max(30, newLoyalty - decay);
+      newLoyalty = Math.max(25, newLoyalty - decay);
     }
 
     updatedGenerals[gName] = {

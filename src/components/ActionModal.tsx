@@ -36,7 +36,7 @@ export default function ActionModal({
   const currentProvinceInfo = provinceId !== null ? provinces.find(p => p.id === provinceId) : null;
   const tierRules = getProvinceTierRules(provinceId ?? 1);
   
-  const generals = provinceId !== null ? Object.values(gameState.generalsData).filter(g => g.provinceId === provinceId && !g.isWild) : [];
+  const generals = provinceId !== null ? Object.values(gameState.generalsData).filter(g => g.provinceId === provinceId && !g.isWild && !g.isCaptive) : [];
   const availableGenerals = generals.filter(g => !g.hasActed);
 
   // 全勢力武將（供君主指令如『指定軍師』選擇）
@@ -44,15 +44,15 @@ export default function ActionModal({
     .filter(p => p.rulerName === gameState.rulerName)
     .map(p => p.id);
   const allPlayerGenerals = Object.values(gameState.generalsData)
-    .filter(g => g.provinceId !== null && playerProvinces.includes(g.provinceId) && !g.isWild);
+    .filter(g => g.provinceId !== null && playerProvinces.includes(g.provinceId) && !g.isWild && !g.isCaptive);
 
   const foreignGenerals = Object.values(gameState.generalsData).filter(
-    g => g.provinceId !== null && !g.isWild && gameState.provincesData[g.provinceId]?.rulerName !== gameState.rulerName
+    g => g.provinceId !== null && !g.isWild && !g.isCaptive && gameState.provincesData[g.provinceId]?.rulerName !== gameState.rulerName
   );
 
   const foreignProvincesWithGenerals = Object.values(gameState.provincesData).filter(
     p => p.rulerName !== gameState.rulerName && 
-         Object.values(gameState.generalsData).some(g => g.provinceId === p.id && !g.isWild)
+         Object.values(gameState.generalsData).some(g => g.provinceId === p.id && !g.isWild && !g.isCaptive)
   );
 
   const ownedProvincesList = Object.values(gameState.provincesData)
@@ -61,7 +61,7 @@ export default function ActionModal({
       id: p.id,
       info: provinces.find(x => x.id === p.id),
       state: p,
-      prefect: Object.values(gameState.generalsData).find(g => g.provinceId === p.id && g.role === '太守')
+      prefect: Object.values(gameState.generalsData).find(g => g.provinceId === p.id && g.role === '太守' && !g.isCaptive)
     }));
 
   const displayGeneralsList = action === '指定軍師' 
@@ -1066,7 +1066,7 @@ export default function ActionModal({
                             ? Object.values(gameState.provincesData).filter(p => p.rulerName && gameState.alliances?.[gameState.rulerName]?.[p.rulerName])
                             : Object.values(gameState.provincesData).filter(p => p.rulerName !== gameState.rulerName && p.rulerName !== null)).map(p => {
                             const pInfo = provinces.find(x => x.id === p.id);
-                            const pGensCount = Object.values(gameState.generalsData).filter(g => g.provinceId === p.id && !g.isWild).length;
+                            const pGensCount = Object.values(gameState.generalsData).filter(g => g.provinceId === p.id && !g.isWild && !g.isCaptive).length;
                             const isSelectedProv = targetProvinceId === p.id;
                             const rel = p.rulerName ? (gameState.diplomacyData?.[gameState.rulerName]?.[p.rulerName] ?? 50) : 50;
                             const allianceRemaining = (p.rulerName && gameState.alliances?.[gameState.rulerName]?.[p.rulerName])

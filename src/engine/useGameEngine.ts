@@ -4,8 +4,8 @@ import { provinces } from '../data/provinces';
 import { initGame, advanceTime, executeCommand } from './gameLogic';
 import { calculateFormationTerrainCombatModifier } from './formations';
 import { getGeneralItemBonus } from '../data/items';
-import { calculateCaptiveRate, isCityIsolated, processAICaptiveDecision, calculateCaptiveRecruitChance } from './postBattleLogic';
-import { handleRulerDecapitation, applyPlayerSuccessorChoice } from './rulerSuccessionLogic';
+import { calculateCaptiveRate, isCityIsolated, processAICaptiveDecision, calculateCaptiveRecruitChance, applyCaptiveStatus, getOriginalGeneralRole } from './postBattleLogic';
+import { handleRulerDecapitation, applyPlayerSuccessorChoice, handleRulerCapturedSuccession } from './rulerSuccessionLogic';
 import { getProvinceTierRules } from '../data/historicalProvinceConfig';
 import { getGeneralAvailableSkills } from './skills';
 
@@ -140,7 +140,7 @@ export function useGameEngine(initialScenario: number, initialRuler: string, ini
             targetProv.isAutonomous = false;
             targetProv.gold = (targetProv.gold || 0) + (emptyBattle.attackerGold || 0);
             targetProv.food = (targetProv.food || 0) + (emptyBattle.attackerFood || 0);
-            if (!targetProv.loyalty) targetProv.loyalty = 60;
+            if (!targetProv.loyalty) targetProv.loyalty = 45; // 無人佔領城池維持 50 以下
           }
           emptyBattle.attackingGenerals.forEach(gName => {
             const gen = baseState.generalsData[gName];
@@ -388,29 +388,55 @@ export function useGameEngine(initialScenario: number, initialRuler: string, ini
 
               if (isCaptured) {
                 if (winnerRuler === prev.rulerName) {
-                  // 玩家勝，加入 captive 名單
+                  // 玩家勝，加入 captive 名單，武將打入地牢，清除任務，君主身分解除
                   capturedGeneralsForPlayer.push(gName);
-                  baseState.generalsData[gName] = {
-                    ...gen,
-                    isCaptive: true,
-                    captiveOfRuler: winnerRuler,
-                    originalRulerName: defeatedRuler,
-                    capturedInProvinceId: battle.targetProvinceId,
-                    soldiers: 0
-                  };
+                  baseState.generalsData[gName] = applyCaptiveStatus(gen, winnerRuler, defeatedRuler, battle.targetProvinceId);
+                  if (gName === defeatedRuler && !isEliminated) {
+                    handleRulerCapturedSuccession(baseState, defeatedRuler, winnerRuler);
+                  }
                 } else {
                   // AI 勝，自動決策處置俘虜
                   const winnerGen = (Object.values(baseState.generalsData) as GeneralState[]).find(g => g && g.name === winnerRuler) || null;
                   const decision = processAICaptiveDecision(gen, winnerRuler, winnerGen, battle.targetProvinceId, isEliminated, gName === defeatedRuler, defeatedRuler);
 
                   if (decision.action === 'recruit') {
-                    baseState.generalsData[gName] = { ...gen, isCaptive: false, captiveOfRuler: null, originalRulerName: null, provinceId: battle.targetProvinceId, loyalty: 70, isWild: false, soldiers: 0 };
+                    const restoredRole = getOriginalGeneralRole(gName);
+                    baseState.generalsData[gName] = {
+                      ...gen,
+                      isCaptive: false,
+                      isRuler: false,
+                      role: restoredRole,
+                      captiveOfRuler: null,
+                      originalRulerName: null,
+                      provinceId: battle.targetProvinceId,
+                      loyalty: 70,
+                      isWild: false,
+                      soldiers: 0,
+                      activeTask: null,
+                      hasActed: true
+                    };
                   } else if (decision.action === 'execute') {
                     handleRulerDecapitation(baseState, gName, winnerRuler);
                   } else if (decision.action === 'release') {
-                    baseState.generalsData[gName] = { ...gen, isCaptive: false, captiveOfRuler: null, originalRulerName: null, provinceId: battle.targetProvinceId, isWild: true, soldiers: 0 };
+                    const restoredRole = getOriginalGeneralRole(gName);
+                    baseState.generalsData[gName] = {
+                      ...gen,
+                      isCaptive: false,
+                      isRuler: false,
+                      role: restoredRole,
+                      captiveOfRuler: null,
+                      originalRulerName: null,
+                      provinceId: battle.targetProvinceId,
+                      isWild: true,
+                      soldiers: 0,
+                      activeTask: null,
+                      hasActed: true
+                    };
                   } else {
-                    baseState.generalsData[gName] = { ...gen, isCaptive: true, captiveOfRuler: winnerRuler, originalRulerName: defeatedRuler, capturedInProvinceId: battle.targetProvinceId, soldiers: 0 };
+                    baseState.generalsData[gName] = applyCaptiveStatus(gen, winnerRuler, defeatedRuler, battle.targetProvinceId);
+                    if (gName === defeatedRuler && !isEliminated) {
+                      handleRulerCapturedSuccession(baseState, defeatedRuler, winnerRuler);
+                    }
                   }
                 }
               } else {
@@ -513,26 +539,52 @@ export function useGameEngine(initialScenario: number, initialRuler: string, ini
             if (isCaptured) {
               if (winnerRuler === prev.rulerName) {
                 capturedGeneralsForPlayer.push(gName);
-                baseState.generalsData[gName] = {
-                  ...gen,
-                  isCaptive: true,
-                  captiveOfRuler: winnerRuler,
-                  originalRulerName: defeatedRuler,
-                  capturedInProvinceId: battle.targetProvinceId,
-                  soldiers: 0
-                };
+                baseState.generalsData[gName] = applyCaptiveStatus(gen, winnerRuler, defeatedRuler, battle.targetProvinceId);
+                if (gName === defeatedRuler) {
+                  handleRulerCapturedSuccession(baseState, defeatedRuler, winnerRuler);
+                }
               } else {
                 const winnerGen = (Object.values(baseState.generalsData) as GeneralState[]).find(g => g && g.name === winnerRuler) || null;
                 const decision = processAICaptiveDecision(gen, winnerRuler, winnerGen, battle.targetProvinceId, false, gName === defeatedRuler, defeatedRuler);
 
                 if (decision.action === 'recruit') {
-                  baseState.generalsData[gName] = { ...gen, isCaptive: false, captiveOfRuler: null, originalRulerName: null, provinceId: battle.targetProvinceId, loyalty: 70, isWild: false, soldiers: 0 };
+                  const restoredRole = getOriginalGeneralRole(gName);
+                  baseState.generalsData[gName] = {
+                    ...gen,
+                    isCaptive: false,
+                    isRuler: false,
+                    role: restoredRole,
+                    captiveOfRuler: null,
+                    originalRulerName: null,
+                    provinceId: battle.targetProvinceId,
+                    loyalty: 70,
+                    isWild: false,
+                    soldiers: 0,
+                    activeTask: null,
+                    hasActed: true
+                  };
                 } else if (decision.action === 'execute') {
                   handleRulerDecapitation(baseState, gName, winnerRuler);
                 } else if (decision.action === 'release') {
-                  baseState.generalsData[gName] = { ...gen, isCaptive: false, captiveOfRuler: null, originalRulerName: null, provinceId: originCity, isWild: true, soldiers: 0 };
+                  const restoredRole = getOriginalGeneralRole(gName);
+                  baseState.generalsData[gName] = {
+                    ...gen,
+                    isCaptive: false,
+                    isRuler: false,
+                    role: restoredRole,
+                    captiveOfRuler: null,
+                    originalRulerName: null,
+                    provinceId: originCity,
+                    isWild: true,
+                    soldiers: 0,
+                    activeTask: null,
+                    hasActed: true
+                  };
                 } else {
-                  baseState.generalsData[gName] = { ...gen, isCaptive: true, captiveOfRuler: winnerRuler, originalRulerName: defeatedRuler, capturedInProvinceId: battle.targetProvinceId, soldiers: 0 };
+                  baseState.generalsData[gName] = applyCaptiveStatus(gen, winnerRuler, defeatedRuler, battle.targetProvinceId);
+                  if (gName === defeatedRuler) {
+                    handleRulerCapturedSuccession(baseState, defeatedRuler, winnerRuler);
+                  }
                 }
               }
             } else {
@@ -752,14 +804,20 @@ export function useGameEngine(initialScenario: number, initialRuler: string, ini
 
         if (Math.random() < evalResult.chance) {
           const initLoyalty = (currentCaptive.isFactionEliminated || currentCaptive.isEliminatedRuler) ? 75 : 65;
+          const restoredRole = getOriginalGeneralRole(generalName);
           baseState.generalsData[generalName] = {
             ...gen,
             isCaptive: false,
+            isRuler: false, // 解除君主身分
+            role: restoredRole, // 根據原本武將職稱給予變更 (例如大將)
             captiveOfRuler: null,
+            originalRulerName: null,
             provinceId: currentCaptive.capturedInProvinceId,
             loyalty: initLoyalty,
             isWild: false,
-            soldiers: 0
+            soldiers: 0,
+            activeTask: null, // 清空任務
+            hasActed: true
           };
           result = { success: true, message: `【招降成功】${gen.name}：${evalResult.surrenderQuote}` };
         } else {
@@ -767,25 +825,27 @@ export function useGameEngine(initialScenario: number, initialRuler: string, ini
           return prev;
         }
       } else if (action === 'imprison') {
-        baseState.generalsData[generalName] = {
-          ...gen,
-          isCaptive: true,
-          captiveOfRuler: prev.rulerName,
-          originalRulerName: currentCaptive.defeatedRuler,
-          capturedInProvinceId: currentCaptive.capturedInProvinceId,
-          provinceId: currentCaptive.capturedInProvinceId,
-          soldiers: 0
-        };
+        baseState.generalsData[generalName] = applyCaptiveStatus(
+          gen,
+          prev.rulerName,
+          currentCaptive.defeatedRuler,
+          currentCaptive.capturedInProvinceId
+        );
         result = { success: true, message: `【收押天牢】已將 ${gen.name} 押入城池天牢下獄！` };
       } else if (action === 'release') {
+        const restoredRole = getOriginalGeneralRole(generalName);
         baseState.generalsData[generalName] = {
           ...gen,
           isCaptive: false,
+          isRuler: false, // 解除君主身分
+          role: restoredRole, // 根據原本武將職稱給予變更
           captiveOfRuler: null,
           originalRulerName: null,
           provinceId: currentCaptive.capturedInProvinceId,
           isWild: true,
-          soldiers: 0
+          soldiers: 0,
+          activeTask: null,
+          hasActed: true
         };
         baseState.popularity = Math.min(100, baseState.popularity + 2);
         result = { success: true, message: `【釋放】主公展現寬厚仁德，當場釋放 ${gen.name}！名聲民心微升。` };

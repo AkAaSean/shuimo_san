@@ -65,14 +65,14 @@ export const BATTLE_SKILLS: Record<string, BattleSkill> = {
     name: '治傷', 
     cost: 25, 
     category: '計謀', 
-    desc: '恢復目標 15%~30% 兵力（受智力加成），士氣 +10。', 
+    desc: '救治部隊傷員，恢復 15%~30% 兵力（受智力加成，嚴格上限為本場出戰兵力），士氣 +10。', 
     target: '單體' 
   },
   '援軍': { 
     name: '援軍', 
     cost: 50, 
     category: '計謀', 
-    desc: '呼叫後方輜重隊，我方在場存活全員恢復 20% 兵力與大量傷兵，全體士氣 +10。', 
+    desc: '呼叫後方輜重隊，我方在場存活全員救治傷兵恢復 20% 兵力（嚴格上限為本場出戰兵力），全體士氣 +10。', 
     target: '全體' 
   },
   '解策': { 
@@ -158,7 +158,7 @@ export const BATTLE_SKILLS: Record<string, BattleSkill> = {
     name: '武聖・單刀赴會',
     cost: 70,
     category: '專屬奧義',
-    desc: '【關羽專屬奧義】忽視目標 100% 防禦，造成極致破軍打擊（武力 × 12.0），目標兵力 < 40% 必定暴擊斬殺，敵全軍士氣 -15。',
+    desc: '【關羽專屬奧義】青龍刀破陣（武力 × 7.5，穿透 50% 防禦），若目標兵力 < 35% 觸發絕命斬殺額外 +35% 傷害，敵全軍士氣 -15。',
     target: '單體',
     isUltimate: true,
     exclusiveGeneral: '關羽'
@@ -167,7 +167,7 @@ export const BATTLE_SKILLS: Record<string, BattleSkill> = {
     name: '當陽怒吼・斷橋',
     cost: 70,
     category: '專屬奧義',
-    desc: '【張飛專屬奧義】當陽橋頭一聲怒吼，敵全體士氣 -35、體力 -25，75% 附加【恐慌】，前排首支部隊必定【混亂】。',
+    desc: '【張飛專屬奧義】當陽橋雷霆暴喝（全體武力 × 3.8），敵全體士氣 -20，前鋒必定【恐慌】，其餘敵軍 50% 機率【恐慌】。',
     target: '全體',
     isUltimate: true,
     exclusiveGeneral: '張飛'
@@ -176,7 +176,7 @@ export const BATTLE_SKILLS: Record<string, BattleSkill> = {
     name: '七進七出・龍膽',
     cost: 70,
     category: '專屬奧義',
-    desc: '【趙雲專屬奧義】單騎破陣穿透敵陣（全體物理重創），自身獲得 2 回合【無敵閃避】（無視並閃避所有傷害與戰法）。',
+    desc: '【趙雲專屬奧義】單騎破陣（全體武力 × 5.5），自身獲得 2 回合【龍膽身法】（50% 機率完全閃避，若命中則減傷 50%）。',
     target: '全體',
     isUltimate: true,
     exclusiveGeneral: '趙雲'
@@ -185,7 +185,7 @@ export const BATTLE_SKILLS: Record<string, BattleSkill> = {
     name: '八陣圖・奇門遁甲',
     cost: 70,
     category: '專屬奧義',
-    desc: '【諸葛亮專屬奧義】奇門倒轉陰陽，我方全員驅散異常並恢復 25% 兵力與【八卦護體】（受謀略傷害減半）；敵方隨機 2 部隊陷入【混亂】。',
+    desc: '【諸葛亮專屬奧義】奇門倒轉乾坤，我方全體驅散負面狀態、恢復 15% 兵力且士氣 +25；敵方隨機 1 隊陷入【混亂】，全體士氣 -15。',
     target: '全體',
     isUltimate: true,
     exclusiveGeneral: '諸葛亮'
@@ -194,7 +194,7 @@ export const BATTLE_SKILLS: Record<string, BattleSkill> = {
     name: '神威・西涼鐵騎',
     cost: 70,
     category: '專屬奧義',
-    desc: '【馬超專屬奧義】西涼鐵騎狂暴踐踏，對敵前排與兩翼造成巨大踐踏傷害（武力 × 9.5），敵方先攻值 -50 且陣形【潰動】。',
+    desc: '【馬超專屬奧義】西涼鐵騎踐踏主目標（武力 × 6.8，破甲 30%）並波及兩翼，敵全軍士氣 -15。',
     target: '相鄰',
     isUltimate: true,
     exclusiveGeneral: '馬超'
@@ -203,7 +203,7 @@ export const BATTLE_SKILLS: Record<string, BattleSkill> = {
     name: '神射・百步穿楊',
     cost: 70,
     category: '專屬奧義',
-    desc: '【黃忠專屬奧義】定軍山絕命狙擊，忽視掩護鎖定敵方主帥（或最高戰力者）造成致死級破甲狙殺，敵全軍士氣 -25。',
+    desc: '【黃忠專屬奧義】定軍山精準狙殺，鎖定敵主帥或最強將領造成破甲重創（武力 × 7.2，暴擊 1.4 倍），敵全軍士氣 -15。',
     target: '單體',
     isUltimate: true,
     exclusiveGeneral: '黃忠'
@@ -212,7 +212,7 @@ export const BATTLE_SKILLS: Record<string, BattleSkill> = {
     name: '短歌行・天下歸心',
     cost: 70,
     category: '專屬奧義',
-    desc: '【曹操專屬奧義】我方全軍士氣鎖定 120 滿格，在場全員恢復 25% 兵力並獲得【鼓舞】狀態（增傷 30% 且免疫恐慌 2 回合）。',
+    desc: '【曹操專屬奧義】周公吐哺天下歸心，我方全員恢復 15% 兵力、士氣 +25，並獲得 2 回合【鼓舞】（傷害提升 20%）。',
     target: '全體',
     isUltimate: true,
     exclusiveGeneral: '曹操'
@@ -221,7 +221,7 @@ export const BATTLE_SKILLS: Record<string, BattleSkill> = {
     name: '鷹視狼顧・奪魄',
     cost: 70,
     category: '專屬奧義',
-    desc: '【司馬懿專屬奧義】深沉詭譎之謀，強行吸取敵全員 20 體力反哺自身，敵全體士氣 -25，並強制中斷敵軍師光環 3 回合。',
+    desc: '【司馬懿專屬奧義】深沉詭謀（智力 × 4.8），吸取每名存活敵軍 10 點體力反哺自身，敵全體士氣 -15，40% 機率恐慌。',
     target: '全體',
     isUltimate: true,
     exclusiveGeneral: '司馬懿'
@@ -230,7 +230,7 @@ export const BATTLE_SKILLS: Record<string, BattleSkill> = {
     name: '威震逍遙津・疾風',
     cost: 70,
     category: '專屬奧義',
-    desc: '【張遼專屬奧義】八百破十萬之勇，先攻飆升直插敵主營重創 50% 兵力，敵全體【恐慌】（對東吳武將額外增傷 40%）。',
+    desc: '【張遼專屬奧義】八百破十萬之勇突襲主營（武力 × 6.5，對東吳將領增傷 25%），主目標陷入【恐慌】，敵全軍士氣 -15。',
     target: '單體',
     isUltimate: true,
     exclusiveGeneral: '張遼'
@@ -239,7 +239,7 @@ export const BATTLE_SKILLS: Record<string, BattleSkill> = {
     name: '遺計定遼東・十勝',
     cost: 70,
     category: '專屬奧義',
-    desc: '【郭嘉專屬奧義】十勝十敗神算，敵全體 2 回合內受物理與謀略傷害提升 40%，且敵方戰法施放體力消耗翻倍。',
+    desc: '【郭嘉專屬奧義】十勝十敗神謀（智力 × 4.5），令敵全體陷入【脆弱】（受傷增加 25%，持續 2 回合），隨機 1 隊混亂。',
     target: '全體',
     isUltimate: true,
     exclusiveGeneral: '郭嘉'
@@ -248,7 +248,7 @@ export const BATTLE_SKILLS: Record<string, BattleSkill> = {
     name: '裸衣・虎痴狂怒',
     cost: 70,
     category: '專屬奧義',
-    desc: '【許褚專屬奧義】卸甲力戰，武力臨時 +35 發動狂暴重擊，必定使目標【混亂】2 回合，自身 1 回合防禦 -15%。',
+    desc: '【許褚專屬奧義】卸甲發動狂暴重擊（武力 × 6.8），使目標【混亂】1 回合，自身 1 回合防禦 -15%。',
     target: '單體',
     isUltimate: true,
     exclusiveGeneral: '許褚'
@@ -257,7 +257,7 @@ export const BATTLE_SKILLS: Record<string, BattleSkill> = {
     name: '拔矢啖睛・剛烈',
     cost: 70,
     category: '專屬奧義',
-    desc: '【夏侯惇專屬奧義】父精母血不可棄！自身 1 回合內鎖血不死，反彈所受 70% 傷害並對敵全軍造成同等剛烈反噬打擊。',
+    desc: '【夏侯惇專屬奧義】父精母血不可棄！反噬震擊敵全軍（武力 × 3.8），自身回復已損失兵力之 20% 且士氣 +20。',
     target: '自己',
     isUltimate: true,
     exclusiveGeneral: '夏侯惇'
@@ -266,7 +266,7 @@ export const BATTLE_SKILLS: Record<string, BattleSkill> = {
     name: '火燒赤壁・連環',
     cost: 70,
     category: '專屬奧義',
-    desc: '【周瑜專屬奧義】赤壁烈火沖天，敵全員承受毀滅級火傷（水上/密林翻倍），100% 附加【著火】並燒燬敵方 25% 軍糧。',
+    desc: '【周瑜專屬奧義】赤壁烈焰（智力 × 4.8，水上 +35%），敵全員附加【著火】2 回合，並燒燬敵方 600 軍糧。',
     target: '全體',
     isUltimate: true,
     exclusiveGeneral: '周瑜'
@@ -275,7 +275,7 @@ export const BATTLE_SKILLS: Record<string, BattleSkill> = {
     name: '夷陵烈焰・連營',
     cost: 70,
     category: '專屬奧義',
-    desc: '【陸遜專屬奧義】連營七百里烈火，敵全體陣形強制瓦解（解除防禦進入混亂潰動），全軍士氣 -30，陣形加成失效 2 回合。',
+    desc: '【陸遜專屬奧義】連營七百里烈火（智力 × 4.6），敵全體士氣 -15，主目標【混亂】，其餘敵軍陷入【恐慌】。',
     target: '全體',
     isUltimate: true,
     exclusiveGeneral: '陸遜'
@@ -284,7 +284,7 @@ export const BATTLE_SKILLS: Record<string, BattleSkill> = {
     name: '錦帆夜襲・百騎',
     cost: 70,
     category: '專屬奧義',
-    desc: '【甘寧專屬奧義】銜枚夜襲敵營，偷取敵方 50% 軍糧，迫使敵方陷入半月內必須決戰的死局，並對敵單體造成武力 × 10.5 穿心一擊。',
+    desc: '【甘寧專屬奧義】銜枚夜襲（武力 × 6.5），強搶敵方 12% 軍糧運回己營，主目標體力 -25，士氣 -15。',
     target: '單體',
     isUltimate: true,
     exclusiveGeneral: '甘寧'
@@ -293,7 +293,7 @@ export const BATTLE_SKILLS: Record<string, BattleSkill> = {
     name: '神亭連珠・封喉',
     cost: 70,
     category: '專屬奧義',
-    desc: '【太史慈專屬奧義】連射兩支破甲神箭重創敵兩支部隊，並施加 2 回合【沉默】（無法使用任何戰法）。',
+    desc: '【太史慈專屬奧義】兩支破甲神箭重創前鋒部隊（武力 × 5.2），扣除目標體力 25 並施加 1 回合【封戰法】。',
     target: '相鄰',
     isUltimate: true,
     exclusiveGeneral: '太史慈'
@@ -302,7 +302,7 @@ export const BATTLE_SKILLS: Record<string, BattleSkill> = {
     name: '白衣渡江・奇襲',
     cost: 70,
     category: '專屬奧義',
-    desc: '【呂蒙專屬奧義】偽裝商船瞞天過海，我方全員獲得 1 回合【匿跡潛行】（下一擊必定命中、增傷 50% 且無法被反擊），敵防禦降為 0。',
+    desc: '【呂蒙專屬奧義】瞞天過海出其不意（智謀重創），我方全員獲得 1 回合【匿跡突襲】（傷害提升 25% 且暴擊率 +30%）。',
     target: '全體',
     isUltimate: true,
     exclusiveGeneral: '呂蒙'
@@ -311,7 +311,7 @@ export const BATTLE_SKILLS: Record<string, BattleSkill> = {
     name: '鬼神・天下無雙',
     cost: 70,
     category: '專屬奧義',
-    desc: '【呂布專屬奧義】神鬼皆驚之怒，對敵方在場全體部隊造成狂暴斬擊（武力 × 11.0），無視防禦且 100% 造成【混亂】，自身 1 回合力竭防禦 -15%。',
+    desc: '【呂布專屬奧義】神鬼斬擊（全體武力 × 6.2），主目標必定【混亂】，其餘目標 50% 機率【恐慌】，敵士氣 -15。',
     target: '全體',
     isUltimate: true,
     exclusiveGeneral: '呂布'
@@ -320,7 +320,7 @@ export const BATTLE_SKILLS: Record<string, BattleSkill> = {
     name: '閉月・連環美人計',
     cost: 70,
     category: '專屬奧義',
-    desc: '【貂蟬專屬奧義】傾國傾城離間敵陣，魅惑敵方武力最高者與智謀最高者互相殘殺（各自承受 100% 攻擊力反噬），敵全軍士氣 -25。',
+    desc: '【貂蟬專屬奧義】傾國傾城離間計，魅惑敵方武力最強與智謀最強者反目互擊（造成武智中度傷害），雙方陷入 1 回合【混亂】。',
     target: '全體',
     isUltimate: true,
     exclusiveGeneral: '貂蟬'
@@ -329,7 +329,7 @@ export const BATTLE_SKILLS: Record<string, BattleSkill> = {
     name: '毒士亂武・萬劫',
     cost: 70,
     category: '專屬奧義',
-    desc: '【賈詡專屬奧義】天下至毒之謀，令敵全軍陷入【劇毒瘴氣】（每回合損失 8% 最大兵力與 15 體力，持續 3 回合），隨機一名敵將反叛攻擊友軍。',
+    desc: '【賈詡專屬奧義】劇毒瘴氣（智力 × 4.2，每回合損失 4% 兵力持續 2 回合），一名敵將受惑反叛攻擊友軍，士氣 -15。',
     target: '全體',
     isUltimate: true,
     exclusiveGeneral: '賈詡'

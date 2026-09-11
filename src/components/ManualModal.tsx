@@ -93,12 +93,16 @@ export default function ManualModal({ isOpen = true, onClose }: ManualModalProps
                       實裝虎牢關、函谷關、散關、劍閣、陽平關、巫關、武關。純軍事天險要塞，免疫天災、免除太守與民政，防禦力極高，駐軍達 10 隊上限！
                     </div>
                     <div className="bg-white/80 p-2.5 border border-amber-700/40 rounded-xs">
-                      <strong className="text-amber-950 block mb-0.5">🏛️ c. 內政與經濟精確修正</strong>
-                      修正每年「1月春季徵金稅、7月秋季豐收軍糧、10月戶籍人口成長」時序；優化開局防災度（40%~60%），杜絕前期無效過度防災。
+                      <strong className="text-amber-950 block mb-0.5">🏛️ c. 內政經濟時序與民忠調整</strong>
+                      修正每年「1月春季徵金稅、7月秋季秋收、10月戶籍歲計」時序；城池初始民忠依時代背景與君主特性調整為 65~85（仁德君主更高）；無人佔領空白城池民忠降至 50 以下（30~48）。
                     </div>
                     <div className="bg-white/80 p-2.5 border border-amber-700/40 rounded-xs">
                       <strong className="text-amber-950 block mb-0.5">⚔️ d. 戰爭多城池作戰體系</strong>
                       全面升級多路戰役佇列面板！當同月有多座城池或關口遭遇進犯時，玩家可逐一親臨戰場調兵遣將，或個別指派陣型交由 AI 自動決算。
+                    </div>
+                    <div className="bg-white/80 p-2.5 border border-amber-700/40 rounded-xs sm:col-span-2">
+                      <strong className="text-amber-950 block mb-0.5">⛓️ e. 戰後俘虜進天牢與君主廢黜機制</strong>
+                      戰敗被俘之敵將一律關入城池地牢，嚴禁從事任何內政、軍事或公務；若被俘者為敵國君主，將即刻廢除其君主身分，還原為原始職稱（如大將），並觸發該國繼承即位或滅亡！
                     </div>
                   </div>
                 </div>
@@ -365,6 +369,18 @@ export default function ManualModal({ isOpen = true, onClose }: ManualModalProps
                   <div className="p-2.5 bg-amber-50/70 border border-amber-200 text-xs text-amber-950 space-y-1">
                     <div><strong>✦ 寶物加成不累積：</strong>同一項屬性（戰力、謀略、統帥、政治、魅力）若持有多件寶物，<strong>不進行累加</strong>，而是自動採用加成最高的那一件數值。</div>
                     <div><strong>✦ 傳國玉璽特殊效果：</strong>象徵受命於天、號令天下之至尊奇寶，持有人之<strong>魅力直接設為 100 滿值</strong>（不與其他魅力寶物疊加）。</div>
+                  </div>
+                </div>
+
+                {/* 戰後俘虜與天牢系統 */}
+                <div className="bg-white/80 p-4 border-2 border-[#1c1917] shadow-[3px_3px_0_#1c1917] space-y-2">
+                  <h3 className="font-black text-[#991b1b] text-base flex items-center gap-2 border-b border-[#1c1917]/20 pb-1.5">
+                    <span>⛓️</span> 戰後俘虜、地牢監禁與處置規則
+                  </h3>
+                  <div className="space-y-2 text-xs text-stone-800 leading-relaxed">
+                    <p>• <strong>關押天牢，禁止一切公務：</strong>戰場上被生擒俘虜之敵將，將直接打入該城池地牢，<strong>嚴禁指派任何內政、軍事訓練、出征或移動</strong>，兵力收繳為 0，且每月忠誠會因身陷囹圄逐漸下降。</p>
+                    <p>• <strong>君主俘虜廢黜變更：</strong>若生擒敵國君主，該俘虜之君主身分將<strong>即刻被廢黜並還原為其原本武將職稱（如大將、軍師）</strong>。敵國勢力將立即觸發重臣繼承新君；若敵國無人繼承或無城池，該國宣告覆滅！</p>
+                    <p>• <strong>天牢招降登用：</strong>進入【人事】➔【登用人才】，可指派高魅力大臣對地牢俘虜進行勸降。成功登用後解除俘虜枷鎖，正式歸入我方將領陣營！</p>
                   </div>
                 </div>
 

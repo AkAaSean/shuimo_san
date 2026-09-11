@@ -228,7 +228,7 @@ function GameApp({
               </div>
               <div className="text-xs font-bold leading-relaxed bg-white/90 p-3.5 border border-stone-400 mb-4 w-full text-stone-800 text-left space-y-2 max-h-[40vh] overflow-y-auto">
                 {gameState.monthlyEvents.map((msg, idx) => (
-                  <div key={idx} className="border-b border-stone-200 pb-1 last:border-0">{msg}</div>
+                  <div key={idx} className="border-b border-stone-200 pb-1 last:border-0 whitespace-pre-wrap">{msg}</div>
                 ))}
               </div>
               <button

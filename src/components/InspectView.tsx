@@ -81,7 +81,7 @@ export default function InspectView({
     };
     const baseConfig = PROVINCE_BASE_CONFIGS[inspectProvinceId];
     const generalsInProvince = Object.values(gameState.generalsData).filter(
-      g => g.provinceId === inspectProvinceId && !g.isWild
+      g => g.provinceId === inspectProvinceId && !g.isWild && !g.isCaptive
     );
     const connectedProvinces = pMeta.connections.map(cid => {
       const cMeta = provinces.find(p => p.id === cid);
@@ -377,7 +377,7 @@ export default function InspectView({
                     }
 
                     const inspectStationedGenerals = Object.values(gameState.generalsData).filter(
-                      g => g.provinceId === inspectProvinceId && !g.isWild
+                      g => g.provinceId === inspectProvinceId && !g.isWild && !g.isCaptive
                     );
                     const inspectRulerInProvince = inspectStationedGenerals.find(g => g.isRuler);
                     const inspectPrefect = inspectStationedGenerals.find(g => g.role === '太守');

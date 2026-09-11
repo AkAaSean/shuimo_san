@@ -239,3 +239,107 @@ export function applyPlayerSuccessorChoice(
 
   return nextState;
 }
+
+/**
+ * 處理君主在戰鬥中被生擒活捉、下獄天牢時的勢力繼位處置
+ * 原則：
+ * 1. 君主被抓進地牢，身分轉為俘虜，無法治國掌軍；
+ * 2. 若該勢力尚有其他城池，群龍不可無首，必須立即推舉新君主繼承大統；
+ * 3. 若該勢力已無城池或無武將繼任，則勢力正式覆滅。
+ */
+export function handleRulerCapturedSuccession(
+  baseState: GameState,
+  capturedRulerName: string,
+  captorRulerName: string
+): { isPlayerRuler: boolean; successorName?: string; isEliminated: boolean; eventMsg: string } {
+  const isPlayerRuler = (capturedRulerName === baseState.rulerName);
+  const remainingProvinces = Object.values(baseState.provincesData).filter(p => p && p.rulerName === capturedRulerName);
+  const isEliminated = remainingProvinces.length === 0;
+
+  if (isEliminated) {
+    return {
+      isPlayerRuler,
+      isEliminated: true,
+      eventMsg: `勢力【${capturedRulerName}】全境淪陷，君主【${capturedRulerName}】淪為階下囚，勢力徹底滅亡！`
+    };
+  }
+
+  // 尋找該勢力未被俘虜的在職武將作為新君繼任候選人
+  const candidateGens = (Object.values(baseState.generalsData) as GeneralState[]).filter(g => {
+    if (g.name === capturedRulerName || g.isWild || g.isCaptive || !g.provinceId) return false;
+    const prov = baseState.provincesData[g.provinceId];
+    return prov && prov.rulerName === capturedRulerName;
+  });
+
+  if (isPlayerRuler) {
+    if (candidateGens.length === 0) {
+      baseState.isGameOver = true;
+      baseState.gameOverReason = `主公【${capturedRulerName}】不幸遭生擒下獄且麾下已無任何武將主持大局！全軍覆沒，勢力滅亡！`;
+      const msg = `💀【主公被俘】主公【${capturedRulerName}】被俘入天牢，軍中無人繼位，勢力分崩離析，霸業夢碎！`;
+      if (!baseState.monthlyEvents) baseState.monthlyEvents = [];
+      baseState.monthlyEvents.push(msg);
+      return { isPlayerRuler: true, isEliminated: true, eventMsg: msg };
+    } else {
+      // 觸發玩家挑選新君主介面
+      baseState.pendingRulerSuccession = {
+        executedRuler: capturedRulerName,
+        killerRuler: captorRulerName,
+        candidates: candidateGens.map(g => g.name)
+      };
+      const msg = `🚨【主公蒙難】主公【${capturedRulerName}】不幸遭生擒下獄！群臣請命，請速於列表中推選新君主繼承大統！`;
+      if (!baseState.monthlyEvents) baseState.monthlyEvents = [];
+      baseState.monthlyEvents.push(msg);
+      return { isPlayerRuler: true, isEliminated: false, eventMsg: msg };
+    }
+  } else {
+    // AI 君主被俘虜：自動推選合適武將繼承君位
+    if (candidateGens.length === 0) {
+      // 後繼無人，殘存城池淪為空城
+      remainingProvinces.forEach(p => {
+        baseState.provincesData[p.id] = { ...p, rulerName: null };
+      });
+      const msg = `💀【勢力瓦解】敵首【${capturedRulerName}】被生擒下獄！因麾下已無將領主持，所轄各郡紛紛降散，淪為無主之地！`;
+      if (!baseState.monthlyEvents) baseState.monthlyEvents = [];
+      baseState.monthlyEvents.push(msg);
+      return { isPlayerRuler: false, isEliminated: true, eventMsg: msg };
+    } else {
+      const successorGen = selectAISuccessor(candidateGens, capturedRulerName);
+      const newRulerName = successorGen.name;
+
+      // 晉升新君主
+      baseState.generalsData[newRulerName] = {
+        ...successorGen,
+        role: '君主',
+        isRuler: true,
+        isCaptive: false
+      };
+
+      // 更新該勢力所有城池統治者為新君主
+      remainingProvinces.forEach(p => {
+        baseState.provincesData[p.id] = { ...p, rulerName: newRulerName };
+      });
+
+      // 建立對生擒敵君的外交仇恨
+      if (!baseState.diplomacyData) baseState.diplomacyData = {};
+      if (!baseState.diplomacyData[newRulerName]) baseState.diplomacyData[newRulerName] = {};
+      baseState.diplomacyData[newRulerName][captorRulerName] = 0;
+
+      // 武將忠誠度震盪
+      candidateGens.forEach(g => {
+        if (g.name !== newRulerName && baseState.generalsData[g.name]) {
+          const oldLoyalty = baseState.generalsData[g.name].loyalty || 50;
+          baseState.generalsData[g.name] = {
+            ...baseState.generalsData[g.name],
+            loyalty: Math.max(25, Math.floor(oldLoyalty * 0.8) - 5)
+          };
+        }
+      });
+
+      const msg = `👑【新君登基】敵首【${capturedRulerName}】兵敗被俘下獄！眾將公推【${newRulerName}】即位為新君主，整軍再圖大業！`;
+      if (!baseState.monthlyEvents) baseState.monthlyEvents = [];
+      baseState.monthlyEvents.push(msg);
+      return { isPlayerRuler: false, successorName: newRulerName, isEliminated: false, eventMsg: msg };
+    }
+  }
+}
+
